@@ -8,9 +8,12 @@ import io.ktor.client.request.get
 import io.ktor.client.statement.readRawBytes
 import io.ktor.http.Url
 import io.music_assistant.client.api.DeepLinkBus
+import io.music_assistant.client.api.DeepLinkDestination
 import io.music_assistant.client.api.Request
 import io.music_assistant.client.api.ServiceClient
 import io.music_assistant.client.auth.AuthenticationManager
+import io.music_assistant.client.bridge.Cancellable
+import io.music_assistant.client.bridge.NativeStateFlow
 import io.music_assistant.client.carplay.CarPlayStrings
 import io.music_assistant.client.data.MainDataSource
 import io.music_assistant.client.data.NowPlayingModes
@@ -40,6 +43,9 @@ import io.music_assistant.client.settings.SettingsRepository
 import io.music_assistant.client.settings.carBulkActions
 import io.music_assistant.client.settings.carTapAction
 import io.music_assistant.client.settings.toCarDispatch
+import io.music_assistant.client.ui.AppBannerState
+import io.music_assistant.client.ui.AppRootDestination
+import io.music_assistant.client.ui.AppRootRouter
 import io.music_assistant.client.ui.compose.library.LibraryCategory
 import io.music_assistant.client.ui.compose.library.carTabCategories
 import io.music_assistant.client.utils.HasConnectionData
@@ -62,9 +68,6 @@ import platform.Foundation.create
 
 private val log = Logger.withTag("KmpHelper")
 
-/** Swift-callable cancellation handle for coroutine subscriptions. */
-fun interface Cancellable { fun cancel() }
-
 /** CarPlay round-trip budget before a fetch surfaces a disconnected affordance. */
 private const val FETCH_TIMEOUT_MS = 5_000L
 
@@ -75,6 +78,7 @@ object KmpHelper : KoinComponent {
     val mainDataSource: MainDataSource by inject()
     val serviceClient: ServiceClient by inject()
     val authManager: AuthenticationManager by inject()
+    private val appRootRouter: AppRootRouter by inject()
     private val deepLinkBus: DeepLinkBus by inject()
     private val mediaItemRepository: MediaItemRepository by inject()
     private val settingsRepository: SettingsRepository by inject()
@@ -83,6 +87,36 @@ object KmpHelper : KoinComponent {
 
     // Provide a scope for Swift to launch coroutines if needed
     val mainScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+
+    // MARK: - App root (Phase C SwiftUI shell)
+    //
+    // Drives the top-level switch AppRouter.swift owns: which screen (Main tab
+    // shell vs. Settings), the cold-launch auto-login splash, and the
+    // reconnection banner. All policy lives in AppRootRouter (commonMain) —
+    // these are thin NativeStateFlow projections, not reimplementations.
+
+    val rootDestination: NativeStateFlow<AppRootDestination>
+        get() = NativeStateFlow(appRootRouter.destination, mainScope)
+
+    val splashVisible: NativeStateFlow<Boolean>
+        get() = NativeStateFlow(appRootRouter.splashVisible, mainScope)
+
+    val connectionBannerState: NativeStateFlow<AppBannerState>
+        get() = NativeStateFlow(appRootRouter.bannerState, mainScope)
+
+    fun cancelAutoLogin() = appRootRouter.cancelAutoLogin()
+    fun requestSettings() = appRootRouter.requestSettings()
+    fun requestHome() = appRootRouter.requestHome()
+
+    // MARK: - Deep links (Phase C SwiftUI shell)
+    //
+    // Swift is now the sole consumer — MainNavRoot.kt's own DeepLinkBus
+    // collection only ran while the Compose nav tree owned navigation.
+
+    val deepLinks: NativeStateFlow<DeepLinkDestination>
+        get() = NativeStateFlow(deepLinkBus.pending, mainScope)
+
+    fun consumeDeepLink(destination: DeepLinkDestination) = deepLinkBus.consume(destination)
 
     /**
      * The connected MA server's stable identifier (UUID-style, e.g.

@@ -31,6 +31,8 @@
 		C8SP00032F2D000000000003 /* SpikeArtwork.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SP00132F2D000000000013 /* SpikeArtwork.swift */; };
 		C8SP00042F2D000000000004 /* SpikeLibraryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SP00142F2D000000000014 /* SpikeLibraryStore.swift */; };
 		C8SP00052F2D000000000005 /* SpikeViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SP00152F2D000000000015 /* SpikeViews.swift */; };
+		C8SH00012F3E000000000001 /* AppRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SH00112F3E000000000011 /* AppRouter.swift */; };
+		C8SH00022F3E000000000002 /* AppShellRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SH00122F3E000000000012 /* AppShellRootView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -56,6 +58,8 @@
 		C8SP00132F2D000000000013 /* SpikeArtwork.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpikeArtwork.swift; sourceTree = "<group>"; };
 		C8SP00142F2D000000000014 /* SpikeLibraryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpikeLibraryStore.swift; sourceTree = "<group>"; };
 		C8SP00152F2D000000000015 /* SpikeViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpikeViews.swift; sourceTree = "<group>"; };
+		C8SH00112F3E000000000011 /* AppRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRouter.swift; sourceTree = "<group>"; };
+		C8SH00122F3E000000000012 /* AppShellRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppShellRootView.swift; sourceTree = "<group>"; };
 		E184B96B79725950AACD5BE7 /* NowPlayingInfoStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NowPlayingInfoStore.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -140,6 +144,7 @@
 				058557D7273AAEEB004C7B11 /* Preview Content */,
 				C8CP00052F1A000000000003 /* CarPlay */,
 				C8SP00062F2D000000000006 /* Spike */,
+				C8SH00062F3E000000000006 /* Shell */,
 				C8AV00022F2C000000000002 /* AppIntentVocabulary.plist */,
 			);
 			path = iosApp;
@@ -181,6 +186,15 @@
 				C8SP00152F2D000000000015 /* SpikeViews.swift */,
 			);
 			path = Spike;
+			sourceTree = "<group>";
+		};
+		C8SH00062F3E000000000006 /* Shell */ = {
+			isa = PBXGroup;
+			children = (
+				C8SH00112F3E000000000011 /* AppRouter.swift */,
+				C8SH00122F3E000000000012 /* AppShellRootView.swift */,
+			);
+			path = Shell;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -337,6 +351,8 @@
 				C8SP00032F2D000000000003 /* SpikeArtwork.swift in Sources */,
 				C8SP00042F2D000000000004 /* SpikeLibraryStore.swift in Sources */,
 				C8SP00052F2D000000000005 /* SpikeViews.swift in Sources */,
+				C8SH00012F3E000000000001 /* AppRouter.swift in Sources */,
+				C8SH00022F3E000000000002 /* AppShellRootView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -21,9 +21,16 @@ private val log = Logger.withTag("NativeFlow")
  * facade can tie subscription lifetime to something narrower when it matters
  * (e.g. a screen-scoped Koin scope); most callers pass a `Dispatchers.Main`
  * scope that outlives the app.
+ *
+ * Wraps [Flow]`<T?>` rather than `Flow<T>` — plenty of what this bridges
+ * (`nowPlayingTrack`, `DeepLinkBus.pending`, `AppRootRouter.bannerState`, …)
+ * is nullable by nature ("nothing to show right now" is a real, common
+ * value), and `StateFlow`/`Flow` are declared `out T`, so a non-null
+ * `Flow<T>` already satisfies `Flow<T?>` at the call site for free — this one
+ * shape covers both without a second class.
  */
 class NativeFlow<T : Any>(
-    private val flow: Flow<T>,
+    private val flow: Flow<T?>,
     private val scope: CoroutineScope,
 ) {
     /**
@@ -34,7 +41,7 @@ class NativeFlow<T : Any>(
      * call `cancel()` in `deinit`/`stopLoading`/etc., mirroring the existing
      * `Cancellable` contract `NowPlayingCoordinator.swift` already uses.
      */
-    fun subscribe(onEach: (T) -> Unit, onError: (Throwable) -> Unit): Cancellable {
+    fun subscribe(onEach: (T?) -> Unit, onError: (Throwable) -> Unit): Cancellable {
         val job = scope.launch {
             try {
                 flow.collect { onEach(it) }
@@ -56,14 +63,16 @@ class NativeFlow<T : Any>(
  * conflated-replay contract — always fires once immediately with the current
  * value before tracking further changes. There is no error channel: a
  * [StateFlow] does not terminate on failure the way a general [Flow] can.
+ * As with [NativeFlow], wraps [StateFlow]`<T?>` to cover nullable and
+ * non-null sources with one shape.
  */
 class NativeStateFlow<T : Any>(
-    private val flow: StateFlow<T>,
+    private val flow: StateFlow<T?>,
     private val scope: CoroutineScope,
 ) {
-    val value: T get() = flow.value
+    val value: T? get() = flow.value
 
-    fun subscribe(onEach: (T) -> Unit): Cancellable {
+    fun subscribe(onEach: (T?) -> Unit): Cancellable {
         val job = scope.launch {
             flow.collect { onEach(it) }
         }

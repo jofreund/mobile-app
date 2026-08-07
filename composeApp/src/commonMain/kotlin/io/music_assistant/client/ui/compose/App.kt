@@ -54,8 +54,9 @@ import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.annotation.KoinExperimentalAPI
 
+/** Also used directly by `ComposeScreenHosts.kt`'s per-host wrapper (iosMain) — kept public for that. */
 @Composable
-private fun AppLifecycleObserver() {
+fun AppLifecycleObserver() {
     val serviceClient: ServiceClient = koinInject()
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
