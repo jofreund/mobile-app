@@ -23,6 +23,7 @@ import io.music_assistant.client.player.MediaPlayerController
 import io.music_assistant.client.player.sendspin.SendspinClientFactory
 import io.music_assistant.client.settings.SettingsRepository
 import io.music_assistant.client.settings.provideSettings
+import io.music_assistant.client.ui.AppRootRouter
 import io.music_assistant.client.ui.BackgroundRestrictionViewModel
 import io.music_assistant.client.ui.SchemaVersionWarningViewModel
 import io.music_assistant.client.ui.compose.auth.AuthenticationViewModel
@@ -76,6 +77,9 @@ fun sharedModule(
         }  // Eager - needs to start monitoring immediately
         // Expose the AuthCoordinator surface for viewmodels; same singleton instance.
         single<AuthCoordinator> { get<AuthenticationManager>() }
+        single(createdAtStart = true) {  // Eager - must start observing sessionState from launch
+            AppRootRouter(get(), get())
+        }
         singleOf(::MediaPlayerController)  // Used by the local (Sendspin) player sink
         singleOf(::SendspinClientFactory)   // Factory for creating Sendspin clients
         single { PlayerPositionTracker() }  // Shared live-position source of truth
