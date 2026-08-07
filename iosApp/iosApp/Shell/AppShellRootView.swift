@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import ComposeApp
 
 /// Wraps a Kotlin `UIViewController` factory (`MainAppController`,
@@ -26,6 +27,12 @@ struct AppShellRootView: View {
 
     @State private var router = AppRouter()
 
+    // Transient hide for the dismissible SERVER_AHEAD warning; reset whenever
+    // a fresh warning arrives (including a fresh CLIENT_INCOMPATIBLE, which
+    // never reads this — its alert has no dismiss action). Mirrors the
+    // `hidden`/`LaunchedEffect(warning)` pair in App.kt's Compose dialog.
+    @State private var dismissedSchemaWarning = false
+
     var body: some View {
         ZStack {
             content
@@ -48,6 +55,64 @@ struct AppShellRootView: View {
         }
         .animation(.easeInOut(duration: 0.2), value: router.splashVisible)
         .task { router.start() }
+        .onChange(of: schemaWarningIdentity) { dismissedSchemaWarning = false }
+        .alert(
+            schemaWarningTitle,
+            isPresented: schemaAlertPresented,
+            presenting: router.schemaWarning,
+            actions: schemaAlertActions,
+            message: { Text(schemaWarningMessage(for: $0)) }
+        )
+    }
+
+    /// `.onChange` needs an `Equatable` key; the Kotlin enum instances compare
+    /// fine with `==` (they're `KotlinEnum`-backed), so this just needs a
+    /// Swift-native `Equatable` wrapper around "no warning vs. which case".
+    private var schemaWarningIdentity: String? {
+        guard let warning = router.schemaWarning else { return nil }
+        return warning == .clientIncompatible ? "clientIncompatible" : "serverAhead"
+    }
+
+    private var schemaAlertPresented: Binding<Bool> {
+        Binding(
+            get: {
+                guard let warning = router.schemaWarning else { return false }
+                // CLIENT_INCOMPATIBLE is terminal — always shown, no dismiss.
+                return warning == .clientIncompatible || !dismissedSchemaWarning
+            },
+            set: { isPresented in
+                if !isPresented { dismissedSchemaWarning = true }
+            }
+        )
+    }
+
+    private var schemaWarningTitle: String {
+        guard let warning = router.schemaWarning else { return "" }
+        return warning == .clientIncompatible
+            ? String(localized: "schema_incompatible_dialog_title")
+            : String(localized: "schema_version_dialog_title")
+    }
+
+    private func schemaWarningMessage(for warning: SchemaWarning) -> String {
+        warning == .clientIncompatible
+            ? String(localized: "schema_incompatible_dialog_message")
+            : String(localized: "schema_version_dialog_message")
+    }
+
+    @ViewBuilder
+    private func schemaAlertActions(for warning: SchemaWarning) -> some View {
+        if warning == .clientIncompatible {
+            Button(String(localized: "schema_incompatible_dialog_exit")) {
+                // iOS has no programmatic hard-exit API; suspending (backgrounding)
+                // is the same platform-native behavior exitApp() uses on the
+                // Compose side (ui/compose/nav/PlatformExit.ios.kt).
+                UIApplication.shared.perform(NSSelectorFromString("suspend"))
+            }
+        } else {
+            Button(String(localized: "schema_version_dialog_confirm")) {
+                dismissedSchemaWarning = true
+            }
+        }
     }
 
     @ViewBuilder

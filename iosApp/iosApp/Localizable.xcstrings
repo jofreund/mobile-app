@@ -88,6 +88,144 @@
         }
       }
     },
+    "schema_incompatible_dialog_exit" : {
+      "comment" : "Exit button on the terminal schema-incompatible dialog. Mirrors Compose resource schema_incompatible_dialog_exit.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Beenden"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exit"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Afsluiten"
+          }
+        }
+      }
+    },
+    "schema_incompatible_dialog_message" : {
+      "comment" : "Mirrors Compose resource schema_incompatible_dialog_message.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die App-Version ist zu alt für diesen Server. Bitte aktualisiere die App."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This app is too old to connect to this server. Please update the app to continue."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deze app is te oud om verbinding te maken met deze server. Werk de app bij om door te gaan."
+          }
+        }
+      }
+    },
+    "schema_incompatible_dialog_title" : {
+      "comment" : "Mirrors Compose resource schema_incompatible_dialog_title.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Update erforderlich"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Update required"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Update vereist"
+          }
+        }
+      }
+    },
+    "schema_version_dialog_confirm" : {
+      "comment" : "Mirrors Compose resource schema_version_dialog_confirm.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OK"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OK"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OK"
+          }
+        }
+      }
+    },
+    "schema_version_dialog_message" : {
+      "comment" : "Mirrors Compose resource schema_version_dialog_message.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Server nutzt ein neueres Datenformat als diese App. Manche Funktionen sind möglicherweise eingeschränkt. Bitte aktualisiere die App."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This server uses newer data format version than this app. Some features may not work correctly. Consider updating the app."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deze server maakt gebruik van een nieuwere versie van het gegevensformaat dan deze app. Sommige functies werken mogelijk niet correct. Overweeg om de app bij te werken."
+          }
+        }
+      }
+    },
+    "schema_version_dialog_title" : {
+      "comment" : "Mirrors Compose resource schema_version_dialog_title.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App-Update empfohlen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App update advised"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App-update aanbevolen"
+          }
+        }
+      }
+    },
     "settings_connecting" : {
       "comment" : "AutoLoginSplashView cold-launch splash text. Mirrors Compose resource settings_connecting.",
       "localizations" : {

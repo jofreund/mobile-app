@@ -149,10 +149,12 @@ private fun BackgroundRestrictionDialog() {
  * - [SchemaWarning.SERVER_AHEAD] — informational: the server is newer than the client, some
  *   features may misbehave. Dismissible; auth proceeds underneath.
  */
-@OptIn(KoinExperimentalAPI::class)
 @Composable
 private fun SchemaVersionWarningDialog() {
-    val viewModel = koinViewModel<SchemaVersionWarningViewModel>()
+    // A plain Koin single (see SharedModule.kt), not a viewModel binding — this
+    // needs to be one instance shared across every host, iOS's SwiftUI shell
+    // included (see KmpHelper.schemaWarning), not a fresh one per screen.
+    val viewModel: SchemaVersionWarningViewModel = koinInject()
     val warning by viewModel.warning.collectAsStateWithLifecycle()
     // Transient hide for the dismissible warning; reset whenever a fresh warning arrives.
     var hidden by remember { mutableStateOf(false) }

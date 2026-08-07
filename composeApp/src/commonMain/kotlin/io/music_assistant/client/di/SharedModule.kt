@@ -97,7 +97,9 @@ fun sharedModule(
         singleOf(::MdiCodepoints)           // Singleton - MDI name->codepoint table (one-time load)
         viewModelOf(::ThemeViewModel)
         factory { BackgroundRestrictionViewModel(get(), get(), get()) }
-        factory { SchemaVersionWarningViewModel(get()) }
+        single(createdAtStart = true) {  // Eager - schema warning must be observable before any host mounts
+            SchemaVersionWarningViewModel(get())
+        }
         factory { ActionsViewModel(get(), get(), get()) }
         factory { SettingsViewModel(get(), get(), get()) }
         factory { DefaultClickActionsViewModel(get()) }

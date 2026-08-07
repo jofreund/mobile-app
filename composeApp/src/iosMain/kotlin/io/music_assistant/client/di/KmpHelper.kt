@@ -46,6 +46,8 @@ import io.music_assistant.client.settings.toCarDispatch
 import io.music_assistant.client.ui.AppBannerState
 import io.music_assistant.client.ui.AppRootDestination
 import io.music_assistant.client.ui.AppRootRouter
+import io.music_assistant.client.ui.SchemaVersionWarningViewModel
+import io.music_assistant.client.ui.SchemaWarning
 import io.music_assistant.client.ui.compose.library.LibraryCategory
 import io.music_assistant.client.ui.compose.library.carTabCategories
 import io.music_assistant.client.utils.HasConnectionData
@@ -79,6 +81,7 @@ object KmpHelper : KoinComponent {
     val serviceClient: ServiceClient by inject()
     val authManager: AuthenticationManager by inject()
     private val appRootRouter: AppRootRouter by inject()
+    private val schemaVersionWarningViewModel: SchemaVersionWarningViewModel by inject()
     private val deepLinkBus: DeepLinkBus by inject()
     private val mediaItemRepository: MediaItemRepository by inject()
     private val settingsRepository: SettingsRepository by inject()
@@ -108,10 +111,22 @@ object KmpHelper : KoinComponent {
     fun requestSettings() = appRootRouter.requestSettings()
     fun requestHome() = appRootRouter.requestHome()
 
-    // MARK: - Deep links (Phase C SwiftUI shell)
+    // MARK: - Schema compatibility warning
     //
-    // Swift is now the sole consumer — MainNavRoot.kt's own DeepLinkBus
-    // collection only ran while the Compose nav tree owned navigation.
+    // Same "shared Kotlin policy, thin Swift projection" shape as the app-root
+    // properties above. SchemaVersionWarningViewModel became a Koin single
+    // (see SharedModule.kt) specifically so this and App.kt's Compose dialog
+    // read the same instance rather than each getting their own.
+
+    val schemaWarning: NativeStateFlow<SchemaWarning>
+        get() = NativeStateFlow(schemaVersionWarningViewModel.warning, mainScope)
+
+    // MARK: - Deep links
+    //
+    // Not yet consumed from Swift — MainNavRoot.kt's own DeepLinkBus
+    // collection is still what handles these, because it still owns in-tree
+    // navigation for the Main destination (see ComposeScreenHosts.kt's doc).
+    // Exposed here for when Swift takes over that navigation.
 
     val deepLinks: NativeStateFlow<DeepLinkDestination>
         get() = NativeStateFlow(deepLinkBus.pending, mainScope)

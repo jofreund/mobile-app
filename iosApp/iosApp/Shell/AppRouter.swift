@@ -19,10 +19,12 @@ final class AppRouter {
     private(set) var destination: AppRootDestination = .main
     private(set) var splashVisible = false
     private(set) var bannerState: AppBannerState?
+    private(set) var schemaWarning: SchemaWarning?
 
     private var destinationSubscription: Cancellable?
     private var splashSubscription: Cancellable?
     private var bannerSubscription: Cancellable?
+    private var schemaWarningSubscription: Cancellable?
 
     /// Starts observing. Call once — from the root view's `.task`, so the
     /// subscriptions live exactly as long as the app does; there is only ever
@@ -44,15 +46,21 @@ final class AppRouter {
         bannerSubscription = KmpHelper.shared.connectionBannerState.subscribe { [weak self] value in
             self?.bannerState = value
         }
+
+        schemaWarningSubscription = KmpHelper.shared.schemaWarning.subscribe { [weak self] value in
+            self?.schemaWarning = value
+        }
     }
 
     func stop() {
         destinationSubscription?.cancel()
         splashSubscription?.cancel()
         bannerSubscription?.cancel()
+        schemaWarningSubscription?.cancel()
         destinationSubscription = nil
         splashSubscription = nil
         bannerSubscription = nil
+        schemaWarningSubscription = nil
     }
 
     /// Cancels the in-flight auto-login attempt (splash's Cancel button).
