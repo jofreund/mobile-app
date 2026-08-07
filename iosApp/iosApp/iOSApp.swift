@@ -217,6 +217,11 @@ struct iOSApp: App {
         MainViewControllerKt.bootstrapKmp()
         KmpState.isReady = true
 
+        // Makes `mawebrtc://` artwork URLs resolvable through the standard URL
+        // loading system (and therefore AsyncImage/URLSession). Must follow
+        // bootstrapKmp() — loads dispatch into Koin-resolved Kotlin.
+        MAWebRTCURLProtocol.registerOnce()
+
         // Second coordinator init phase: the now-playing channel observers
         // need the Kotlin graph, which exists only after bootstrapKmp().
         NowPlayingCoordinator.shared.startObserving()

@@ -26,6 +26,11 @@
 		C8FCC1952F17E001005E8312 /* NativeAudioController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8FCC1962F17E001005E8312 /* NativeAudioController.swift */; };
 		C8FCC1972F17E001005E8312 /* AudioDecoders.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8FCC1982F17E001005E8312 /* AudioDecoders.swift */; };
 		C8SI00012F1B000000000001 /* SiriIntentHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SI00022F1B000000000001 /* SiriIntentHandler.swift */; };
+		C8SP00012F2D000000000001 /* MAWebRTCURLProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SP00112F2D000000000011 /* MAWebRTCURLProtocol.swift */; };
+		C8SP00022F2D000000000002 /* SpikeMediaItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SP00122F2D000000000012 /* SpikeMediaItem.swift */; };
+		C8SP00032F2D000000000003 /* SpikeArtwork.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SP00132F2D000000000013 /* SpikeArtwork.swift */; };
+		C8SP00042F2D000000000004 /* SpikeLibraryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SP00142F2D000000000014 /* SpikeLibraryStore.swift */; };
+		C8SP00052F2D000000000005 /* SpikeViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SP00152F2D000000000015 /* SpikeViews.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -46,6 +51,11 @@
 		C8FCC1962F17E001005E8312 /* NativeAudioController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeAudioController.swift; sourceTree = "<group>"; };
 		C8FCC1982F17E001005E8312 /* AudioDecoders.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioDecoders.swift; sourceTree = "<group>"; };
 		C8SI00022F1B000000000001 /* SiriIntentHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SiriIntentHandler.swift; sourceTree = "<group>"; };
+		C8SP00112F2D000000000011 /* MAWebRTCURLProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MAWebRTCURLProtocol.swift; sourceTree = "<group>"; };
+		C8SP00122F2D000000000012 /* SpikeMediaItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpikeMediaItem.swift; sourceTree = "<group>"; };
+		C8SP00132F2D000000000013 /* SpikeArtwork.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpikeArtwork.swift; sourceTree = "<group>"; };
+		C8SP00142F2D000000000014 /* SpikeLibraryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpikeLibraryStore.swift; sourceTree = "<group>"; };
+		C8SP00152F2D000000000015 /* SpikeViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpikeViews.swift; sourceTree = "<group>"; };
 		E184B96B79725950AACD5BE7 /* NowPlayingInfoStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NowPlayingInfoStore.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -93,7 +103,6 @@
 			children = (
 				2FE624765BDE4DC4138CA710 /* NowPlayingInfoStoreTests.swift */,
 			);
-			name = iosAppTests;
 			path = iosAppTests;
 			sourceTree = "<group>";
 		};
@@ -130,6 +139,7 @@
 				2152FB032600AC8F00CF470E /* iOSApp.swift */,
 				058557D7273AAEEB004C7B11 /* Preview Content */,
 				C8CP00052F1A000000000003 /* CarPlay */,
+				C8SP00062F2D000000000006 /* Spike */,
 				C8AV00022F2C000000000002 /* AppIntentVocabulary.plist */,
 			);
 			path = iosApp;
@@ -159,6 +169,18 @@
 				C8SI00022F1B000000000001 /* SiriIntentHandler.swift */,
 			);
 			path = CarPlay;
+			sourceTree = "<group>";
+		};
+		C8SP00062F2D000000000006 /* Spike */ = {
+			isa = PBXGroup;
+			children = (
+				C8SP00112F2D000000000011 /* MAWebRTCURLProtocol.swift */,
+				C8SP00122F2D000000000012 /* SpikeMediaItem.swift */,
+				C8SP00132F2D000000000013 /* SpikeArtwork.swift */,
+				C8SP00142F2D000000000014 /* SpikeLibraryStore.swift */,
+				C8SP00152F2D000000000015 /* SpikeViews.swift */,
+			);
+			path = Spike;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -283,7 +305,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "if [ \"YES\" = \"$OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED\" ]; then\n  echo \"Skipping Gradle build task invocation due to OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED environment variable set to \\\"YES\\\"\"\n  exit 0\nfi\n\n# Fail the Xcode phase as soon as any step (gradle, cp, codesign, ...) fails.\n# Without this, a gradle compile error followed by a successful cache-write / cp\n# / codesign leaves the phase exiting 0 and Xcode reporting \"Build succeeded\".\nset -e\n\n# Use JDK 21 — JDK 25 is incompatible with Gradle 8.13/Kotlin 2.3.0.\n# JAVA_HOME is expected to be set by the invoking environment:\n#   * GitHub Actions: actions/setup-java@v4 exports it\n#   * Local Xcode launched from CLI: shell rc exports it\n#   * Local Xcode.app launched from Dock: launchctl setenv JAVA_HOME ...\nexport PATH=\"$JAVA_HOME/bin:$PATH\"\n\ncd \"$SRCROOT/..\"\n\n# Skip ./gradlew when Kotlin sources and build config haven't changed since the\n# last successful run. Gradle detects this itself, but only after a ~30s daemon\n# startup (every Xcode build is a cold start). This gate saves that ~30s on\n# no-op re-archives (e.g. bump CFBundleVersion only); it doesn't help when\n# sources actually changed — gradle runs normally in that case.\nKMP_FRAMEWORK_DIR=\"$SRCROOT/../composeApp/build/xcode-frameworks/$CONFIGURATION/$SDK_NAME/ComposeApp.framework\"\nHASH_FILE=\"$DERIVED_FILE_DIR/kotlin-source-hash\"\nCURRENT_HASH=$(\n  {\n    find composeApp/src -type f -name '*.kt*' -print0 | xargs -0 shasum\n    find composeApp/src/commonMain/composeResources -type f -print0 2>/dev/null | xargs -0 shasum\n    shasum build.gradle.kts composeApp/build.gradle.kts composeApp/compose-stability.conf gradle.properties gradle/libs.versions.toml settings.gradle.kts\n  } | shasum | awk '{print $1}'\n)\n\nif [ -f \"$HASH_FILE\" ] && [ \"$(cat \"$HASH_FILE\")\" = \"$CURRENT_HASH\" ] && [ -d \"$KMP_FRAMEWORK_DIR\" ]; then\n  echo \"Kotlin sources unchanged — skipping ./gradlew :composeApp:embedAndSignAppleFrameworkForXcode\"\nelse\n  ./gradlew :composeApp:embedAndSignAppleFrameworkForXcode\n  mkdir -p \"$DERIVED_FILE_DIR\"\n  echo \"$CURRENT_HASH\" > \"$HASH_FILE\"\nfi\n\n# Copy WebRTC.framework slice into the KMP output directory so the linker can find it\nWEBRTC_XCFW=\"$SRCROOT/Frameworks/WebRTC.xcframework\"\nOUTPUT_DIR=\"$SRCROOT/../composeApp/build/xcode-frameworks/$CONFIGURATION/$SDK_NAME\"\nif [[ \"$PLATFORM_NAME\" == *simulator* ]]; then\n  cp -Rf \"$WEBRTC_XCFW/ios-arm64_x86_64-simulator/WebRTC.framework\" \"$OUTPUT_DIR/\"\nelse\n  cp -Rf \"$WEBRTC_XCFW/ios-arm64/WebRTC.framework\" \"$OUTPUT_DIR/\"\nfi\n\n# Embed WebRTC.framework into the app bundle so dyld can find it at runtime\nBUNDLE_FRAMEWORKS=\"$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/Frameworks\"\nmkdir -p \"$BUNDLE_FRAMEWORKS\"\ncp -Rf \"$OUTPUT_DIR/WebRTC.framework\" \"$BUNDLE_FRAMEWORKS/\"\n\n# Sign WebRTC.framework with the same identity Xcode is using for this build.\n# EXPANDED_CODE_SIGN_IDENTITY is the cert hash for device builds and '-' (or empty) for simulator/ad-hoc.\n# Fall back to '-' (ad-hoc) if empty so simulator CLI builds still work.\ncodesign --force --sign \"${EXPANDED_CODE_SIGN_IDENTITY:--}\" \"$BUNDLE_FRAMEWORKS/WebRTC.framework\"\n\n# Copy Compose Multiplatform resources into the app bundle\n# The app reads them from <bundle>/compose-resources/composeResources/...\nif [[ \"$PLATFORM_NAME\" == *simulator* ]]; then\n  KMP_PLATFORM=iosSimulatorArm64\nelse\n  KMP_PLATFORM=iosArm64\nfi\nCOMPOSE_SRC=\"$SRCROOT/../composeApp/build/kotlin-multiplatform-resources/aggregated-resources/$KMP_PLATFORM\"\nCOMPOSE_DST=\"$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/compose-resources\"\nif [ -d \"$COMPOSE_SRC\" ]; then\n  rm -rf \"$COMPOSE_DST\"\n  cp -Rf \"$COMPOSE_SRC/.\" \"$COMPOSE_DST/\"\n  echo \"Compose resources copied from $COMPOSE_SRC\"\nelse\n  echo \"WARNING: Compose resources not found at $COMPOSE_SRC\"\nfi\n";
+			shellScript = "if [ \"YES\" = \"$OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED\" ]; then\n  echo \"Skipping Gradle build task invocation due to OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED environment variable set to \\\"YES\\\"\"\n  exit 0\nfi\n\n# Fail the Xcode phase as soon as any step (gradle, cp, codesign, ...) fails.\n# Without this, a gradle compile error followed by a successful cache-write / cp\n# / codesign leaves the phase exiting 0 and Xcode reporting \"Build succeeded\".\nset -e\n\n# Use JDK 21 — JDK 25 is incompatible with Gradle 8.13/Kotlin 2.3.0.\n# JAVA_HOME is expected to be set by the invoking environment:\n#   * GitHub Actions: actions/setup-java@v4 exports it\n#   * Local Xcode launched from CLI: shell rc exports it\n#   * Local Xcode.app launched from Dock: launchctl setenv JAVA_HOME ...\nexport PATH=\"$JAVA_HOME/bin:$PATH\"\n\ncd \"$SRCROOT/..\"\n\n# Skip ./gradlew when Kotlin sources and build config haven't changed since the\n# last successful run. Gradle detects this itself, but only after a ~30s daemon\n# startup (every Xcode build is a cold start). This gate saves that ~30s on\n# no-op re-archives (e.g. bump CFBundleVersion only); it doesn't help when\n# sources actually changed — gradle runs normally in that case.\nKMP_FRAMEWORK_DIR=\"$SRCROOT/../composeApp/build/xcode-frameworks/$CONFIGURATION/$SDK_NAME/ComposeApp.framework\"\nHASH_FILE=\"$DERIVED_FILE_DIR/kotlin-source-hash\"\nCURRENT_HASH=$(\n  {\n    find composeApp/src -type f -name '*.kt*' -print0 | xargs -0 shasum\n    find composeApp/src/commonMain/composeResources -type f -print0 2>/dev/null | xargs -0 shasum\n    shasum build.gradle.kts composeApp/build.gradle.kts composeApp/compose-stability.conf gradle.properties gradle/libs.versions.toml settings.gradle.kts\n  } | shasum | awk '{print $1}'\n)\n\nif [ -f \"$HASH_FILE\" ] && [ \"$(cat \"$HASH_FILE\")\" = \"$CURRENT_HASH\" ] && [ -d \"$KMP_FRAMEWORK_DIR\" ]; then\n  echo \"Kotlin sources unchanged — skipping ./gradlew :composeApp:embedAndSignAppleFrameworkForXcode\"\nelse\n  ./gradlew :composeApp:embedAndSignAppleFrameworkForXcode\n  mkdir -p \"$DERIVED_FILE_DIR\"\n  echo \"$CURRENT_HASH\" > \"$HASH_FILE\"\nfi\n\n# Copy WebRTC.framework slice into the KMP output directory so the linker can find it\nWEBRTC_XCFW=\"$SRCROOT/Frameworks/WebRTC.xcframework\"\nOUTPUT_DIR=\"$SRCROOT/../composeApp/build/xcode-frameworks/$CONFIGURATION/$SDK_NAME\"\nif [[ \"$PLATFORM_NAME\" == *simulator* ]]; then\n  cp -Rf \"$WEBRTC_XCFW/ios-arm64_x86_64-simulator/WebRTC.framework\" \"$OUTPUT_DIR/\"\nelse\n  cp -Rf \"$WEBRTC_XCFW/ios-arm64/WebRTC.framework\" \"$OUTPUT_DIR/\"\nfi\n\n# Embed WebRTC.framework into the app bundle so dyld can find it at runtime\nBUNDLE_FRAMEWORKS=\"$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/Frameworks\"\nmkdir -p \"$BUNDLE_FRAMEWORKS\"\ncp -Rf \"$OUTPUT_DIR/WebRTC.framework\" \"$BUNDLE_FRAMEWORKS/\"\n\n# Strip any extended attributes (resource forks, Finder info, file-provider\n# sync markers, quarantine flags, etc.) that may have been picked up on the\n# source framework by cloud-sync or sandboxed tooling. codesign refuses to\n# sign bundles carrying this metadata with \\\"resource fork, Finder information,\n# or similar detritus not allowed\\\", so we defensively clear it every build.\nxattr -cr \"$BUNDLE_FRAMEWORKS/WebRTC.framework\" 2>/dev/null || true\n\n# Sign WebRTC.framework with the same identity Xcode is using for this build.\n# EXPANDED_CODE_SIGN_IDENTITY is the cert hash for device builds and '-' (or empty) for simulator/ad-hoc.\n# Fall back to '-' (ad-hoc) if empty so simulator CLI builds still work.\ncodesign --force --sign \"${EXPANDED_CODE_SIGN_IDENTITY:--}\" \"$BUNDLE_FRAMEWORKS/WebRTC.framework\"\n\n# Copy Compose Multiplatform resources into the app bundle\n# The app reads them from <bundle>/compose-resources/composeResources/...\nif [[ \"$PLATFORM_NAME\" == *simulator* ]]; then\n  KMP_PLATFORM=iosSimulatorArm64\nelse\n  KMP_PLATFORM=iosArm64\nfi\nCOMPOSE_SRC=\"$SRCROOT/../composeApp/build/kotlin-multiplatform-resources/aggregated-resources/$KMP_PLATFORM\"\nCOMPOSE_DST=\"$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/compose-resources\"\nif [ -d \"$COMPOSE_SRC\" ]; then\n  rm -rf \"$COMPOSE_DST\"\n  cp -Rf \"$COMPOSE_SRC/.\" \"$COMPOSE_DST/\"\n  echo \"Compose resources copied from $COMPOSE_SRC\"\nelse\n  echo \"WARNING: Compose resources not found at $COMPOSE_SRC\"\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -310,6 +332,11 @@
 				C8CP00022F1A000000000002 /* CarPlayContentManager.swift in Sources */,
 				C8SI00012F1B000000000001 /* SiriIntentHandler.swift in Sources */,
 				06FCDF5F9AC6BE4A12AA70C9 /* NowPlayingInfoStore.swift in Sources */,
+				C8SP00012F2D000000000001 /* MAWebRTCURLProtocol.swift in Sources */,
+				C8SP00022F2D000000000002 /* SpikeMediaItem.swift in Sources */,
+				C8SP00032F2D000000000003 /* SpikeArtwork.swift in Sources */,
+				C8SP00042F2D000000000004 /* SpikeLibraryStore.swift in Sources */,
+				C8SP00052F2D000000000005 /* SpikeViews.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -333,7 +360,7 @@
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_STYLE = Automatic;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 15.3;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "io.music-assistant.client.iosAppTests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
@@ -380,7 +407,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DEVELOPMENT_TEAM = "$(TEAM_ID)";
+				DEVELOPMENT_TEAM = 5J5R9QK64D;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
@@ -398,7 +425,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 15.3;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -445,7 +472,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DEVELOPMENT_TEAM = "$(TEAM_ID)";
+				DEVELOPMENT_TEAM = 5J5R9QK64D;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
@@ -457,7 +484,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 15.3;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = iphoneos;
@@ -477,13 +504,14 @@
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_ASSET_PATHS = "\"iosApp/Preview Content\"";
 				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(SRCROOT)/../composeApp/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)",
 					"$(SRCROOT)/Frameworks",
 				);
 				INFOPLIST_FILE = iosApp/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -504,13 +532,14 @@
 				CODE_SIGN_STYLE = Manual;
 				DEVELOPMENT_ASSET_PATHS = "\"iosApp/Preview Content\"";
 				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(SRCROOT)/../composeApp/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)",
 					"$(SRCROOT)/Frameworks",
 				);
 				INFOPLIST_FILE = iosApp/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -528,7 +557,7 @@
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_STYLE = Automatic;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 15.3;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "io.music-assistant.client.iosAppTests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
