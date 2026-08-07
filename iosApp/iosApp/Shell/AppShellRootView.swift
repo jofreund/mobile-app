@@ -91,14 +91,14 @@ private struct AutoLoginSplashView: View {
                     .foregroundStyle(.tint)
                 ProgressView()
                     .controlSize(.large)
-                Text("Connecting…")
+                Text(String(localized: "settings_connecting"))
                     .font(.body)
                     .foregroundStyle(.primary)
             }
 
             VStack {
                 Spacer()
-                Button("Cancel", action: onCancel)
+                Button(String(localized: "common_cancel"), action: onCancel)
                     .buttonStyle(.bordered)
                     .padding(.bottom, 48)
             }
@@ -118,9 +118,9 @@ private struct ReconnectionBanner: View {
 
     private var text: String {
         if let reconnecting = state as? AppBannerStateReconnecting {
-            "Reconnecting… (attempt \(reconnecting.attempt))"
+            String(format: String(localized: "banner_reconnecting"), reconnecting.attempt)
         } else {
-            "No network connection"
+            String(localized: "banner_no_network")
         }
     }
 
@@ -131,7 +131,7 @@ private struct ReconnectionBanner: View {
             Text(text)
                 .font(.caption)
             Spacer()
-            Button("Cancel", action: onCancel)
+            Button(String(localized: "common_cancel"), action: onCancel)
                 .font(.caption)
         }
         .padding(.horizontal, 16)
