@@ -6,11 +6,9 @@
 
 package io.music_assistant.client
 
-import androidx.compose.ui.window.ComposeUIViewController
 import io.music_assistant.client.di.initKoin
 import io.music_assistant.client.di.iosModule
 import io.music_assistant.client.logging.InMemoryLogWriter
-import io.music_assistant.client.ui.compose.App
 import kotlinx.cinterop.staticCFunction
 import platform.Foundation.NSException
 import platform.Foundation.NSFileManager
@@ -27,8 +25,9 @@ import kotlin.native.Platform
  *   1. Swift `iOSApp.init()` — runs before any scene connects, so a
  *      CarPlay-only cold launch (head unit tap, no SwiftUI scene) still
  *      gets Koin set up.
- *   2. `MainViewController()` below — runs when the SwiftUI Compose scene
- *      connects, which on a SwiftUI-only cold launch happens before the
+ *   2. Each `ComposeUIViewController` factory in `ComposeScreenHosts.kt`
+ *      (`configure = { bootstrapKmp() }`) — runs when its host is first
+ *      mounted, which on a SwiftUI-only cold launch happens before the
  *      CarPlay scene exists.
  *
  * Idempotency is mandatory because both paths can run on a single launch
@@ -44,13 +43,6 @@ private val kmpBootstrap: Unit by lazy {
     cleanupStaleLogFile()
     installCrashHandler()
 }
-
-@Suppress(
-    "FunctionNaming",
-) // iOS factory function intentionally PascalCase; called from Swift as if it were a constructor
-fun MainViewController() = ComposeUIViewController(
-    configure = { bootstrapKmp() },
-) { App() }
 
 private fun cleanupStaleLogFile() {
     NSFileManager.defaultManager.removeItemAtPath(

@@ -16,7 +16,7 @@ import kotlinx.coroutines.launch
 /** Which top-level surface is showing: the authenticated tab shell, or connection setup. */
 enum class AppRootDestination { MAIN, SETTINGS }
 
-/** Mirrors `ConnectionStatusBanner`'s internal `BannerState` as a public, platform-agnostic type. */
+/** Mirrors the reconnection-banner states the deleted Compose `ConnectionStatusBanner` used to render. */
 sealed interface AppBannerState {
     data class Reconnecting(val attempt: Int) : AppBannerState
     data object NoNetwork : AppBannerState
@@ -28,19 +28,20 @@ sealed interface AppBannerState {
  * auto-login splash is up, and whether a reconnection banner should show.
  *
  * This is a straight extraction of the policy that used to live entirely inside
- * the `TopLevelNavRoot` Composable's `LaunchedEffect`s: which screen to force on
- * a session-state transition, and when the splash latches closed for good. It
- * moved here — as a plain reactive class, constructor-injected and Koin-eager —
- * for two reasons: it is exactly the kind of behavioural policy the migration
- * plan says must stay identical across every UI that drives it, and unlike a
- * `remember { mutableStateOf(...) }` trapped inside a Composable, it can now be
- * unit tested and it survives independently of whatever is currently observing
- * it (Compose recomposition, a SwiftUI view redrawing, or nothing at all).
+ * the Compose `TopLevelNavRoot` Composable's `LaunchedEffect`s: which screen to
+ * force on a session-state transition, and when the splash latches closed for
+ * good. It moved here — as a plain reactive class, constructor-injected and
+ * Koin-eager — for two reasons: it is exactly the kind of behavioural policy the
+ * migration plan says must stay identical across every UI that drives it, and
+ * unlike a `remember { mutableStateOf(...) }` trapped inside a Composable, it
+ * can now be unit tested and it survives independently of whatever is currently
+ * observing it (a SwiftUI view redrawing, or nothing at all).
  *
- * `TopLevelNavRoot.kt` now just projects [destination]/[splashVisible] into its
- * own back stack instead of recomputing them; the SwiftUI shell (`AppRouter` in
- * `iosApp/Shell/AppRouter.swift`) does the same via the `NativeStateFlow`s
- * exposed on the bridge.
+ * `TopLevelNavRoot.kt` (and the `ConnectionStatusBanner.kt`/`AutoLoginSplash.kt`
+ * Composables it drove) is gone now — this class fully superseded it, and with
+ * Android also gone from this fork, nothing else rendered them. The SwiftUI
+ * shell (`AppRouter` in `iosApp/Shell/AppRouter.swift`) is the sole consumer,
+ * via the `NativeStateFlow`s exposed on the bridge (`KmpHelper.kt`).
  */
 class AppRootRouter(
     private val serviceClient: ServiceClient,

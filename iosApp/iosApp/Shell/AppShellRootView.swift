@@ -16,11 +16,15 @@ private struct ComposeHostView: UIViewControllerRepresentable {
     func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}
 }
 
-/// Replaces `ContentView`'s old direct `MainViewController()` host. Owns
-/// exactly what `TopLevelNavRoot.kt` used to own — the Main/Settings switch,
-/// the auto-login splash, and the reconnection banner — natively, reading
-/// all three from the same `AppRootRouter` singleton Compose's version now
-/// also defers to. See `ComposeScreenHosts.kt` for what's still Compose
+/// Replaces `ContentView`'s old direct Compose host. Owns exactly what
+/// `TopLevelNavRoot.kt` used to own — the Main/Settings switch, the
+/// auto-login splash, the reconnection banner, and the schema-compatibility
+/// warning — natively, reading all four from the same `AppRootRouter` /
+/// `SchemaVersionWarningViewModel` singletons. `TopLevelNavRoot.kt`,
+/// `ConnectionStatusBanner.kt`, and `AutoLoginSplash.kt` are gone (this
+/// superseded them entirely — Android is gone too, so nothing else rendered
+/// them); `App.kt` kept only `AppLifecycleObserver`, still shared with the
+/// hosted screens below. See `ComposeScreenHosts.kt` for what's still Compose
 /// underneath each side of the switch, and why (the floating player bar in
 /// particular isn't part of this slice).
 struct AppShellRootView: View {

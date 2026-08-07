@@ -212,8 +212,8 @@ struct iOSApp: App {
         // `CPTemplateApplicationScene` — SwiftUI's `WindowGroup` never
         // connects, so `ContentView.onAppear` never fires. Anything tied to
         // SwiftUI for app-wide setup is therefore unreachable on that path.
-        // `bootstrapKmp()` is idempotent, so the SwiftUI path's call from
-        // `MainViewController()` is safe.
+        // `bootstrapKmp()` is idempotent, so the SwiftUI path's own call from
+        // each `ComposeScreenHosts.kt` factory's `configure:` is safe.
         MainViewControllerKt.bootstrapKmp()
         KmpState.isReady = true
 

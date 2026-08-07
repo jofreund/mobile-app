@@ -27,14 +27,15 @@ import org.koin.compose.viewmodel.koinViewModel
 import platform.UIKit.UIViewController
 
 /**
- * Per-screen Compose hosts, replacing the single [MainViewController] entry
- * point `ContentView.swift` used to boot. `AppRouter.swift` now owns the
- * decision `TopLevelNavRoot.kt` used to make (Main tab shell vs. Settings) by
+ * Per-screen Compose hosts, replacing the single Compose entry point
+ * `ContentView.swift` used to boot (the old `MainViewController()` /
+ * `App()` / `TopLevelNavRoot.kt` chain — all now deleted, fully superseded).
+ * `AppRouter.swift` now owns that switch (Main tab shell vs. Settings) by
  * reading [KmpHelper.rootDestination] — these two factories are what it
- * mounts for each side of that switch, so this file only reproduces the
- * shared Compose *chrome* [App] used to apply (theme, click-action prefs,
- * keyboard dismissal, foreground/background lifecycle), not the switch
- * itself.
+ * mounts for each side, so this file only reproduces the shared Compose
+ * *chrome* `App()` used to apply (theme, click-action prefs, keyboard
+ * dismissal, foreground/background lifecycle via [AppLifecycleObserver]),
+ * not the switch itself.
  *
  * Deliberately scoped narrower than the full per-screen breakdown the
  * migration plan describes for this phase: [MainNavigationRoot] still owns
@@ -48,11 +49,6 @@ import platform.UIKit.UIViewController
  * `LibraryList`, `ItemList`, …) in one pass would risk shipping a build that
  * silently drops player controls. This slice proves the Swift↔Kotlin router
  * bridge end to end without touching any of that.
- *
- * Known gap: `SchemaVersionWarningDialog` (schema-mismatch warning) lived in
- * `App()` and isn't reproduced here yet — narrow (only fires against an
- * incompatible server) but real; worth folding into `AppRootRouter` the same
- * way the splash/banner were, in a follow-up.
  */
 fun MainAppController(): UIViewController = ComposeUIViewController(
     configure = { bootstrapKmp() },
