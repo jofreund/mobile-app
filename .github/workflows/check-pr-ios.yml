@@ -1,8 +1,8 @@
 name: Check PR (iOS)
 
-# Sanity-check that iOS still compiles on PRs that could affect it. Pure
-# Android-only PRs are skipped. This is NOT a release — it does no signing,
-# no archive, no upload. Only goal: catch compile-time breakage early.
+# Sanity-check that iOS still compiles on PRs that could affect it. This is
+# NOT a release — it does no signing, no archive, no upload. Only goal: catch
+# compile-time breakage early.
 
 on:
   pull_request:
@@ -10,8 +10,6 @@ on:
     # to "Ready for review" triggers this check (default types don't include it).
     types: [ opened, synchronize, reopened, ready_for_review ]
     branches: [ main ]
-    paths-ignore:
-      - 'androidApp/**'
 
 jobs:
   compile:
