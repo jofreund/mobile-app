@@ -16,10 +16,11 @@ struct SpikeMediaItem: Identifiable, Hashable {
 
     /// What the item is, for icon and drilldown purposes.
     ///
-    /// A flat enum rather than a mirror of the sealed hierarchy: the spike only
-    /// branches on "which SF Symbol" and "what can I drill into," and 11 cases
-    /// of which 4 are reachable would be noise. Phase C replaces the `is` chain
-    /// below with the compiler-checked `AppMediaItemVisitor`.
+    /// A flat enum rather than a mirror of the sealed hierarchy: call sites only
+    /// need "which SF Symbol" and "what can I drill into," not the full 11-case
+    /// sealed type. The `is` chain in `init` below could be rewritten against the
+    /// compiler-checked `AppMediaItemVisitor` (`AppMediaItemVisitor.kt`) for
+    /// exhaustiveness, but hasn't been — a currently-safe simplification.
     enum Kind {
         case album, artist, track, playlist, podcast, podcastEpisode
         case audiobook, radioStation, genre, folder, other
@@ -40,10 +41,11 @@ struct SpikeMediaItem: Identifiable, Hashable {
             }
         }
 
-        /// Whether tapping should push a child list rather than play.
+        /// Whether tapping should push a detail/child screen rather than play —
+        /// the six types `ItemDetailsView` routes to a real screen for.
         var isBrowsable: Bool {
             switch self {
-            case .album, .artist, .playlist, .podcast: true
+            case .album, .artist, .playlist, .podcast, .audiobook, .genre: true
             default: false
             }
         }

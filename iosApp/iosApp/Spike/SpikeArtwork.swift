@@ -3,18 +3,19 @@ import ImageIO
 import UniformTypeIdentifiers
 import ComposeApp
 
-/// Downsampling image loader and cache for the spike.
+/// Downsampling image loader and cache — every native screen's artwork goes
+/// through this (ItemDetails, Artist, Genre, Library, Browse), not just the
+/// original Phase A spike it was built for.
 ///
-/// Deliberately small and dependency-free. It exists to answer one question
-/// honestly — *is artwork acceptable at scroll speed* — which bare `AsyncImage`
-/// cannot: it has no usable memory cache and decodes at full resolution, so a
-/// grid of 60pt thumbnails backed by 1000px JPEGs would stutter for reasons that
-/// have nothing to do with the Kotlin bridge and would read as a false negative.
+/// Deliberately small and dependency-free: no usable memory cache and full-
+/// resolution decode is what makes bare `AsyncImage` stutter in a grid of 60pt
+/// thumbnails backed by 1000px JPEGs.
 ///
-/// Phase D replaces this with Nuke (prefetching, disk cache, progressive decode).
-/// The important part is already load-bearing here: every request goes through
-/// `URLSession`, so `MAWebRTCURLProtocol` transparently handles `mawebrtc://`
-/// and this code never has to know the difference.
+/// Phase D's plan called for replacing this with Nuke (prefetching, disk
+/// cache, progressive decode) once artwork-at-scroll-speed needed more than
+/// this provides — hasn't been revisited since, so this is still it. Every
+/// request goes through `URLSession`, so `MAWebRTCURLProtocol` transparently
+/// handles `mawebrtc://` and this code never has to know the difference.
 actor SpikeImageLoader {
 
     static let shared = SpikeImageLoader()
