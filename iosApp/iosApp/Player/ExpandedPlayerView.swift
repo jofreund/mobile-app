@@ -280,24 +280,38 @@ private struct ExpandedPlayerRow: View {
         orderedQueueItems.firstIndex { $0.id == player.currentQueueItemId }
     }
 
+    private var queueLabel: String {
+        guard let index = currentQueueIndex else { return String(localized: "queue_label") }
+        return String(format: String(localized: "queue_label_with_position"), index + 1, orderedQueueItems.count)
+    }
+
     @ViewBuilder
     private var queueSection: some View {
+        // The current item's own row is skipped (its chapters, if any, aren't) — the peek row
+        // right above already shows exactly this item, so repeating it as the queue's first row
+        // too just duplicates it; matches the Apple Music reference, whose queue lists only what
+        // comes *next*, not what's already playing.
         let rows = QueueDisplayRow.build(items: orderedQueueItems, currentId: player.currentQueueItemId, chapters: player.currentItemChapters)
         if rows.isEmpty {
             emptyQueueState
         } else {
-            ScrollViewReader { proxy in
-                List {
-                    ForEach(rows) { row in
-                        queueRowView(row)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(queueLabel)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                ScrollViewReader { proxy in
+                    List {
+                        ForEach(rows) { row in
+                            queueRowView(row)
+                        }
+                        .onMove { from, to in handleMove(rows: rows, from: from, to: to) }
                     }
-                    .onMove { from, to in handleMove(rows: rows, from: from, to: to) }
+                    .listStyle(.plain)
+                    .scrollContentBackground(.hidden)
+                    .environment(\.editMode, .constant(.active))
+                    .onAppear { scrollToCurrent(proxy: proxy, animated: false) }
+                    .onChange(of: player.currentQueueItemId) { _, _ in scrollToCurrent(proxy: proxy, animated: true) }
                 }
-                .listStyle(.plain)
-                .scrollContentBackground(.hidden)
-                .environment(\.editMode, .constant(.active))
-                .onAppear { scrollToCurrent(proxy: proxy, animated: false) }
-                .onChange(of: player.currentQueueItemId) { _, _ in scrollToCurrent(proxy: proxy, animated: true) }
             }
             .frame(maxHeight: .infinity)
         }
@@ -588,11 +602,16 @@ private enum QueueDisplayRow: Identifiable {
         }
     }
 
+    /// The current item's own track row is deliberately omitted (its chapters aren't) — see
+    /// `queueSection`'s doc comment for why.
     static func build(items: [QueueBarItemView], currentId: String?, chapters: [Chapter]) -> [QueueDisplayRow] {
         var rows: [QueueDisplayRow] = []
         for (index, item) in items.enumerated() {
-            rows.append(.track(item, queueIndex: index))
-            if item.id == currentId {
+            let isCurrent = item.id == currentId
+            if !isCurrent {
+                rows.append(.track(item, queueIndex: index))
+            }
+            if isCurrent {
                 for chapter in chapters {
                     rows.append(.chapter(chapter, parentId: item.id))
                 }
