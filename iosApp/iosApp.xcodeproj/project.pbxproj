@@ -39,6 +39,7 @@
 		C8BR00032F5E000000000003 /* BrowseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8BR00132F5E000000000013 /* BrowseView.swift */; };
 		C8FS00032F5F000000000003 /* LibraryFilterSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8FS00132F5F000000000013 /* LibraryFilterSheet.swift */; };
 		C8SV00032F60000000000003 /* SearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SV00132F60000000000013 /* SearchView.swift */; };
+		C8HV00032F61000000000003 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8HV00132F61000000000013 /* HomeView.swift */; };
 		C8LC00012F4F000000000001 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = C8LC00112F4F000000000011 /* Localizable.xcstrings */; };
 /* End PBXBuildFile section */
 
@@ -73,6 +74,7 @@
 		C8BR00132F5E000000000013 /* BrowseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowseView.swift; sourceTree = "<group>"; };
 		C8FS00132F5F000000000013 /* LibraryFilterSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryFilterSheet.swift; sourceTree = "<group>"; };
 		C8SV00132F60000000000013 /* SearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchView.swift; sourceTree = "<group>"; };
+		C8HV00132F61000000000013 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		C8LC00112F4F000000000011 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		E184B96B79725950AACD5BE7 /* NowPlayingInfoStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NowPlayingInfoStore.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -162,6 +164,7 @@
 				C8ID00062F5A000000000006 /* ItemDetails */,
 				C8LL00062F5D000000000006 /* Library */,
 				C8SV00062F60000000000006 /* Search */,
+				C8HV00062F61000000000006 /* Home */,
 				C8LC00112F4F000000000011 /* Localizable.xcstrings */,
 				C8AV00022F2C000000000002 /* AppIntentVocabulary.plist */,
 			);
@@ -230,6 +233,14 @@
 				C8SV00132F60000000000013 /* SearchView.swift */,
 			);
 			path = Search;
+			sourceTree = "<group>";
+		};
+		C8HV00062F61000000000006 /* Home */ = {
+			isa = PBXGroup;
+			children = (
+				C8HV00132F61000000000013 /* HomeView.swift */,
+			);
+			path = Home;
 			sourceTree = "<group>";
 		};
 		C8ID00062F5A000000000006 /* ItemDetails */ = {
@@ -405,6 +416,7 @@
 				C8BR00032F5E000000000003 /* BrowseView.swift in Sources */,
 				C8FS00032F5F000000000003 /* LibraryFilterSheet.swift in Sources */,
 				C8SV00032F60000000000003 /* SearchView.swift in Sources */,
+				C8HV00032F61000000000003 /* HomeView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

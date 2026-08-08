@@ -25,13 +25,6 @@ import io.music_assistant.client.api.DeepLinkBus
 import io.music_assistant.client.api.DeepLinkDestination
 import io.music_assistant.client.api.ErrorMessageBus
 import io.music_assistant.client.data.model.client.MediaType
-import io.music_assistant.client.data.model.client.items.Album
-import io.music_assistant.client.data.model.client.items.AppMediaItem
-import io.music_assistant.client.data.model.client.items.Artist
-import io.music_assistant.client.data.model.client.items.Audiobook
-import io.music_assistant.client.data.model.client.items.Genre
-import io.music_assistant.client.data.model.client.items.Playlist
-import io.music_assistant.client.data.model.client.items.Podcast
 import io.music_assistant.client.di.KmpHelper
 import io.music_assistant.client.input.VolumeButtonService
 import io.music_assistant.client.ui.compose.AppLifecycleObserver
@@ -39,12 +32,9 @@ import io.music_assistant.client.ui.compose.common.ToastDuration
 import io.music_assistant.client.ui.compose.common.ToastHost
 import io.music_assistant.client.ui.compose.common.dismissKeyboardOnTap
 import io.music_assistant.client.ui.compose.common.items.ProvideClickActionPrefs
-import io.music_assistant.client.ui.compose.common.providers.ProviderIcon
 import io.music_assistant.client.ui.compose.common.rememberToastState
 import io.music_assistant.client.ui.compose.common.viewmodel.ActionsViewModel
 import io.music_assistant.client.ui.compose.home.FloatingBar
-import io.music_assistant.client.ui.compose.home.HomeScreen
-import io.music_assistant.client.ui.compose.home.HomeScreenState
 import io.music_assistant.client.ui.compose.home.HomeScreenViewModel
 import io.music_assistant.client.ui.compose.home.players.DspSettingsViewModel
 import io.music_assistant.client.ui.compose.home.players.PlayersPager
@@ -80,61 +70,38 @@ import platform.UIKit.UIViewController
  * so `AppTabView.swift` now owns tab switching and each tab's own `NavigationStack` — this file
  * stopped composing them all together.
  *
- * `HomeAppController`/`LibraryAppController` each host exactly the screen `MainNavRoot.kt`'s
- * `entry<MainNav.Landing>`/`entry<MainNav.Library>` used to render inline, now standalone —
- * mechanically easy since both `HomeScreen`/`LibraryScreen` already took `contentPadding` and
- * pure navigation callbacks rather than doing any push navigation themselves. Dropped along the
- * way: the `ScreenState`/`rememberPublishedScreenState` machinery that let the old shared nav
- * bar scroll the active tab to top on re-tap — nothing in `TabView` reproduces that trigger for
- * free, so it's gone until someone rebuilds it, not silently preserved.
+ * `LibraryAppController` hosts exactly the screen `MainNavRoot.kt`'s `entry<MainNav.Library>`
+ * used to render inline, now standalone — mechanically easy since `LibraryScreen` already took
+ * `contentPadding` and pure navigation callbacks rather than doing any push navigation itself.
+ * Home lost its Compose host entirely (`HomeAppController` is gone, along with the
+ * `ScreenState`/`rememberPublishedScreenState` machinery that let the old shared nav bar scroll
+ * the active tab to top on re-tap — nothing in `TabView` reproduces that trigger for free, so
+ * it's gone until someone rebuilds it, not silently preserved): `HomeScreenViewModel`'s
+ * complexity turned out to be about *when* to show loading/reconnecting states, not about
+ * producing the row data itself, so `HomeView.swift` fetches recommendations/shortcuts as
+ * one-shot round trips (`KmpHelper.fetchRecommendationFolders`/`fetchShortcuts`) rather than
+ * wrapping the ViewModel's session state machine — see `HomeView.swift`'s doc for the full
+ * reasoning.
  *
  * The floating player bar (`PlayersPager`/`FloatingBar`) is the one thing that was never a
  * "screen" reachable by push/pop — it's an always-on overlay spanning every tab, so it can't
- * just become a fifth per-tab host. Splitting it into `FloatingBarCollapsedController` (mounted
- * once, for the app's lifetime, in `AppTabView.swift`'s `.safeAreaInset`) and
- * `FloatingBarExpandedController` (mounted only while `.fullScreenCover` presents it) avoids
- * the harder problem a single always-full-screen overlay host would have — Compose UIViewControllers
- * don't pass touches through to whatever's underneath empty space, so a full-screen collapsed
- * host would swallow taps on the tab bar and every tab's content. Two ordinary SwiftUI
- * presentations (a small fixed-height inset, a real full-screen cover) sidestep that entirely,
- * at the cost of the expanded page's queue-expanded/dialog-open state resetting on each
- * expand — an accepted, minor loss; the actually-important state (which player is selected,
- * the queue itself) lives in the `MainDataSource` singleton underneath both hosts, not in
- * either one's local `remember`, so it survives every mount/unmount either host does.
- * `ErrorMessageBus` (single-consumer by construction — a `Channel`, not a broadcast
- * `SharedFlow`) and the volume-button remote-playback hint toast both moved into
- * `FloatingBarCollapsedController` specifically because it's the one persistent instance.
+ * just become a per-tab host. Splitting it into `FloatingBarCollapsedController` (mounted once
+ * per tab, via each tab's own `.safeAreaInset` — see `AppTabView.swift`'s doc for why per-tab
+ * rather than shared) and `FloatingBarExpandedController` (one shared instance, mounted only
+ * while `.fullScreenCover` presents it) avoids the harder problem a single always-full-screen
+ * overlay host would have — Compose UIViewControllers don't pass touches through to whatever's
+ * underneath empty space, so a full-screen collapsed host would swallow taps on the tab bar and
+ * every tab's content. Two ordinary SwiftUI presentations (a small fixed-height inset per tab, a
+ * real full-screen cover) sidestep that entirely, at the cost of the expanded page's
+ * queue-expanded/dialog-open state resetting on each expand — an accepted, minor loss; the
+ * actually-important state (which player is selected, the queue itself) lives in the
+ * `MainDataSource` singleton underneath every host, not in any one's local `remember`, so it
+ * survives every mount/unmount any of them does. `ErrorMessageBus` (single-consumer by
+ * construction — a `Channel`, not a broadcast `SharedFlow`) and the volume-button
+ * remote-playback hint toast both live in `FloatingBarCollapsedController`, which — now that
+ * it's per-tab — means an error toast surfaces on whichever tab's instance happens to receive
+ * it, not necessarily the one on screen (documented, accepted tradeoff — see `AppTabView.swift`).
  */
-@Suppress(
-    "FunctionNaming",
-) // iOS factory function intentionally PascalCase; called from Swift as if it were a constructor
-fun HomeAppController(
-    onNavigateToItemDetails: (itemId: String, mediaType: MediaType, providerId: String) -> Unit,
-): UIViewController = ComposeUIViewController(
-    configure = { bootstrapKmp() },
-) {
-    AppShellChrome {
-        val homeScreenViewModel = koinViewModel<HomeScreenViewModel>()
-        val actionsViewModel = koinViewModel<ActionsViewModel>()
-        val state = HomeScreenState.create()
-        HomeScreen(
-            homeScreenViewModel,
-            contentPadding = PaddingValues(bottom = FLOATING_BAR_CLEARANCE),
-            onNavigateClick = { item ->
-                navigableItemDetails(item)?.let { (itemId, mediaType, providerId) ->
-                    onNavigateToItemDetails(itemId, mediaType, providerId)
-                }
-            },
-            providerIconFetcher = { modifier, provider ->
-                actionsViewModel.getProviderIcon(provider)?.let { ProviderIcon(modifier, it) }
-            },
-            actionsViewModel = actionsViewModel,
-            state = state,
-            onSettingsClick = { KmpHelper.requestSettings() },
-        )
-    }
-}
-
 @Suppress(
     "FunctionNaming",
 ) // iOS factory function intentionally PascalCase; called from Swift as if it were a constructor
@@ -318,17 +285,10 @@ private fun PlayerBarContent(
     }
 }
 
-/** Same browsable-type gate `MainNavRoot.kt`'s Home entry used for `onNavigateClick`. */
-private fun navigableItemDetails(item: AppMediaItem): Triple<String, MediaType, String>? = when (item) {
-    is Artist, is Album, is Playlist, is Podcast, is Audiobook, is Genre ->
-        Triple(item.itemId, item.mediaType, item.provider)
-    else -> null
-}
-
-/** See doc on [HomeAppController]/[LibraryAppController]. Matches the collapsed floating bar's
- * measured footprint (84dp [PlayersPager]'s `CollapsedPlayerPage`/loading row + 8dp top/bottom
- * `FloatingBar` padding) — there's no shared constant to reuse since `FloatingBarLayout` used
- * to measure this dynamically; approximated here since the floating bar is now a separate host. */
+/** See doc on [LibraryAppController]. Matches the collapsed floating bar's measured footprint
+ * (84dp [PlayersPager]'s `CollapsedPlayerPage`/loading row + 8dp top/bottom `FloatingBar`
+ * padding) — there's no shared constant to reuse since `FloatingBarLayout` used to measure this
+ * dynamically; approximated here since the floating bar is now a separate host. */
 private val FLOATING_BAR_CLEARANCE = 100.dp
 
 private const val MAX_TOAST_MESSAGE_LENGTH = 150

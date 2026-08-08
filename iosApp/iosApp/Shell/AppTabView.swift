@@ -130,23 +130,10 @@ struct AppTabView: View {
 
     private var homeTab: some View {
         NavigationStack(path: $homePath) {
-            ComposeHostView(makeController: {
-                ComposeScreenHostsKt.HomeAppController(onNavigateToItemDetails: { itemId, mediaType, providerId in
-                    homePath.append(ItemDetailsRoute(itemId: itemId, mediaType: mediaType, providerId: providerId))
-                })
-            })
-            // Compose draws its own screen headers and expects to own the full screen
-            // under the status bar. `ignoresSafeArea` applied outside a NavigationStack
-            // does not flow through to its root content — the space NavigationStack
-            // reserves for its (hidden) bar is a layout concern of what's *inside* it.
-            // Only the top edge — the bottom safe area here is what the enclosing
-            // TabView's tab bar contributes; ignoring it too made the tab bar disappear
-            // (the Compose host's UIKit view claimed that space instead of ceding it).
-            .ignoresSafeArea(edges: .top)
-            .toolbar(.hidden, for: .navigationBar)
-            .navigationDestination(for: ItemDetailsRoute.self) { route in
-                ItemDetailsView(route: route)
-            }
+            HomeView()
+                .navigationDestination(for: ItemDetailsRoute.self) { route in
+                    ItemDetailsView(route: route)
+                }
         }
         .floatingPlayerBar(playerExpanded: $playerExpanded) { itemId, mediaType, providerId in
             homePath.append(ItemDetailsRoute(itemId: itemId, mediaType: mediaType, providerId: providerId))

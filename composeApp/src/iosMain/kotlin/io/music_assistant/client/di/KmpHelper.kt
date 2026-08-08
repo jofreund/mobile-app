@@ -7,6 +7,7 @@ import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.client.statement.readRawBytes
 import io.ktor.http.Url
+import io.music_assistant.client.api.APICommands
 import io.music_assistant.client.api.DeepLinkBus
 import io.music_assistant.client.api.DeepLinkDestination
 import io.music_assistant.client.api.Request
@@ -38,6 +39,7 @@ import io.music_assistant.client.data.model.client.items.RecommendationFolder
 import io.music_assistant.client.data.model.client.items.Track
 import io.music_assistant.client.data.model.client.toItemKind
 import io.music_assistant.client.data.model.server.ServerProviderInstance
+import io.music_assistant.client.data.model.server.ServerUser
 import io.music_assistant.client.data.planLocalPlayerDispatch
 import io.music_assistant.client.data.repository.MediaItemRepository
 import io.music_assistant.client.data.repository.SearchResultData
@@ -71,6 +73,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import org.koin.core.qualifier.named
@@ -337,6 +342,36 @@ object KmpHelper : KoinComponent {
             mediaItemRepository.fetchRecommendationFolders().getOrNull()
                 ?: emptyList()
         }
+    }
+
+    /**
+     * The native Home tab's "shortcuts" row — mirrors `HomeScreenViewModel.loadData`'s
+     * resolution exactly: read the signed-in user's `sidebar.shortcuts` URI list, then fetch
+     * each URI's item individually. A URI that no longer resolves is silently dropped
+     * (`mapNotNull`), same as the Compose original.
+     */
+    fun fetchShortcuts(completion: (List<AppMediaItem>?) -> Unit) {
+        launchFetch("shortcuts", completion) {
+            val shortcutUris = serviceClient.sendRequest(Request(APICommands.AUTH_ME))
+                .resultAs<ServerUser>()?.preferences?.shortcuts
+            shortcutUris?.mapNotNull {
+                mediaItemRepository.fetchMediaItem(
+                    Request(
+                        command = APICommands.MUSIC_ITEM_BY_URI,
+                        args = buildJsonObject { put("uri", JsonPrimitive(it)) },
+                    ),
+                ).getOrNull()
+            } ?: emptyList()
+        }
+    }
+
+    /** Read/write pair over the same per-app `SettingsRepository.homeRowsConfig` storage the
+     * (dead, Compose-side) `HomeScreenViewModel` used — same synchronous-value-plus-write-through
+     * shape as [viewMode]/[setViewMode]. */
+    fun homeRowsConfig(): List<SettingsRepository.HomeRowPref> = settingsRepository.homeRowsConfig.value
+
+    fun setHomeRowsConfig(config: List<SettingsRepository.HomeRowPref>) {
+        settingsRepository.setHomeRowsConfig(config)
     }
 
     fun fetchPlaylists(completion: (List<AppMediaItem>?) -> Unit) {
