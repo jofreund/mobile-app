@@ -6,7 +6,10 @@ import ComposeApp
 /// calls, one per section, so a slow "Discography" fetch doesn't block "In library" from
 /// showing). Not ported: sort options, the list/grid toggle, and the provider-mapping
 /// filter chip `loadAlbumsForProvider`/`loadTopTracksForProvider` back — this always shows
-/// whichever provider mapping the cross-provider search landed on first.
+/// whichever provider mapping the cross-provider search landed on first. "Similar artists"
+/// (the person.2 toolbar button + sheet Compose's `ItemDetailsScreen.kt` has) was removed
+/// entirely, not deferred — a product decision, not a technical gap. `KmpHelper.fetchSimilarArtists`
+/// was deleted with it since nothing else used it; Compose's own equivalent is untouched.
 struct ArtistDetailsView: View {
 
     let route: ItemDetailsRoute
@@ -18,10 +21,6 @@ struct ArtistDetailsView: View {
     @State private var libraryAlbums: SectionLoadState = .loading
     @State private var allAlbums: SectionLoadState = .loading
     @State private var topTracks: SectionLoadState = .loading
-
-    @State private var showSimilarArtists = false
-    @State private var similarArtists: SectionLoadState = .loading
-    @State private var similarArtistsRequested = false
 
     var body: some View {
         Group {
@@ -66,14 +65,6 @@ struct ArtistDetailsView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
-                    showSimilarArtists = true
-                    loadSimilarArtistsIfNeeded(artist)
-                } label: {
-                    Image(systemName: "person.2")
-                }
-            }
-            ToolbarItem(placement: .topBarTrailing) {
-                Button {
                     let next = !isFavorite
                     isFavorite = next
                     _ = KmpHelper.shared.setFavorite(item: artist, favorite: next)
@@ -81,9 +72,6 @@ struct ArtistDetailsView: View {
                     Image(systemName: isFavorite ? "heart.fill" : "heart")
                 }
             }
-        }
-        .sheet(isPresented: $showSimilarArtists) {
-            SimilarArtistsSheetView(state: similarArtists)
         }
     }
 
@@ -154,18 +142,6 @@ struct ArtistDetailsView: View {
         }
     }
 
-    private func loadSimilarArtistsIfNeeded(_ artist: Artist) {
-        guard !similarArtistsRequested else { return }
-        similarArtistsRequested = true
-        similarArtists = .loading
-        Task {
-            let result: [AppMediaItem]? = await withCheckedContinuation { continuation in
-                KmpHelper.shared.fetchSimilarArtists(artist: artist) { continuation.resume(returning: $0) }
-            }
-            similarArtists = result.map { .loaded($0.asSpikeItems) } ?? .failed
-        }
-    }
-
     @MainActor
     private func load() async {
         artist = nil
@@ -173,8 +149,6 @@ struct ArtistDetailsView: View {
         libraryAlbums = .loading
         allAlbums = .loading
         topTracks = .loading
-        similarArtists = .loading
-        similarArtistsRequested = false
 
         let loaded: AppMediaItem? = await withCheckedContinuation { continuation in
             KmpHelper.shared.fetchItemDetails(
@@ -285,47 +259,3 @@ private struct ArtistSectionTile: View {
     }
 }
 
-/// The "Similar artists" sheet — a native counterpart to `SimilarArtistsSheet.kt`, with its
-/// own `NavigationStack` so drilling into a similar artist pushes inside the sheet rather
-/// than needing access to the presenting screen's navigation path.
-private struct SimilarArtistsSheetView: View {
-
-    let state: SectionLoadState
-
-    private let columns = [GridItem(.adaptive(minimum: 110, maximum: 160), spacing: 16)]
-
-    var body: some View {
-        NavigationStack {
-            Group {
-                switch state {
-                case .loading:
-                    ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
-                case .failed:
-                    ContentUnavailableView(
-                        String(localized: "library_error"),
-                        systemImage: "wifi.exclamationmark"
-                    )
-                case .loaded(let items) where items.isEmpty:
-                    ContentUnavailableView(
-                        String(localized: "library_empty"),
-                        systemImage: "tray"
-                    )
-                case .loaded(let items):
-                    ScrollView {
-                        LazyVGrid(columns: columns, spacing: 20) {
-                            ForEach(items) { item in
-                                ArtistSectionTile(item: item, isPlayable: false)
-                            }
-                        }
-                        .padding(16)
-                    }
-                }
-            }
-            .navigationTitle(String(localized: "action_similar_artists"))
-            .navigationBarTitleDisplayMode(.inline)
-            .navigationDestination(for: ItemDetailsRoute.self) { route in
-                ItemDetailsView(route: route)
-            }
-        }
-    }
-}

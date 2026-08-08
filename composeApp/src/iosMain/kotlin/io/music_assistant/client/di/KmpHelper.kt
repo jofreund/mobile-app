@@ -992,21 +992,6 @@ object KmpHelper : KoinComponent {
         }
     }
 
-    /** Lazily fetched from the artist screen's "Similar artists" sheet, mirroring
-     * `ItemDetailsViewModel.loadSimilarArtists`'s request shape. */
-    fun fetchSimilarArtists(artist: Artist, completion: (List<AppMediaItem>?) -> Unit) {
-        launchFetch("similarArtists:${artist.itemId}", completion) {
-            mediaItemRepository.fetchMediaItems(
-                Request.Artist.getSimilarArtists(
-                    itemId = artist.itemId,
-                    providerInstanceIdOrDomain = artist.provider,
-                ),
-            ).getOrNull()
-                ?.filterIsInstance<Artist>()
-                ?: emptyList()
-        }
-    }
-
     /**
      * The native genre screen's Albums/Artists overview — a mixed list Swift filters by type,
      * mirroring `ItemDetailsViewModel.loadGenreOverview`'s flattening of the server's
