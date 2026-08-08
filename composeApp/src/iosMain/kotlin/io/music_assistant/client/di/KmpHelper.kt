@@ -303,7 +303,7 @@ object KmpHelper : KoinComponent {
 
     fun fetchRecommendations(completion: (List<AppMediaItem>?) -> Unit) {
         launchFetch("recommendations", completion) {
-            mediaItemRepository.fetchMediaItems(Request.Library.recommendations()).getOrNull()
+            mediaItemRepository.fetchRecommendationFolders().getOrNull()
                 ?: emptyList()
         }
     }
@@ -312,8 +312,7 @@ object KmpHelper : KoinComponent {
         completion: (List<RecommendationFolder>?) -> Unit,
     ) {
         launchFetch("recommendationFolders", completion) {
-            mediaItemRepository.fetchMediaItems(Request.Library.recommendations()).getOrNull()
-                ?.filterIsInstance<RecommendationFolder>()
+            mediaItemRepository.fetchRecommendationFolders().getOrNull()
                 ?: emptyList()
         }
     }
