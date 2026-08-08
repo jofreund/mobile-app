@@ -146,7 +146,9 @@ private struct ExpandedPlayerRow: View {
                 hero
                     .gesture(dismissGesture)
             }
-            seekSection
+            if player.title != nil {
+                seekSection
+            }
             transportRow
             volumeRow
             if !showQueue {
