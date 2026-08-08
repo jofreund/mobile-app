@@ -41,8 +41,6 @@ struct AppShellRootView: View {
     var body: some View {
         ZStack {
             content
-                .ignoresSafeArea(.keyboard) // Compose has its own keyboard handler
-                .ignoresSafeArea(.container) // Compose still owns full-screen chrome on this side
 
             VStack(spacing: 0) {
                 if let bannerState = router.bannerState {
@@ -131,6 +129,12 @@ struct AppShellRootView: View {
         case .main:
             AppTabView()
                 .id("main")
+                // Compose has its own keyboard handler and owns full-screen chrome on this
+                // side — SettingsView() below is now substantially native (Phase E4 part 2's
+                // real TextFields) and must NOT get this: it was found to suppress the
+                // keyboard from appearing for native fields entirely (iOS 26 beta).
+                .ignoresSafeArea(.keyboard)
+                .ignoresSafeArea(.container)
         default:
             // Kotlin-exported enums aren't a closed set to Swift's exhaustiveness
             // checker, so this covers .settings (and anything added later).
