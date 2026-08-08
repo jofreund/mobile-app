@@ -280,23 +280,26 @@ private struct HomeCarouselTile: View {
     private let width: CGFloat = 140
 
     var body: some View {
-        if item.kind.isBrowsable {
-            NavigationLink(
-                value: ItemDetailsRoute(
-                    itemId: item.kotlin.itemId,
-                    mediaType: item.kotlin.mediaType,
-                    providerId: item.kotlin.provider
-                )
-            ) { tile }
+        Group {
+            if item.kind.isBrowsable {
+                NavigationLink(
+                    value: ItemDetailsRoute(
+                        itemId: item.kotlin.itemId,
+                        mediaType: item.kotlin.mediaType,
+                        providerId: item.kotlin.provider
+                    )
+                ) { tile }
+                    .buttonStyle(.plain)
+            } else {
+                Button {
+                    _ = KmpHelper.shared.playOnSelectedPlayer(item: item.kotlin, option: .replace, radio: false)
+                } label: {
+                    tile
+                }
                 .buttonStyle(.plain)
-        } else {
-            Button {
-                _ = KmpHelper.shared.playOnSelectedPlayer(item: item.kotlin, option: .replace, radio: false)
-            } label: {
-                tile
             }
-            .buttonStyle(.plain)
         }
+        .itemContextMenu(item: item)
     }
 
     private var tile: some View {

@@ -169,22 +169,25 @@ private struct SearchResultRow: View {
     let item: SpikeMediaItem
 
     var body: some View {
-        if item.kind.isBrowsable {
-            NavigationLink(
-                value: ItemDetailsRoute(
-                    itemId: item.kotlin.itemId,
-                    mediaType: item.kotlin.mediaType,
-                    providerId: item.kotlin.provider
-                )
-            ) { row }
-        } else {
-            Button {
-                _ = KmpHelper.shared.playOnSelectedPlayer(item: item.kotlin, option: .replace, radio: false)
-            } label: {
-                row
+        Group {
+            if item.kind.isBrowsable {
+                NavigationLink(
+                    value: ItemDetailsRoute(
+                        itemId: item.kotlin.itemId,
+                        mediaType: item.kotlin.mediaType,
+                        providerId: item.kotlin.provider
+                    )
+                ) { row }
+            } else {
+                Button {
+                    _ = KmpHelper.shared.playOnSelectedPlayer(item: item.kotlin, option: .replace, radio: false)
+                } label: {
+                    row
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
         }
+        .itemContextMenu(item: item)
     }
 
     private var row: some View {

@@ -348,21 +348,24 @@ private struct LibraryItemCell: View {
     let viewMode: ViewMode
 
     var body: some View {
-        if item.kind.isBrowsable {
-            NavigationLink(
-                value: ItemDetailsRoute(
-                    itemId: item.kotlin.itemId,
-                    mediaType: item.kotlin.mediaType,
-                    providerId: item.kotlin.provider
-                )
-            ) { content }
+        Group {
+            if item.kind.isBrowsable {
+                NavigationLink(
+                    value: ItemDetailsRoute(
+                        itemId: item.kotlin.itemId,
+                        mediaType: item.kotlin.mediaType,
+                        providerId: item.kotlin.provider
+                    )
+                ) { content }
+                    .buttonStyle(.plain)
+            } else {
+                Button { _ = KmpHelper.shared.playOnSelectedPlayer(item: item.kotlin, option: .replace, radio: false) } label: {
+                    content
+                }
                 .buttonStyle(.plain)
-        } else {
-            Button { _ = KmpHelper.shared.playOnSelectedPlayer(item: item.kotlin, option: .replace, radio: false) } label: {
-                content
             }
-            .buttonStyle(.plain)
         }
+        .itemContextMenu(item: item)
     }
 
     @ViewBuilder

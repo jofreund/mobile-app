@@ -34,10 +34,13 @@ import io.music_assistant.client.data.model.client.clientSorted
 import io.music_assistant.client.data.model.client.items.Album
 import io.music_assistant.client.data.model.client.items.AppMediaItem
 import io.music_assistant.client.data.model.client.items.Artist
+import io.music_assistant.client.data.model.client.items.Audiobook
 import io.music_assistant.client.data.model.client.items.Genre
+import io.music_assistant.client.data.model.client.items.MarkableItem
 import io.music_assistant.client.data.model.client.items.Playlist
 import io.music_assistant.client.data.model.client.items.Podcast
 import io.music_assistant.client.data.model.client.items.PodcastEpisode
+import io.music_assistant.client.data.model.client.items.RadioStation
 import io.music_assistant.client.data.model.client.items.RecommendationFolder
 import io.music_assistant.client.data.model.client.items.Track
 import io.music_assistant.client.data.model.client.toItemKind
@@ -45,6 +48,7 @@ import io.music_assistant.client.data.model.server.AuthProvider
 import io.music_assistant.client.data.model.server.ServerProviderInstance
 import io.music_assistant.client.data.model.server.ServerUser
 import io.music_assistant.client.data.planLocalPlayerDispatch
+import io.music_assistant.client.data.repository.MediaItemChange
 import io.music_assistant.client.data.repository.MediaItemRepository
 import io.music_assistant.client.data.repository.SearchResultData
 import io.music_assistant.client.input.VolumeButtonService
@@ -1223,5 +1227,119 @@ object KmpHelper : KoinComponent {
             }
         }
         return true
+    }
+
+    // MARK: - Item context menu (long-press actions)
+    //
+    // Which actions apply to a given item is resolved natively in Swift (mirroring
+    // `ItemActionResolver.resolveLongClickActions` 1:1, the same "small pure function,
+    // port it directly" precedent HomeView.swift's `reconciledRows` already follows) —
+    // only the actions that actually touch the server get a bridge method here.
+    // `Play Now`/`Insert Next & Play`/`Insert Next`/`Add to Queue`/`Start Radio` are
+    // already covered by [playOnSelectedPlayer] with the matching `QueueOption`/`radio`
+    // combo; `Favorite`/`Unfavorite` by [setFavorite].
+
+    /**
+     * Whether [item] supports being added to a playlist — mirrors
+     * `ItemActionResolver.supportsAddToPlaylist` (Track/Album/RadioStation/PodcastEpisode/
+     * Audiobook only; notably not Playlist/Artist/Podcast/Genre).
+     */
+    fun supportsAddToPlaylist(item: AppMediaItem): Boolean =
+        item is Track || item is Album || item is RadioStation || item is PodcastEpisode || item is Audiobook
+
+    /**
+     * "Play From Here": plays [parent] (an Album or Playlist) starting at [startItem].
+     * Mirrors `ItemDetailsViewModel.onPlayClick`'s `fromHereInParent = true` branch — the
+     * request targets the *parent's* URI with `start_item` set to the track/episode's id,
+     * not a `play_media` call on the track itself. False on no selected player or no parent URI.
+     */
+    fun playFromHere(parent: AppMediaItem, startItem: AppMediaItem): Boolean {
+        val mediaUri = parent.mediaUri ?: return false
+        val queueId = mainDataSource.selectedPlayer?.queueOrPlayerId ?: return false
+        mainScope.launch {
+            serviceClient.sendRequest(
+                Request.Library.play(
+                    media = listOf(mediaUri),
+                    queueOrPlayerId = queueId,
+                    option = QueueOption.REPLACE,
+                    radioMode = false,
+                    startItem = startItem.itemId,
+                ),
+            )
+        }
+        return true
+    }
+
+    /**
+     * Toggles library membership (add/remove) for [item] — distinct from favorite/unfavorite,
+     * which requires the item already be in the library. Mirrors `ActionsViewModel.onLibraryClick`.
+     */
+    fun setInLibrary(item: AppMediaItem, inLibrary: Boolean): Boolean {
+        if (inLibrary) {
+            val uri = item.uri ?: item.mediaUri ?: return false
+            mainScope.launch { serviceClient.sendRequest(Request.Library.add(uri)) }
+        } else {
+            mainScope.launch { serviceClient.sendRequest(Request.Library.remove(item.itemId, item.mediaType)) }
+        }
+        return true
+    }
+
+    /**
+     * The user's editable, non-dynamic playlists for the "Add to Playlist" picker — mirrors
+     * `ActionsViewModel.getEditablePlaylists`'s filtering exactly (unlike [fetchPlaylists],
+     * which returns every library playlist including read-only/smart ones).
+     */
+    fun fetchEditablePlaylists(completion: (List<Playlist>?) -> Unit) {
+        launchFetch("editablePlaylists", completion) {
+            mediaItemRepository.fetchMediaItems(Request.Playlist.listLibrary()).getOrNull()
+                ?.filterIsInstance<Playlist>()
+                ?.filter { it.isEditable && !it.isDynamic }
+                ?: emptyList()
+        }
+    }
+
+    /** Adds [itemUri] to [playlist] — mirrors `ActionsViewModel.addToPlaylist`. */
+    fun addToPlaylist(itemUri: String, playlist: Playlist, completion: (Boolean) -> Unit) {
+        mainScope.launch {
+            val result = serviceClient.sendRequest(
+                Request.Playlist.addTracks(playlistId = playlist.itemId, trackUris = listOf(itemUri)),
+            )
+            completion(result.isSuccess)
+        }
+    }
+
+    /**
+     * Removes the track at [position] (0-based, as currently displayed) from [playlistId] —
+     * mirrors `ActionsViewModel.removeFromPlaylist`'s +1 for the server's 1-based indexing.
+     */
+    fun removeFromPlaylist(playlistId: String, position: Int, completion: (Boolean) -> Unit) {
+        mainScope.launch {
+            val result = serviceClient.sendRequest(
+                Request.Playlist.removeTracks(playlistId = playlistId, positions = listOf(position + 1)),
+            )
+            completion(result.isSuccess)
+        }
+    }
+
+    /**
+     * Marks [item] played/unplayed — a no-op returning `null` for anything but a
+     * PodcastEpisode or Audiobook (the only [MarkableItem]s). The server sends no update
+     * event for this, so on success this returns the client-patched item (mirrors
+     * `ActionsViewModel.onMarkPlayed`'s `publishLocalChange` optimistic patch) for Swift to
+     * splice into its own list state instead of waiting on a refetch.
+     */
+    fun setMarkPlayed(item: AppMediaItem, played: Boolean, completion: (AppMediaItem?) -> Unit) {
+        val markable = item as? MarkableItem ?: return completion(null)
+        mainScope.launch {
+            val request = if (played) Request.Library.markPlayed(markable) else Request.Library.markUnplayed(markable)
+            val result = serviceClient.sendRequest(request)
+            if (result.isSuccess) {
+                val updated = markable.withPlayed(played)
+                mediaItemRepository.publishLocalChange(MediaItemChange.Updated(updated))
+                completion(updated)
+            } else {
+                completion(null)
+            }
+        }
     }
 }

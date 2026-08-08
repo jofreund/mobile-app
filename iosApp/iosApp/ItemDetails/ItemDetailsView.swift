@@ -30,11 +30,10 @@ struct ItemDetailsView: View {
 /// buttons, favorite toggle, and the one sub-list each of those types has (tracks,
 /// episodes, or chapters).
 ///
-/// Not here yet: sort options, the list/grid view-mode toggle, disc-number section
-/// headers, and the long-press context menu (add to playlist, play next, mark
-/// played/unplayed, remove from playlist/library). What *is* here is real: live server
-/// data, playback dispatched to whichever player is currently selected (not just this
-/// device — see `KmpHelper.playOnSelectedPlayer`), and favoriting.
+/// Not here yet: sort options, the list/grid view-mode toggle, and disc-number section
+/// headers. What *is* here is real: live server data, playback dispatched to whichever
+/// player is currently selected (not just this device — see `KmpHelper.playOnSelectedPlayer`),
+/// favoriting, and the long-press context menu (`ItemContextMenu.swift`).
 struct ContainerItemDetailsView: View {
 
     let route: ItemDetailsRoute
@@ -57,7 +56,8 @@ struct ContainerItemDetailsView: View {
                     playableItems: playableItems,
                     chapters: chapters,
                     subItemsLoading: subItemsLoading,
-                    subItemsLoadFailed: subItemsLoadFailed
+                    subItemsLoadFailed: subItemsLoadFailed,
+                    onPlaylistTrackRemoved: { Task { await load() } }
                 )
             } else if itemLoadFailed {
                 ContentUnavailableView(
@@ -139,6 +139,7 @@ private struct DetailContent: View {
     let chapters: [Chapter]
     let subItemsLoading: Bool
     let subItemsLoadFailed: Bool
+    let onPlaylistTrackRemoved: () -> Void
 
     var body: some View {
         ScrollView {
@@ -250,8 +251,13 @@ private struct DetailContent: View {
             emptyState
         } else {
             LazyVStack(spacing: 0) {
-                ForEach(playableItems) { media in
-                    PlayableRow(media: media)
+                ForEach(Array(playableItems.enumerated()), id: \.element.id) { index, media in
+                    PlayableRow(
+                        media: media,
+                        parentItem: item,
+                        index: index,
+                        onRemovedFromPlaylist: onPlaylistTrackRemoved
+                    )
                     Divider().padding(.leading, 16)
                 }
             }
@@ -269,14 +275,30 @@ private struct DetailContent: View {
 
 /// A track or podcast episode row. Tap dispatches "play now" (queue REPLACE) on the
 /// selected player — the same default a plain tap resolves to elsewhere in the app
-/// (`DefaultClickOption.PLAY_NOW`). Play-from-here, play-next, and add-to-queue are
-/// only reachable from the long-press menu on the Compose screen today; that menu
-/// isn't ported here yet.
+/// (`DefaultClickOption.PLAY_NOW`). Long-press offers Play From Here / Insert Next /
+/// Add to Queue / Start Radio / library / playlist / mark-played actions, same as
+/// every other native item row (`ItemContextMenu.swift`) — "Play From Here" and
+/// "Remove from Playlist" are only offered here, since this is the one row type that
+/// has a parent Album/Playlist context.
 private struct PlayableRow: View {
 
     let media: SpikeMediaItem
+    let parentItem: AppMediaItem
+    let index: Int
+    let onRemovedFromPlaylist: () -> Void
 
     private var duration: Double? { (media.kotlin as? PlayableItem)?.duration?.doubleValue }
+
+    private var menuContext: ItemMenuContext {
+        var context = ItemMenuContext()
+        if parentItem is Album || parentItem is Playlist {
+            context.parentForPlayFromHere = parentItem
+        }
+        if let playlist = parentItem as? Playlist, playlist.isEditable {
+            context.removeFromPlaylist = (playlistId: playlist.itemId, position: index, onSuccess: onRemovedFromPlaylist)
+        }
+        return context
+    }
 
     var body: some View {
         Button {
@@ -307,6 +329,7 @@ private struct PlayableRow: View {
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
+        .itemContextMenu(item: media, context: menuContext)
     }
 }
 
