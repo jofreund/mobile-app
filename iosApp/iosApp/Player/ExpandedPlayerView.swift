@@ -334,46 +334,63 @@ private struct ExpandedPlayerRow: View {
         // non-current rows get either affordance.
         let canInteract = item.isPlayable && !isCurrent && !isPlayed
 
-        return HStack(spacing: 12) {
-            SpikeArtwork(url: item.artworkURL, kind: .track, sizing: .fixed(40))
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 4) {
-                    if isCurrent {
-                        Image(systemName: "waveform")
-                            .font(.caption2)
-                            .foregroundStyle(.tint)
-                    }
-                    Text(item.title)
-                        .font(.subheadline.weight(isCurrent ? .semibold : .regular))
-                        .lineLimit(1)
-                }
-                if item.isPlayable {
-                    if let subtitle = item.subtitle, !subtitle.isEmpty {
-                        Text(subtitle)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                    }
-                } else {
-                    Text(String(localized: "queue_cannot_play"))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            Spacer(minLength: 0)
-        }
-        .opacity(!item.isPlayable ? 0.3 : (isPlayed ? 0.5 : 1))
-        .contentShape(Rectangle())
-        .onTapGesture {
+        // A Button, not .onTapGesture + .contentShape — matches every other tappable row in
+        // this codebase (LibraryItemCell, HomeCarouselTile, ...), and .onTapGesture on List row
+        // content is a known source of conflicts with List's own edit-mode drag-handle
+        // recognizer (found the hard way: reorder didn't work at all with .onTapGesture here).
+        return Button {
             guard !isCurrent, item.isPlayable, let queueId = player.queueId else { return }
             store.playQueueItem(queueId: queueId, queueItemId: item.id)
+        } label: {
+            HStack(spacing: 12) {
+                SpikeArtwork(url: item.artworkURL, kind: .track, sizing: .fixed(40))
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 4) {
+                        if isCurrent {
+                            Image(systemName: "waveform")
+                                .font(.caption2)
+                                .foregroundStyle(.tint)
+                        }
+                        Text(item.title)
+                            .font(.subheadline.weight(isCurrent ? .semibold : .regular))
+                            .lineLimit(1)
+                    }
+                    if item.isPlayable {
+                        if let subtitle = item.subtitle, !subtitle.isEmpty {
+                            Text(subtitle)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
+                    } else {
+                        Text(String(localized: "queue_cannot_play"))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                Spacer(minLength: 0)
+            }
+            .opacity(!item.isPlayable ? 0.3 : (isPlayed ? 0.5 : 1))
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
         .moveDisabled(!canInteract)
         .modifier(QueueRowContextMenu(item: item, queueId: player.queueId, enabled: canInteract))
         .listRowBackground(Color.clear)
     }
 
     private func queueChapterRow(_ chapter: Chapter) -> some View {
+        Button {
+            store.seek(id: player.id, seconds: chapter.start.rounded(.up))
+        } label: {
+            queueChapterRowLabel(chapter)
+        }
+        .buttonStyle(.plain)
+        .moveDisabled(true)
+        .listRowBackground(Color.clear)
+    }
+
+    private func queueChapterRowLabel(_ chapter: Chapter) -> some View {
         HStack {
             Text(chapter.name)
                 .font(.subheadline)
@@ -387,11 +404,6 @@ private struct ExpandedPlayerRow: View {
         }
         .padding(.leading, 52)
         .contentShape(Rectangle())
-        .onTapGesture {
-            store.seek(id: player.id, seconds: chapter.start.rounded(.up))
-        }
-        .moveDisabled(true)
-        .listRowBackground(Color.clear)
     }
 
     /// Resolves the flattened display move into a queue-index move, mirroring
