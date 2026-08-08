@@ -17,12 +17,12 @@ struct LibraryCategoryRoute: Hashable {
 }
 
 /// The native screen for one Library category (Artists, Albums, …) — the first slice
-/// of Phase E2. Deliberately narrower than Compose's `LibraryListScreen` (472 LOC
-/// `LibraryListViewModel`): search, sort, offset+limit pagination, and
-/// favorite/provider/genre filters are ported; not yet: the list/grid view-mode
-/// toggle and optimistic playlist creation. `BROWSE` isn't a `MediaType` and never
-/// reaches this screen — it stays on `BrowseView`, a separately-scoped path-based
-/// tree rather than a flat list.
+/// of Phase E2, now feature-complete against Compose's `LibraryListScreen` (472 LOC
+/// `LibraryListViewModel`): search, sort, offset+limit pagination,
+/// favorite/provider/genre filters, the list/grid view-mode toggle, and playlist
+/// creation are all ported. `BROWSE` isn't a `MediaType` and never reaches this
+/// screen — it stays on `BrowseView`, a separately-scoped path-based tree rather
+/// than a flat list.
 struct LibraryListView: View {
 
     let route: LibraryCategoryRoute
@@ -33,8 +33,13 @@ struct LibraryListView: View {
     @State private var sortOption: SortOption
     @State private var filters: LibraryFilters
     @State private var showFilterSheet = false
+    @State private var viewMode: ViewMode
     @State private var hasMore = true
     @State private var isLoadingMore = false
+    @State private var showCreatePlaylist = false
+    @State private var newPlaylistName = ""
+    @State private var isCreatingPlaylist = false
+    @State private var createPlaylistFailed = false
 
     private let availableSortFields: [SortField]
     private let pageSize = 50
@@ -46,6 +51,7 @@ struct LibraryListView: View {
         self.availableSortFields = SortConfig.shared.fieldsFor(mediaType: route.mediaType)
         _sortOption = State(initialValue: SortConfig.shared.defaultFor(mediaType: route.mediaType))
         _filters = State(initialValue: KmpHelper.shared.libraryFilters(mediaType: route.mediaType).value ?? LibraryFilters.companion.DEFAULT)
+        _viewMode = State(initialValue: KmpHelper.shared.viewMode(mediaType: route.mediaType).value ?? .grid)
     }
 
     /// Debounces `searchQuery` edits without hand-rolled Task bookkeeping: `.task(id:)`
@@ -64,23 +70,39 @@ struct LibraryListView: View {
     var body: some View {
         Group {
             if let items {
-                if items.isEmpty {
-                    ContentUnavailableView(
-                        String(localized: "library_empty"),
-                        systemImage: "tray"
-                    )
-                } else {
-                    ScrollView {
-                        LazyVGrid(columns: columns, spacing: 20) {
-                            ForEach(items) { item in
-                                LibraryGridTile(item: item)
-                                    .onAppear { loadMoreIfNeeded(current: item) }
+                ScrollView {
+                    if showsCreatePlaylistRow {
+                        createPlaylistRow
+                    }
+                    if items.isEmpty {
+                        ContentUnavailableView(
+                            String(localized: "library_empty"),
+                            systemImage: "tray"
+                        )
+                        .padding(.top, 40)
+                    } else {
+                        switch viewMode {
+                        case .grid:
+                            LazyVGrid(columns: columns, spacing: 20) {
+                                ForEach(items) { item in
+                                    LibraryItemCell(item: item, viewMode: viewMode)
+                                        .onAppear { loadMoreIfNeeded(current: item) }
+                                }
                             }
+                            .padding(16)
+                        default:
+                            LazyVStack(spacing: 0) {
+                                ForEach(items) { item in
+                                    LibraryItemCell(item: item, viewMode: viewMode)
+                                        .onAppear { loadMoreIfNeeded(current: item) }
+                                    Divider().padding(.leading, 76)
+                                }
+                            }
+                            .padding(.vertical, 8)
                         }
-                        .padding(16)
-                        if isLoadingMore {
-                            ProgressView().padding(.vertical, 12)
-                        }
+                    }
+                    if isLoadingMore {
+                        ProgressView().padding(.vertical, 12)
                     }
                 }
             } else if loadFailed {
@@ -105,6 +127,7 @@ struct LibraryListView: View {
             prompt: String(localized: "library_quick_search")
         )
         .toolbar {
+            ToolbarItem(placement: .primaryAction) { viewModeToggle }
             ToolbarItem(placement: .primaryAction) { filterButton }
             if availableSortFields.count > 1 {
                 ToolbarItem(placement: .primaryAction) { sortMenu }
@@ -116,11 +139,48 @@ struct LibraryListView: View {
                 KmpHelper.shared.setLibraryFilters(mediaType: route.mediaType, filters: applied)
             }
         }
+        .alert(String(localized: "playlist_create_title"), isPresented: $showCreatePlaylist) {
+            TextField(String(localized: "playlist_name_label"), text: $newPlaylistName)
+            Button(String(localized: "common_cancel"), role: .cancel) { newPlaylistName = "" }
+            Button(String(localized: "common_create")) { submitCreatePlaylist() }
+                .disabled(newPlaylistName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        }
+        .alert(String(localized: "toast_error_create_playlist"), isPresented: $createPlaylistFailed) {
+            Button(String(localized: "common_cancel"), role: .cancel) {}
+        }
         .task(id: LoadKey(route: route, query: searchQuery, sortOption: sortOption, filters: filters)) {
             try? await Task.sleep(for: .milliseconds(500))
             guard !Task.isCancelled else { return }
             await load()
         }
+    }
+
+    private var showsCreatePlaylistRow: Bool { route.mediaType == .playlist }
+
+    private var createPlaylistRow: some View {
+        Button {
+            newPlaylistName = ""
+            showCreatePlaylist = true
+        } label: {
+            Label(String(localized: "playlist_add_new"), systemImage: "plus")
+                .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.bordered)
+        .disabled(isCreatingPlaylist)
+        .accessibilityLabel(String(localized: "cd_add_playlist"))
+        .padding(.horizontal, 16)
+        .padding(.top, 12)
+    }
+
+    private var viewModeToggle: some View {
+        Button {
+            let next: ViewMode = viewMode == .grid ? .list : .grid
+            viewMode = next
+            KmpHelper.shared.setViewMode(mediaType: route.mediaType, mode: next)
+        } label: {
+            Image(systemName: viewMode == .grid ? "list.bullet" : "square.grid.2x2")
+        }
+        .accessibilityLabel(String(localized: "cd_toggle_view_mode"))
     }
 
     private var filterButton: some View {
@@ -176,6 +236,32 @@ struct LibraryListView: View {
         guard let index = items.firstIndex(where: { $0.id == item.id }) else { return }
         guard index >= items.count - 10 else { return }
         Task { await loadMore() }
+    }
+
+    /// Mirrors `ActionsViewModel.createPlaylist`'s await-the-confirmation contract
+    /// (via `KmpHelper.createPlaylist`, wired the same way `LibraryFilterAction`'s
+    /// Apply reloads this screen): a `nil` result covers both "request failed" and
+    /// "no confirming event within the timeout" — the create may still have
+    /// succeeded in the latter case, so a manual refresh recovers either way,
+    /// matching the Kotlin helper's own doc comment.
+    @MainActor
+    private func submitCreatePlaylist() {
+        let name = newPlaylistName.trimmingCharacters(in: .whitespacesAndNewlines)
+        newPlaylistName = ""
+        guard !name.isEmpty else { return }
+        isCreatingPlaylist = true
+        Task {
+            defer { isCreatingPlaylist = false }
+            let created: Playlist? = await withCheckedContinuation { continuation in
+                KmpHelper.shared.createPlaylist(name: name) { continuation.resume(returning: $0) }
+            }
+            guard !Task.isCancelled else { return }
+            if created != nil {
+                await load()
+            } else {
+                createPlaylistFailed = true
+            }
+        }
     }
 
     @MainActor
@@ -249,12 +335,16 @@ private extension SortField {
     }
 }
 
-/// A tile in the category grid. Browsable kinds (Artist/Album/Playlist/Podcast/
+/// A cell in the category list/grid. Browsable kinds (Artist/Album/Playlist/Podcast/
 /// Audiobook/Genre) push `ItemDetailsRoute`; Track and RadioStation have no detail
-/// screen anywhere in this app, so they dispatch "play now" instead.
-private struct LibraryGridTile: View {
+/// screen anywhere in this app, so they dispatch "play now" instead. Mirrors the
+/// Compose `*WithMenu` composables' own `viewMode` branch (`BrowsableItemWithMenu.kt`/
+/// `PlayableItemWithMenu.kt`): same navigation/play dispatch either way, only the
+/// visual layout (`gridTile` vs `listRow`) changes.
+private struct LibraryItemCell: View {
 
     let item: SpikeMediaItem
+    let viewMode: ViewMode
 
     var body: some View {
         if item.kind.isBrowsable {
@@ -264,17 +354,25 @@ private struct LibraryGridTile: View {
                     mediaType: item.kotlin.mediaType,
                     providerId: item.kotlin.provider
                 )
-            ) { tile }
+            ) { content }
                 .buttonStyle(.plain)
         } else {
             Button { _ = KmpHelper.shared.playOnSelectedPlayer(item: item.kotlin, option: .replace, radio: false) } label: {
-                tile
+                content
             }
             .buttonStyle(.plain)
         }
     }
 
-    private var tile: some View {
+    @ViewBuilder
+    private var content: some View {
+        switch viewMode {
+        case .list: listRow
+        default: gridTile
+        }
+    }
+
+    private var gridTile: some View {
         VStack(alignment: item.kind.prefersCircularArtwork ? .center : .leading, spacing: 8) {
             SpikeArtwork(url: item.artworkURL, kind: item.kind, sizing: .flexible(decodeHint: 180))
                 .frame(maxWidth: .infinity)
@@ -289,6 +387,27 @@ private struct LibraryGridTile: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: item.kind.prefersCircularArtwork ? .center : .leading)
+        .contentShape(.rect)
+    }
+
+    private var listRow: some View {
+        HStack(spacing: 12) {
+            SpikeArtwork(url: item.artworkURL, kind: item.kind, sizing: .fixed(48))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(item.title)
+                    .font(.body)
+                    .lineLimit(2)
+                if let subtitle = item.subtitle, !subtitle.isEmpty {
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
         .contentShape(.rect)
     }
 }

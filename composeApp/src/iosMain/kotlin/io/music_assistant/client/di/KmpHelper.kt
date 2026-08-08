@@ -44,6 +44,7 @@ import io.music_assistant.client.input.VolumeButtonService
 import io.music_assistant.client.settings.CarPlatform
 import io.music_assistant.client.settings.DefaultClickOption
 import io.music_assistant.client.settings.SettingsRepository
+import io.music_assistant.client.settings.ViewMode
 import io.music_assistant.client.settings.carBulkActions
 import io.music_assistant.client.settings.carTapAction
 import io.music_assistant.client.settings.toCarDispatch
@@ -52,6 +53,7 @@ import io.music_assistant.client.ui.AppRootDestination
 import io.music_assistant.client.ui.AppRootRouter
 import io.music_assistant.client.ui.SchemaVersionWarningViewModel
 import io.music_assistant.client.ui.SchemaWarning
+import io.music_assistant.client.ui.compose.common.viewmodel.createPlaylistAwaitingConfirmation
 import io.music_assistant.client.ui.compose.item.ItemUseCases
 import io.music_assistant.client.ui.compose.library.LibraryCategory
 import io.music_assistant.client.ui.compose.library.carTabCategories
@@ -530,6 +532,40 @@ object KmpHelper : KoinComponent {
                 ?.filterIsInstance<Genre>()
                 ?.mapNotNull { g -> g.itemId.toIntOrNull()?.let { LibraryGenreOption(it, g.displayName) } }
                 ?: emptyList()
+        }
+    }
+
+    /**
+     * The current persisted [ViewMode] for [mediaType], live — mirrors `ViewModeViewModel`'s
+     * pass-through, called directly since it holds no state of its own worth wrapping.
+     */
+    fun viewMode(mediaType: MediaType): NativeStateFlow<ViewMode> =
+        NativeStateFlow(settingsRepository.viewMode(mediaType), mainScope)
+
+    fun setViewMode(mediaType: MediaType, mode: ViewMode) {
+        settingsRepository.setViewMode(mediaType, mode)
+    }
+
+    /**
+     * Creates a playlist named [name] and resolves to the server-confirmed [Playlist], or
+     * `null` on request failure or if no confirming event arrives within the timeout —
+     * reuses `createPlaylistAwaitingConfirmation` verbatim (the same helper
+     * `ActionsViewModel.createPlaylist` calls for the "add to playlist" sheet's "add new"),
+     * rather than `LibraryListViewModel.createPlaylist`'s plainer fire-and-forget: starting
+     * the await *before* sending avoids the race where a fast server echo arrives before a
+     * listener would otherwise be attached, and gives Swift a definite point to refresh the
+     * list from rather than guessing at a delay.
+     */
+    fun createPlaylist(name: String, completion: (Playlist?) -> Unit) {
+        mainScope.launch {
+            val result = createPlaylistAwaitingConfirmation(
+                name = name,
+                itemChanges = mediaItemRepository.itemChanges,
+                timeoutMs = FETCH_TIMEOUT_MS,
+                sendCreate = { serviceClient.sendRequest(Request.Playlist.create(name)) },
+                onError = { log.w { "createPlaylist($name) failed" } },
+            )
+            completion(result)
         }
     }
 
