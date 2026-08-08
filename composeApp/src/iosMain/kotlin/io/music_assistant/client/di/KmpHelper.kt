@@ -386,6 +386,36 @@ object KmpHelper : KoinComponent {
     }
 
     /**
+     * LibraryListView.swift's single entry point, in place of the eight fetchX above:
+     * one method covering every category, with the `search` parameter those don't take.
+     * Mirrors LibraryListViewModel.getRequest's per-type dispatch, minus pagination/sort/
+     * favorite-and-provider/genre filters — LibraryListView doesn't have those yet either.
+     * `null` search matches the unfiltered fetchX behavior exactly (every listLibrary/list
+     * call defaults `search` to null).
+     */
+    fun fetchLibraryItems(
+        mediaType: MediaType,
+        search: String?,
+        completion: (List<AppMediaItem>?) -> Unit,
+    ) {
+        val request = when (mediaType) {
+            MediaType.ARTIST -> Request.Artist.listLibrary(search = search)
+            MediaType.ALBUM -> Request.Album.listLibrary(search = search)
+            MediaType.TRACK -> Request.Track.list(search = search, limit = TRACKS_FETCH_LIMIT)
+            MediaType.PLAYLIST -> Request.Playlist.listLibrary(search = search)
+            MediaType.AUDIOBOOK -> Request.Audiobook.listLibrary(search = search)
+            MediaType.PODCAST -> Request.Podcast.listLibrary(search = search)
+            MediaType.RADIO -> Request.RadioStation.listLibrary(search = search)
+            MediaType.GENRE -> Request.Genre.listLibrary(search = search)
+            else -> null
+        } ?: return completion(emptyList())
+
+        launchFetch("libraryItems:$mediaType:${search.orEmpty()}", completion) {
+            mediaItemRepository.fetchMediaItems(request).getOrNull() ?: emptyList()
+        }
+    }
+
+    /**
      * One level of the server's `music/browse` provider tree, for the native BrowseView —
      * mirrors `BrowseViewModel.load`. `path`: null for the root, or a `RecommendationFolder`'s
      * `path` (falling back to its `uri`) to descend one level, exactly as

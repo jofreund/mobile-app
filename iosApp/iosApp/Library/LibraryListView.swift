@@ -18,19 +18,31 @@ struct LibraryCategoryRoute: Hashable {
 
 /// The native screen for one Library category (Artists, Albums, …) — the first slice
 /// of Phase E2. Deliberately narrower than Compose's `LibraryListScreen` (472 LOC
-/// `LibraryListViewModel`): this is the plain unfiltered list only. Not ported yet:
-/// search, sort, the list/grid view-mode toggle, favorite-only filtering, and
-/// optimistic playlist creation. `BROWSE` isn't a `MediaType` and never reaches this
-/// screen — it stays on Compose's own `MainNav.Browse` push, a separately-scoped
-/// path-based tree rather than a flat list.
+/// `LibraryListViewModel`): a flat, searchable list, no pagination (each category
+/// fetches its whole result set — `KmpHelper.fetchLibraryItems` still caps tracks at
+/// `TRACKS_FETCH_LIMIT`, same as the unsearched path). Not ported yet: sort, the
+/// list/grid view-mode toggle, favorite/provider/genre filters, and optimistic
+/// playlist creation. `BROWSE` isn't a `MediaType` and never reaches this screen — it
+/// stays on `BrowseView`, a separately-scoped path-based tree rather than a flat list.
 struct LibraryListView: View {
 
     let route: LibraryCategoryRoute
 
     @State private var items: [SpikeMediaItem]?
     @State private var loadFailed = false
+    @State private var searchQuery = ""
 
     private let columns = [GridItem(.adaptive(minimum: 110, maximum: 180), spacing: 16)]
+
+    /// Debounces `searchQuery` edits without hand-rolled Task bookkeeping: `.task(id:)`
+    /// cancels and restarts on every keystroke, so only the sleep following the last
+    /// keystroke in a burst ever reaches `load()`. Also carries `route`, so switching
+    /// categories reloads too — both changes funnel through the same debounce delay
+    /// (imperceptible on a fresh navigation, correct for a query edit).
+    private struct LoadKey: Equatable {
+        let route: LibraryCategoryRoute
+        let query: String
+    }
 
     var body: some View {
         Group {
@@ -61,7 +73,12 @@ struct LibraryListView: View {
         }
         .navigationTitle(categoryTitle)
         .navigationBarTitleDisplayMode(.large)
-        .task(id: route) { await load() }
+        .searchable(text: $searchQuery, prompt: String(localized: "library_quick_search"))
+        .task(id: LoadKey(route: route, query: searchQuery)) {
+            try? await Task.sleep(for: .milliseconds(500))
+            guard !Task.isCancelled else { return }
+            await load()
+        }
     }
 
     private var categoryTitle: String {
@@ -83,27 +100,12 @@ struct LibraryListView: View {
         items = nil
         loadFailed = false
 
+        let query = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         let result: [AppMediaItem]? = await withCheckedContinuation { continuation in
-            switch route.mediaType {
-            case .artist:
-                KmpHelper.shared.fetchArtists { continuation.resume(returning: $0) }
-            case .album:
-                KmpHelper.shared.fetchAlbums { continuation.resume(returning: $0) }
-            case .track:
-                KmpHelper.shared.fetchTracks { continuation.resume(returning: $0) }
-            case .playlist:
-                KmpHelper.shared.fetchPlaylists { continuation.resume(returning: $0) }
-            case .audiobook:
-                KmpHelper.shared.fetchAudiobooks { continuation.resume(returning: $0) }
-            case .podcast:
-                KmpHelper.shared.fetchPodcasts { continuation.resume(returning: $0) }
-            case .radio:
-                KmpHelper.shared.fetchRadioStations { continuation.resume(returning: $0) }
-            case .genre:
-                KmpHelper.shared.fetchGenres { continuation.resume(returning: $0) }
-            default:
-                continuation.resume(returning: [])
-            }
+            KmpHelper.shared.fetchLibraryItems(
+                mediaType: route.mediaType,
+                search: query.isEmpty ? nil : query
+            ) { continuation.resume(returning: $0) }
         }
         guard !Task.isCancelled else { return }
         guard let result else {
