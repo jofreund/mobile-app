@@ -1,5 +1,11 @@
 import SwiftUI
 import ComposeApp
+import os
+
+private let playerLog = Logger(
+    subsystem: Bundle.main.bundleIdentifier ?? "io.music-assistant.client",
+    category: "ExpandedPlayer"
+)
 
 /// Native expanded (full-screen) player — Phase 1: hero, seek, full transport, volume,
 /// swipe-between-players (plus a quick-switch popover from tapping the player name), and
@@ -557,7 +563,10 @@ private struct ExpandedPlayerRow: View {
         }
         positionSub = KmpHelper.shared.observePlayerBarPosition(playerId: player.id).subscribe(
             onEach: { value in livePosition = value?.doubleValue },
-            onError: { _ in }
+            // A dead position flow just looks like a stuck playhead, with nothing else to go on.
+            onError: { error in
+                playerLog.error("position flow failed: \(String(describing: error), privacy: .public)")
+            }
         )
     }
 

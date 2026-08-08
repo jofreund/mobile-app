@@ -1,5 +1,14 @@
 import SwiftUI
 import ComposeApp
+import os
+
+/// Auth/connection failures reaching Swift used to be dropped on the floor, which made a
+/// stalled sign-in indistinguishable from one still in flight. Kermit's own logs already
+/// reach this same unified log through `OsLogSinkImpl`, so these land alongside them.
+private let connectionLog = Logger(
+    subsystem: Bundle.main.bundleIdentifier ?? "io.music-assistant.client",
+    category: "ConnectionSetup"
+)
 
 /// Drives every `ConnectionSetupView` section — Direct/WebRTC connect forms, connection
 /// history, and the login/OAuth panel. Same shape as `AppRouter.swift`: turns Kotlin
@@ -148,7 +157,9 @@ final class ConnectionSetupStore {
         providersLoadHandle?.cancel()
         providersLoadHandle = KmpHelper.shared.fetchAuthProviders(
             completion: { [weak self] result in self?.providers = result ?? [] },
-            onError: { _ in }
+            onError: { error in
+                connectionLog.error("fetchAuthProviders failed: \(String(describing: error), privacy: .public)")
+            }
         )
     }
 
@@ -162,16 +173,23 @@ final class ConnectionSetupStore {
                 username: username,
                 password: password,
                 completion: { _ in },
-                onError: { _ in }
+                onError: { error in
+                    connectionLog.error("loginWithCredentials failed: \(String(describing: error), privacy: .public)")
+                }
             )
         } else {
             _ = KmpHelper.shared.getOAuthUrl(
                 providerId: provider.id,
                 completion: { url in
-                    guard let url else { return }
+                    guard let url else {
+                        connectionLog.error("getOAuthUrl returned no URL — OAuth cannot start")
+                        return
+                    }
                     _ = KmpHelper.shared.authManager.startOAuthFlow(oauthUrl: url)
                 },
-                onError: { _ in }
+                onError: { error in
+                    connectionLog.error("getOAuthUrl failed: \(String(describing: error), privacy: .public)")
+                }
             )
         }
     }

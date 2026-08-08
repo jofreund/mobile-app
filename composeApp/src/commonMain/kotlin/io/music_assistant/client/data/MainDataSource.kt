@@ -1066,7 +1066,12 @@ class MainDataSource(
                     ),
                 )
 
-                else -> Unit
+                // This overload hand-duplicates a subset of what the PlayerData one below
+                // resolves through PlayerRequestFactory, so shuffle/repeat/power/speed and
+                // friends land here and go nowhere. Callers that only hold a player id (the
+                // native group settings sheet, CarPlay) rely on the cases above; anything else
+                // reaching this branch is a wiring mistake that used to vanish without trace.
+                else -> log.w { "playerAction(playerId) has no branch for $action — dropped" }
             }
         }
     }
