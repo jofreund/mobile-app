@@ -1351,44 +1351,57 @@ object KmpHelper : KoinComponent {
     // MARK: - Player bar (native mini + expanded player)
     //
     // Thin wraps over MainDataSource — the real state (player list, selection resolution,
-    // local-vs-remote command routing/optimistic dispatch) all stays in Kotlin. Shuffle/repeat/
-    // mute toggles follow the same "pass the current value, Kotlin computes the next one" shape
-    // `PlayerRequestFactory.resolve()` already uses server-side (e.g. repeat cycles
-    // OFF→ALL→ONE→OFF there, not in Swift) — [currentPlayerData] backs all four of them. Group
-    // volume, DSP, queue transfer, and the rest of PlayerAction's cases stay unreached for now —
-    // the expanded player's overflow menu and queue list aren't ported yet.
+    // local-vs-remote command routing/optimistic dispatch) all stays in Kotlin. Every action
+    // below resolves the current PlayerData via [currentPlayerData] and calls the
+    // PlayerData-based `mainDataSource.playerAction(data, action)` overload — the exact same
+    // path Compose's own PlayerControls/PlayersPager use, which routes through
+    // PlayerRequestFactory (or LocalPlayerController for the local player). Deliberately NOT
+    // the sibling `playerAction(playerId: String, action)` overload: that one has its own
+    // hand-duplicated `when` that only covers a subset of PlayerAction's cases (no
+    // ToggleShuffle/ToggleRepeatMode/SeekBy/SetPlaybackSpeed/SetPower — they silently no-op via
+    // its `else -> Unit`) — found the hard way when the native shuffle/repeat buttons turned out
+    // to do nothing. Shuffle/repeat/mute toggles follow the same "pass the current value, Kotlin
+    // computes the next one" shape `PlayerRequestFactory.resolve()` already uses server-side
+    // (e.g. repeat cycles OFF→ALL→ONE→OFF there, not in Swift). Group volume, DSP, queue
+    // transfer, and the rest of PlayerAction's cases stay unreached for now — the expanded
+    // player's overflow menu and queue list aren't ported yet.
 
     val playerBarState: NativeStateFlow<PlayerBarState>
         get() = NativeStateFlow(mainDataSource.playerBarState, mainScope)
 
     fun selectPlayerBarPlayer(playerId: String) = mainDataSource.selectPlayer(playerId)
 
-    fun togglePlayerBarPlayPause(playerId: String) = mainDataSource.playerAction(playerId, PlayerAction.TogglePlayPause)
+    fun togglePlayerBarPlayPause(playerId: String) = dispatchPlayerBarAction(playerId, PlayerAction.TogglePlayPause)
 
-    fun skipPlayerBarNext(playerId: String) = mainDataSource.playerAction(playerId, PlayerAction.Next)
+    fun skipPlayerBarNext(playerId: String) = dispatchPlayerBarAction(playerId, PlayerAction.Next)
 
-    fun skipPlayerBarPrevious(playerId: String) = mainDataSource.playerAction(playerId, PlayerAction.Previous)
+    fun skipPlayerBarPrevious(playerId: String) = dispatchPlayerBarAction(playerId, PlayerAction.Previous)
 
     fun seekPlayerBar(playerId: String, seconds: Double) =
-        mainDataSource.playerAction(playerId, PlayerAction.SeekTo(seconds.toLong()))
+        dispatchPlayerBarAction(playerId, PlayerAction.SeekTo(seconds.toLong()))
 
     fun togglePlayerBarShuffle(playerId: String) {
         val enabled = currentPlayerData(playerId)?.queueInfo?.shuffleEnabled ?: return
-        mainDataSource.playerAction(playerId, PlayerAction.ToggleShuffle(enabled))
+        dispatchPlayerBarAction(playerId, PlayerAction.ToggleShuffle(enabled))
     }
 
     fun cyclePlayerBarRepeatMode(playerId: String) {
         val current = currentPlayerData(playerId)?.queueInfo?.repeatMode ?: return
-        mainDataSource.playerAction(playerId, PlayerAction.ToggleRepeatMode(current))
+        dispatchPlayerBarAction(playerId, PlayerAction.ToggleRepeatMode(current))
     }
 
     fun togglePlayerBarMute(playerId: String) {
         val muted = currentPlayerData(playerId)?.player?.currentMuteState ?: return
-        mainDataSource.playerAction(playerId, PlayerAction.ToggleMute(muted))
+        dispatchPlayerBarAction(playerId, PlayerAction.ToggleMute(muted))
     }
 
     fun setPlayerBarVolume(playerId: String, level: Float) =
-        mainDataSource.playerAction(playerId, PlayerAction.VolumeSet(level.toDouble()))
+        dispatchPlayerBarAction(playerId, PlayerAction.VolumeSet(level.toDouble()))
+
+    private fun dispatchPlayerBarAction(playerId: String, action: PlayerAction) {
+        val data = currentPlayerData(playerId) ?: return
+        mainDataSource.playerAction(data, action)
+    }
 
     /**
      * A ticking position source for the expanded player's seek slider — wraps

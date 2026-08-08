@@ -1,16 +1,18 @@
 import SwiftUI
 import ComposeApp
 
-/// Native expanded (full-screen) player — Phase 1: hero, seek, full transport, favorite,
-/// volume, swipe-between-players, swipe-down-to-dismiss. Reuses the exact `PlayerBarStore`
-/// `AppTabView` already owns and passes to `MiniPlayerView` — Compose's own `ExpandedPlayerPage`
-/// and `CollapsedPlayerPage` share one `HorizontalPager`/state too, just a richer per-page
-/// composable, so there's no separate player list/selection to bridge here.
+/// Native expanded (full-screen) player — Phase 1: hero, seek, full transport, volume,
+/// swipe-between-players (plus a quick-switch popover from tapping the player name), and
+/// swipe-down-to-dismiss. Reuses the exact `PlayerBarStore` `AppTabView` already owns and
+/// passes to `MiniPlayerView` — Compose's own `ExpandedPlayerPage` and `CollapsedPlayerPage`
+/// share one `HorizontalPager`/state too, just a richer per-page composable, so there's no
+/// separate player list/selection to bridge here.
 ///
-/// Deliberately **not** here yet (unreachable until a later phase builds each natively): the
-/// reorderable queue list, group management, DSP settings, playback speed, lyrics, and the
-/// overflow (⋮) menu (power, "don't stop the music", queue transfer, go-to-artist/album). None
-/// of the underlying Kotlin/server logic is touched — only their Swift entry point is gone.
+/// Deliberately **not** here yet (unreachable until a later phase builds each natively):
+/// favoriting (moving to the overflow menu, not staying in the always-visible hero row), the
+/// reorderable queue list, group management, DSP settings, playback speed, lyrics, and the rest
+/// of the overflow (⋮) menu (power, "don't stop the music", queue transfer, go-to-artist/album).
+/// None of the underlying Kotlin/server logic is touched — only their Swift entry point is gone.
 struct ExpandedPlayerView: View {
 
     var store: PlayerBarStore
@@ -51,6 +53,7 @@ struct ExpandedPlayerView: View {
         .scrollTargetBehavior(.paging)
         .scrollIndicators(.hidden)
         .scrollPosition(id: $scrollID)
+        .onChange(of: store.selectedIndex) { _, _ in syncScrollToSelection() }
         .onChange(of: scrollID) { _, newID in
             guard let newID, newID != currentPlayerID else { return }
             store.selectPlayer(id: newID)
@@ -60,6 +63,45 @@ struct ExpandedPlayerView: View {
     private var currentPlayerID: String? {
         guard store.players.indices.contains(store.selectedIndex) else { return nil }
         return store.players[store.selectedIndex].id
+    }
+
+    /// Picking a player from the popover list only calls `store.selectPlayer` — this pushes
+    /// that Kotlin-driven change into the scroll position, the counterpart to `MiniPlayerView`'s
+    /// own `syncScrollToSelection` (a swipe here calls `selectPlayer` too, but that round-trips
+    /// back to the same `selectedIndex` it just set, so the guard below no-ops for that path).
+    private func syncScrollToSelection() {
+        guard let targetID = currentPlayerID, targetID != scrollID else { return }
+        withAnimation(.easeOut(duration: 0.25)) { scrollID = targetID }
+    }
+}
+
+/// The popover shown from tapping the player name in the header — every connected player,
+/// tap to switch. Mirrors Compose's `SelectPlayerDialog` minus reordering (deferred; this is
+/// the "quick switch" affordance, not full player management).
+private struct PlayerPickerList: View {
+
+    let store: PlayerBarStore
+    let currentId: String
+    let onSelect: () -> Void
+
+    var body: some View {
+        List(store.players) { player in
+            Button {
+                store.selectPlayer(id: player.id)
+                onSelect()
+            } label: {
+                HStack {
+                    Text(player.name)
+                    Spacer()
+                    if player.id == currentId {
+                        Image(systemName: "checkmark")
+                    }
+                }
+            }
+            .foregroundStyle(.primary)
+        }
+        .listStyle(.plain)
+        .frame(minWidth: 260, idealHeight: 320)
     }
 }
 
@@ -79,6 +121,7 @@ private struct ExpandedPlayerRow: View {
     @State private var releasedSeekPosition: Double?
 
     @State private var volumeDragValue: Float?
+    @State private var showPlayerPicker = false
 
     var body: some View {
         VStack(spacing: 24) {
@@ -87,7 +130,7 @@ private struct ExpandedPlayerRow: View {
                 .gesture(dismissGesture)
             seekSection
             transportRow
-            favoriteAndVolumeRow
+            volumeRow
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 24)
@@ -110,9 +153,23 @@ private struct ExpandedPlayerRow: View {
                     .font(.title3.weight(.semibold))
             }
             Spacer()
-            Text(player.name)
+            Button {
+                showPlayerPicker = true
+            } label: {
+                HStack(spacing: 4) {
+                    Text(player.name)
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.caption2.weight(.semibold))
+                }
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.secondary)
+            }
+            .popover(isPresented: $showPlayerPicker) {
+                PlayerPickerList(store: store, currentId: player.id) {
+                    showPlayerPicker = false
+                }
+                .presentationCompactAdaptation(.popover)
+            }
             Spacer()
             // Balances the chevron button so the name stays visually centered.
             Image(systemName: "chevron.down").font(.title3).opacity(0)
@@ -261,23 +318,15 @@ private struct ExpandedPlayerRow: View {
         player.repeatMode == .one ? "repeat.1" : "repeat"
     }
 
-    // MARK: - Favorite + volume
+    // MARK: - Volume
+    //
+    // Favoriting was here too, but removed for now — it'll come back as an overflow-menu entry
+    // once that's built (matches Compose's own PlayerOverflowMenu, not the always-visible hero
+    // row), rather than staying here permanently. `PlayerBarItem.trackItem` stays on the model
+    // either way since the overflow menu will need it again.
 
-    private var canFavorite: Bool { player.trackItem?.uri != nil }
-    private var isFavorite: Bool { player.trackItem?.favorite?.boolValue ?? false }
-
-    private var favoriteAndVolumeRow: some View {
+    private var volumeRow: some View {
         VStack(spacing: 16) {
-            if canFavorite {
-                Button {
-                    guard let item = player.trackItem else { return }
-                    _ = KmpHelper.shared.setFavorite(item: item, favorite: !isFavorite)
-                } label: {
-                    Image(systemName: isFavorite ? "heart.fill" : "heart")
-                        .font(.title3)
-                }
-            }
-
             if let volume = player.volumeLevel {
                 HStack(spacing: 12) {
                     Button {
