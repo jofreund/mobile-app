@@ -8,6 +8,7 @@ import io.ktor.client.request.get
 import io.ktor.client.statement.readRawBytes
 import io.ktor.http.Url
 import io.music_assistant.client.api.APICommands
+import io.music_assistant.client.api.ConnectionInfo
 import io.music_assistant.client.api.DeepLinkBus
 import io.music_assistant.client.api.DeepLinkDestination
 import io.music_assistant.client.api.Request
@@ -44,6 +45,10 @@ import io.music_assistant.client.data.planLocalPlayerDispatch
 import io.music_assistant.client.data.repository.MediaItemRepository
 import io.music_assistant.client.data.repository.SearchResultData
 import io.music_assistant.client.input.VolumeButtonService
+import io.music_assistant.client.logging.InMemoryLogWriter
+import io.music_assistant.client.logging.LogSharer
+import io.music_assistant.client.player.sendspin.audio.Codec
+import io.music_assistant.client.player.sendspin.audio.Codecs
 import io.music_assistant.client.settings.CarPlatform
 import io.music_assistant.client.settings.DefaultClickOption
 import io.music_assistant.client.settings.SettingsRepository
@@ -60,7 +65,9 @@ import io.music_assistant.client.ui.compose.common.viewmodel.createPlaylistAwait
 import io.music_assistant.client.ui.compose.item.ItemUseCases
 import io.music_assistant.client.ui.compose.library.LibraryCategory
 import io.music_assistant.client.ui.compose.library.carTabCategories
+import io.music_assistant.client.ui.theme.ThemeSetting
 import io.music_assistant.client.utils.HasConnectionData
+import io.music_assistant.client.utils.SessionState
 import io.music_assistant.client.utils.currentTimeMillis
 import io.music_assistant.client.utils.resultAs
 import kotlinx.cinterop.BetaInteropApi
@@ -72,6 +79,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
@@ -115,6 +123,7 @@ object KmpHelper : KoinComponent {
     private val mediaItemRepository: MediaItemRepository by inject()
     private val settingsRepository: SettingsRepository by inject()
     private val volumeButtonService: VolumeButtonService by inject()
+    private val logSharer: LogSharer by inject()
     private val artworkHttpClient: HttpClient by inject(named("webrtcHttpClient"))
 
     // Provide a scope for Swift to launch coroutines if needed
@@ -382,6 +391,86 @@ object KmpHelper : KoinComponent {
     fun setLibraryCategoryConfig(config: List<SettingsRepository.LibraryCategoryPref>) {
         settingsRepository.setLibraryCategoryConfig(config)
     }
+
+    // MARK: - Settings (native Settings screen, connected+authenticated sections only —
+    // see SettingsView.swift's doc for why connection setup/auth/Car stay Compose-hosted)
+
+    /**
+     * Live session state, exposed as-is (a real Kotlin sealed class, `is`/`as?`-matchable from
+     * Swift — same pattern `DeepLinkDestination` already uses) rather than flattened, so
+     * `SettingsView.swift` can decide per-emission whether to render natively (`Connected` +
+     * `Authenticated`) or fall back to hosting the unmodified Compose `SettingsScreen` for every
+     * other state (connecting, reconnecting, disconnected, mid-auth).
+     */
+    val sessionState: NativeStateFlow<SessionState> get() = NativeStateFlow(serviceClient.sessionState, mainScope)
+
+    /** The connection info last used for a direct (non-WebRTC) connection — `ServerInfoSection`
+     * shows this rather than deriving host/port from the live session, matching the Compose
+     * original (`SettingsViewModel.savedConnectionInfo`). */
+    fun savedConnectionInfo(): ConnectionInfo? = settingsRepository.connectionInfo.value
+
+    fun theme(): ThemeSetting = settingsRepository.theme.value
+
+    fun switchTheme(theme: ThemeSetting) {
+        settingsRepository.switchTheme(theme)
+    }
+
+    fun hasCrashLog(): Boolean = logSharer.hasCrashLog()
+
+    /** Mirrors `SettingsViewModel.shareLogs`/`shareCrashLog` — `LogSharer.ios.kt`'s
+     * `presentShareFile` already drives a native `UIActivityViewController` itself, so there's
+     * nothing further for Swift to present; these just need to be triggered and awaited. */
+    fun shareLogs(chooserTitle: String, completion: () -> Unit) {
+        mainScope.launch {
+            withContext(Dispatchers.Default) {
+                logSharer.prepareLogShareFile(InMemoryLogWriter.getLogText())
+            }.let { logSharer.presentShareFile(it, chooserTitle) }
+            completion()
+        }
+    }
+
+    fun shareCrashLog(chooserTitle: String, completion: () -> Unit) {
+        mainScope.launch {
+            withContext(Dispatchers.Default) { logSharer.prepareCrashLogShareFile() }
+                ?.let { logSharer.presentShareFile(it, chooserTitle) }
+            completion()
+        }
+    }
+
+    fun deleteCrashLog() {
+        logSharer.deleteCrashLog()
+    }
+
+    /** Sendspin (local player) settings — one read/write pair per field, matching how
+     * `SettingsRepository` itself stores them (separate `StateFlow`s, not one grouped object).
+     * All nine mirror `SettingsViewModel`'s own re-exports/setters exactly. */
+    fun sendspinEnabled(): Boolean = settingsRepository.sendspinEnabled.value
+    fun setSendspinEnabled(enabled: Boolean) = settingsRepository.setSendspinEnabled(enabled)
+
+    fun sendspinDeviceName(): String = settingsRepository.sendspinDeviceName.value
+    fun setSendspinDeviceName(name: String) = settingsRepository.setSendspinDeviceName(name)
+
+    fun sendspinUseCustomConnection(): Boolean = settingsRepository.sendspinUseCustomConnection.value
+    fun setSendspinUseCustomConnection(enabled: Boolean) = settingsRepository.setSendspinUseCustomConnection(enabled)
+
+    fun sendspinHost(): String = settingsRepository.sendspinHost.value
+    fun setSendspinHost(host: String) = settingsRepository.setSendspinHost(host)
+
+    fun sendspinPort(): Int = settingsRepository.sendspinPort.value
+    fun setSendspinPort(port: Int) = settingsRepository.setSendspinPort(port)
+
+    fun sendspinPath(): String = settingsRepository.sendspinPath.value
+    fun setSendspinPath(path: String) = settingsRepository.setSendspinPath(path)
+
+    fun sendspinUseTls(): Boolean = settingsRepository.sendspinUseTls.value
+    fun setSendspinUseTls(enabled: Boolean) = settingsRepository.setSendspinUseTls(enabled)
+
+    fun sendspinCodecPreference(): Codec = settingsRepository.sendspinCodecPreference.value
+    fun setSendspinCodecPreference(codec: Codec) = settingsRepository.setSendspinCodecPreference(codec)
+    fun sendspinCodecOptions(): List<Codec> = Codecs.list
+
+    fun sendspinBufferCapacityMb(): Int = settingsRepository.sendspinBufferCapacityMb.value
+    fun setSendspinBufferCapacityMb(mb: Int) = settingsRepository.setSendspinBufferCapacityMb(mb)
 
     fun fetchPlaylists(completion: (List<AppMediaItem>?) -> Unit) {
         launchFetch("playlists", completion) {

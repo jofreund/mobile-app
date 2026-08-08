@@ -30,6 +30,7 @@
 		C8FS00032F5F000000000003 /* LibraryFilterSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8FS00132F5F000000000013 /* LibraryFilterSheet.swift */; };
 		C8GD00032F5C000000000003 /* GenreDetailsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8GD00132F5C000000000013 /* GenreDetailsView.swift */; };
 		C8HV00032F61000000000003 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8HV00132F61000000000013 /* HomeView.swift */; };
+		C8ST00032F63000000000003 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8ST00132F63000000000013 /* SettingsView.swift */; };
 		C8ID00032F5A000000000003 /* ItemDetailsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8ID00132F5A000000000013 /* ItemDetailsView.swift */; };
 		C8LC00012F4F000000000001 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = C8LC00112F4F000000000011 /* Localizable.xcstrings */; };
 		C8LL00032F5D000000000003 /* LibraryListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8LL00132F5D000000000013 /* LibraryListView.swift */; };
@@ -66,6 +67,7 @@
 		C8FS00132F5F000000000013 /* LibraryFilterSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryFilterSheet.swift; sourceTree = "<group>"; };
 		C8GD00132F5C000000000013 /* GenreDetailsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GenreDetailsView.swift; sourceTree = "<group>"; };
 		C8HV00132F61000000000013 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
+		C8ST00132F63000000000013 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		C8ID00132F5A000000000013 /* ItemDetailsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ItemDetailsView.swift; sourceTree = "<group>"; };
 		C8LC00112F4F000000000011 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		C8LL00132F5D000000000013 /* LibraryListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryListView.swift; sourceTree = "<group>"; };
@@ -167,6 +169,7 @@
 				C8LL00062F5D000000000006 /* Library */,
 				C8SV00062F60000000000006 /* Search */,
 				C8HV00062F61000000000006 /* Home */,
+				C8ST00062F63000000000006 /* Settings */,
 				C8LC00112F4F000000000011 /* Localizable.xcstrings */,
 				C8AV00022F2C000000000002 /* AppIntentVocabulary.plist */,
 			);
@@ -205,6 +208,14 @@
 				C8HV00132F61000000000013 /* HomeView.swift */,
 			);
 			path = Home;
+			sourceTree = "<group>";
+		};
+		C8ST00062F63000000000006 /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				C8ST00132F63000000000013 /* SettingsView.swift */,
+			);
+			path = Settings;
 			sourceTree = "<group>";
 		};
 		C8ID00062F5A000000000006 /* ItemDetails */ = {
@@ -421,6 +432,7 @@
 				C8FS00032F5F000000000003 /* LibraryFilterSheet.swift in Sources */,
 				C8SV00032F60000000000003 /* SearchView.swift in Sources */,
 				C8HV00032F61000000000003 /* HomeView.swift in Sources */,
+				C8ST00032F63000000000003 /* SettingsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

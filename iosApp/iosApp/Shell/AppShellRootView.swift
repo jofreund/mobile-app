@@ -134,7 +134,7 @@ struct AppShellRootView: View {
         default:
             // Kotlin-exported enums aren't a closed set to Swift's exhaustiveness
             // checker, so this covers .settings (and anything added later).
-            ComposeHostView(makeController: ComposeScreenHostsKt.SettingsAppController)
+            SettingsView()
                 .id("settings")
         }
     }
