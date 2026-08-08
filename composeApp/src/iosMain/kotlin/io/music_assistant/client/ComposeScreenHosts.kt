@@ -52,19 +52,19 @@ import platform.UIKit.UIViewController
  * drops player controls.
  *
  * `ItemDetails` was the first step into Phase E1, and the Library tab's own
- * category grid (Artists/Albums/…) followed the same pattern for Phase E2:
- * every place [MainNavigationRoot] used to push its own internal
- * `MainNav.ItemDetails` / `MainNav.LibraryList` (Home rows, Library, Browse,
- * Search, and the floating bar's own queue-item tap) now calls
- * [onNavigateToItemDetails] / [onNavigateToLibraryCategory] instead — plain
- * Kotlin closures Swift passes in directly, no NativeStateFlow needed since
- * these are one-shot calls, not an observed stream. `AppShellRootView`'s
- * Main case wraps this controller in a real `NavigationStack` and pushes a
- * native screen when either fires. `Browse` and `ItemList`'s own
- * search/sort/filter are still Compose-owned — replacing the rest of the
- * Library tab alongside an untested rewrite of every remaining push
- * destination in one pass would risk shipping a build that silently drops
- * player controls.
+ * category grid (Artists/Albums/…) plus the Browse tree followed the same
+ * pattern for Phase E2: every place [MainNavigationRoot] used to push its own
+ * internal `MainNav.ItemDetails` / `MainNav.LibraryList` / `MainNav.Browse`
+ * (Home rows, Library, Browse, Search, and the floating bar's own queue-item
+ * tap) now calls [onNavigateToItemDetails] / [onNavigateToLibraryCategory] /
+ * [onNavigateToBrowse] instead — plain Kotlin closures Swift passes in
+ * directly, no NativeStateFlow needed since these are one-shot calls, not an
+ * observed stream. `AppShellRootView`'s Main case wraps this controller in a
+ * real `NavigationStack` and pushes a native screen when any of them fires.
+ * `ItemList`'s own search/sort/filter is still Compose-owned — replacing the
+ * rest of the Library tab alongside an untested rewrite of every remaining
+ * push destination in one pass would risk shipping a build that silently
+ * drops player controls.
  */
 @Suppress(
     "FunctionNaming",
@@ -72,6 +72,7 @@ import platform.UIKit.UIViewController
 fun MainAppController(
     onNavigateToItemDetails: (itemId: String, mediaType: MediaType, providerId: String) -> Unit,
     onNavigateToLibraryCategory: (mediaType: MediaType) -> Unit,
+    onNavigateToBrowse: () -> Unit,
 ): UIViewController = ComposeUIViewController(
     configure = { bootstrapKmp() },
 ) {
@@ -80,6 +81,7 @@ fun MainAppController(
             goToSettings = { KmpHelper.requestSettings() },
             onNavigateToItemDetails = onNavigateToItemDetails,
             onNavigateToLibraryCategory = onNavigateToLibraryCategory,
+            onNavigateToBrowse = onNavigateToBrowse,
         )
     }
 }

@@ -52,7 +52,6 @@ import io.music_assistant.client.data.model.client.items.Audiobook
 import io.music_assistant.client.data.model.client.items.Genre
 import io.music_assistant.client.data.model.client.items.Playlist
 import io.music_assistant.client.data.model.client.items.Podcast
-import io.music_assistant.client.data.model.client.items.RecommendationFolder
 import io.music_assistant.client.input.VolumeButtonService
 import io.music_assistant.client.ui.compose.common.ToastDuration
 import io.music_assistant.client.ui.compose.common.ToastHost
@@ -64,8 +63,6 @@ import io.music_assistant.client.ui.compose.home.players.PlayersPager
 import io.music_assistant.client.ui.compose.item.ItemListScreen
 import io.music_assistant.client.ui.compose.item.ItemListViewModel
 import io.music_assistant.client.ui.compose.item.ViewModeViewModel
-import io.music_assistant.client.ui.compose.library.BrowseScreen
-import io.music_assistant.client.ui.compose.library.BrowseViewModel
 import io.music_assistant.client.ui.compose.library.LibraryCategoriesViewModel
 import io.music_assistant.client.ui.compose.library.LibraryCategory
 import io.music_assistant.client.ui.compose.library.LibraryScreen
@@ -97,8 +94,6 @@ import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
-import kotlin.uuid.ExperimentalUuidApi
-import kotlin.uuid.Uuid
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -118,9 +113,13 @@ fun MainNavigationRoot(
     // Same "Compose never navigates" pattern, one level up: the Library tab's
     // category grid (Artists/Albums/…) no longer pushes Compose's own
     // MainNav.LibraryList — Swift owns the category-list screen too now.
-    // BROWSE is the one category left on Compose's own MultiBackStack; it's
-    // path-based rather than a MediaType, and porting it is separately scoped.
     onNavigateToLibraryCategory: (mediaType: MediaType) -> Unit,
+    // BROWSE was the last category left on Compose's own MultiBackStack — it's
+    // path-based rather than a MediaType, so it needed its own callback rather
+    // than folding into onNavigateToLibraryCategory. Swift's BrowseView.swift
+    // owns every level of the tree now, including the recursive "drill into a
+    // folder" push that used to be MainNav.Browse pushing itself.
+    onNavigateToBrowse: () -> Unit,
 ) {
     val uriHandler = LocalUriHandler.current
     val toastState = rememberToastState()
@@ -322,6 +321,7 @@ fun MainNavigationRoot(
                                 searchScreenState,
                                 onNavigateToItemDetails,
                                 onNavigateToLibraryCategory,
+                                onNavigateToBrowse,
                             ),
                         ),
                     ),
@@ -348,6 +348,7 @@ private fun mainNavEntryProvider(
     searchScreenState: MutableState<SearchScreenState?>,
     onNavigateToItemDetails: (itemId: String, mediaType: MediaType, providerId: String) -> Unit,
     onNavigateToLibraryCategory: (mediaType: MediaType) -> Unit,
+    onNavigateToBrowse: () -> Unit,
 ): (NavKey) -> NavEntry<NavKey> {
     // Hoisted here (outlives the per-NavEntry SearchViewModel) to carry an empty-quick-search
     // escalation from the library tab to the Search tab. Set by ItemList, consumed by SearchScreen.
@@ -394,47 +395,9 @@ private fun mainNavEntryProvider(
                 state = screenState,
                 onCategoryClick = { category ->
                     if (category == LibraryCategory.BROWSE) {
-                        multiBackStack.add(MainNav.Browse(path = null, title = null))
+                        onNavigateToBrowse()
                     } else {
                         category.mediaType?.let { onNavigateToLibraryCategory(it) }
-                    }
-                },
-            )
-        }
-
-        entry<MainNav.Browse> { browse ->
-            val browseViewModel = koinViewModel<BrowseViewModel> {
-                parametersOf(browse.path)
-            }
-
-            BrowseScreen(
-                browseViewModel = browseViewModel,
-                title = browse.title,
-                contentPadding = contentPadding,
-                actionsViewModel = actionsViewModel,
-                onBack = { multiBackStack.removeLastOrNull() },
-                onNavigateClick = { item ->
-                    when (item) {
-                        is RecommendationFolder ->
-                            if (item.isParentLink) {
-                                // The server's ".." entry maps to our own back navigation.
-                                multiBackStack.removeLastOrNull()
-                            } else {
-                                // BrowseFolder carries an explicit `path`; `uri` is only a fallback.
-                                multiBackStack.add(
-                                    MainNav.Browse(path = item.path ?: item.uri, title = item.displayName),
-                                )
-                            }
-
-                        is Artist,
-                        is Album,
-                        is Playlist,
-                        is Podcast,
-                        is Audiobook,
-                        is Genre,
-                        -> onNavigateToItemDetails(item.itemId, item.mediaType, item.provider)
-
-                        else -> Unit
                     }
                 },
             )
@@ -516,19 +479,6 @@ private sealed interface MainNav : NavKey {
     @Serializable
     data object Library : MainNav
 
-    /**
-     * One level of the folder-style Browse tree. [path] is the server browse path (null = root);
-     * [stackingId] keeps stacked levels distinct in the back stack (multiple instances of the same
-     * folder can appear when the server's browse tree loops back on itself).
-     */
-    @OptIn(ExperimentalUuidApi::class)
-    @Serializable
-    data class Browse(
-        val path: String?,
-        val title: String?,
-        val stackingId: String = Uuid.generateV4().toString(),
-    ) : MainNav
-
     @Serializable
     data object Search : MainNav
 
@@ -549,7 +499,6 @@ private fun rememberMainNavBackStack(bottom: MainNav) = rememberNavBackStack(
                 polymorphic(NavKey::class) {
                     subclass(MainNav.Landing::class, MainNav.Landing.serializer())
                     subclass(MainNav.Library::class, MainNav.Library.serializer())
-                    subclass(MainNav.Browse::class, MainNav.Browse.serializer())
                     subclass(MainNav.Search::class, MainNav.Search.serializer())
                     subclass(MainNav.ItemList::class, MainNav.ItemList.serializer())
                 }

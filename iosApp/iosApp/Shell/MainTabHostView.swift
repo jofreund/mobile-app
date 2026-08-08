@@ -28,25 +28,28 @@ struct ItemDetailsRoute: Hashable {
 /// Wraps `MainAppController()` in a real `NavigationStack` — the first
 /// destinations Swift owns instead of Compose's own `MultiBackStack`. See
 /// `ComposeScreenHosts.kt`'s doc for the full picture: everything *except*
-/// ItemDetails and the Library tab's own category grid (tabs, Browse,
+/// ItemDetails and the Library tab's own category grid/Browse tree (tabs,
 /// ItemList's search/sort/filter, the floating player bar) still lives
 /// inside the one Compose tree `MainAppController()` hosts; a tap that used
-/// to push `MainNav.ItemDetails` or `MainNav.LibraryList` surfaces here
-/// instead.
+/// to push `MainNav.ItemDetails`, `MainNav.LibraryList`, or `MainNav.Browse`
+/// surfaces here instead.
 ///
 /// `ItemDetailsView` (ItemDetails/ItemDetailsView.swift) routes to a native screen for
 /// every item type this app pushes: Album/Playlist/Podcast/Audiobook share
 /// `ContainerItemDetailsView`, Artist and Genre get their own screens
 /// (`ArtistDetailsView.swift`, `GenreDetailsView.swift`). `ItemDetailsPlaceholderView`
 /// below is now dead code for every reachable `MediaType` but stays as the fallback for
-/// whatever isn't. `LibraryListView` (Library/LibraryListView.swift) is the Phase E2
-/// counterpart: one unfiltered grid per category, reached from the Library tab's own
-/// category tiles.
+/// whatever isn't. `LibraryListView` and `BrowseView` (Library/LibraryListView.swift,
+/// Library/BrowseView.swift) are the Phase E2 counterparts: one unfiltered grid per
+/// category, and the folder-style provider browse tree, both reached from the Library
+/// tab's own category tiles. `BrowseView` pushes further `BrowseRoute`s for its own
+/// recursive "drill into a folder" navigation — one `.navigationDestination` registration
+/// here resolves pushes of that type at any depth, not just the first level.
 struct MainTabHostView: View {
 
-    // NavigationPath (type-erased), not a typed array: this stack now carries two
-    // distinct route types (ItemDetailsRoute, LibraryCategoryRoute) and will grow
-    // more as further Library-tab pieces move to Swift.
+    // NavigationPath (type-erased), not a typed array: this stack carries three
+    // distinct route types (ItemDetailsRoute, LibraryCategoryRoute, BrowseRoute) and
+    // will grow more as further Library-tab pieces move to Swift.
     @State private var path = NavigationPath()
 
     var body: some View {
@@ -69,6 +72,9 @@ struct MainTabHostView: View {
                 .navigationDestination(for: LibraryCategoryRoute.self) { route in
                     LibraryListView(route: route)
                 }
+                .navigationDestination(for: BrowseRoute.self) { route in
+                    BrowseView(route: route)
+                }
         }
     }
 
@@ -79,6 +85,9 @@ struct MainTabHostView: View {
             },
             onNavigateToLibraryCategory: { [self] mediaType in
                 path.append(LibraryCategoryRoute(mediaType: mediaType))
+            },
+            onNavigateToBrowse: { [self] in
+                path.append(BrowseRoute(path: nil, title: nil))
             }
         )
     }

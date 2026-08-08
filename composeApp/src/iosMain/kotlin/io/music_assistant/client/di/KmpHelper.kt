@@ -385,6 +385,21 @@ object KmpHelper : KoinComponent {
         }
     }
 
+    /**
+     * One level of the server's `music/browse` provider tree, for the native BrowseView —
+     * mirrors `BrowseViewModel.load`. `path`: null for the root, or a `RecommendationFolder`'s
+     * `path` (falling back to its `uri`) to descend one level, exactly as
+     * `MainNav.Browse(path = item.path ?: item.uri, …)` does on the Compose side. The server
+     * returns the whole level in one shot — no pagination here, matching BrowseViewModel's own
+     * doc comment.
+     */
+    fun fetchBrowseItems(path: String?, completion: (List<AppMediaItem>?) -> Unit) {
+        launchFetch("browse:${path ?: "root"}", completion) {
+            mediaItemRepository.fetchMediaItems(Request.Browse.atPath(path)).getOrNull()
+                ?: emptyList()
+        }
+    }
+
     fun search(query: String, completion: (List<AppMediaItem>?) -> Unit) {
         launchFetch("search:$query", completion) {
             val result = mediaItemRepository.search(
