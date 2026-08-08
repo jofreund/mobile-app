@@ -432,10 +432,14 @@ private struct ExpandedPlayerRow: View {
     private func handleMove(rows: [QueueDisplayRow], from: IndexSet, to: Int) {
         guard let fromDisplayIndex = from.first, from.count == 1 else { return }
         guard case let .track(fromItem, fromQueueIndex) = rows[fromDisplayIndex] else { return }
-        guard let currentIndex = currentQueueIndex, let queueId = player.queueId else { return }
+        guard let queueId = player.queueId else { return }
 
-        let toQueueIndex = resolveTargetQueueIndex(rows: rows, to: to, currentIndex: currentIndex)
-        guard toQueueIndex > currentIndex else { return }
+        let toQueueIndex = resolveTargetQueueIndex(rows: rows, to: to, currentIndex: currentQueueIndex)
+        // Dropping at or before the currently-playing item is rejected. A queue with no current
+        // item at all imposes no such floor — Compose spells this out as
+        // `currentIdx >= 0 && toQueueIndex <= currentIdx`, and requiring a current item here
+        // (as this used to) silently dropped every reorder in a not-yet-playing queue.
+        if let currentIndex = currentQueueIndex, toQueueIndex <= currentIndex { return }
 
         var order = displayOrder ?? orderedQueueItems.map(\.id)
         order.move(fromOffsets: IndexSet(integer: fromQueueIndex), toOffset: toQueueIndex)
@@ -462,14 +466,16 @@ private struct ExpandedPlayerRow: View {
     /// omitted current-item rows before `to`, which is what silently broke every reorder after
     /// the current-item row was removed to fix the queue-duplication issue — this reads the
     /// real index directly instead of re-deriving it.
-    private func resolveTargetQueueIndex(rows: [QueueDisplayRow], to: Int, currentIndex: Int) -> Int {
+    private func resolveTargetQueueIndex(rows: [QueueDisplayRow], to: Int, currentIndex: Int?) -> Int {
         for row in rows[to...] {
             if case let .track(_, queueIndex) = row { return queueIndex }
         }
         for row in rows[..<to].reversed() {
             if case let .track(_, queueIndex) = row { return queueIndex + 1 }
         }
-        return currentIndex + 1
+        // Only reachable with no `.track` rows at all (a queue of nothing but chapter rows),
+        // where nothing is draggable in the first place.
+        return (currentIndex ?? -1) + 1
     }
 
     private func scrollToCurrent(proxy: ScrollViewProxy, animated: Bool) {

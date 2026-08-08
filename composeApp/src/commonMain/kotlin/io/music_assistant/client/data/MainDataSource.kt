@@ -1122,14 +1122,29 @@ class MainDataSource(
                 is QueueAction.MoveItem -> {
                     (action.to - action.from)
                         .takeIf { it != 0 }
-                        ?.let {
-                            apiClient.sendRequest(
+                        ?.let { shift ->
+                            val result = apiClient.sendRequest(
                                 Request.Queue.moveItem(
                                     queueId = action.queueId,
                                     queueItemId = action.queueItemId,
-                                    positionShift = action.to - action.from,
+                                    positionShift = shift,
                                 ),
                             )
+                            // The server refuses to move an item it has already played or
+                            // buffered, and this whole function used to discard every result —
+                            // so a rejected move looked identical to an applied one from the
+                            // client's side. Log it instead of guessing.
+                            if (result.isFailure) {
+                                log.e(result.exceptionOrNull()) {
+                                    "Queue move rejected: item=${action.queueItemId} " +
+                                        "${action.from}->${action.to} (pos_shift=$shift)"
+                                }
+                            } else {
+                                log.d {
+                                    "Queue move sent: item=${action.queueItemId} " +
+                                        "${action.from}->${action.to} (pos_shift=$shift) -> $result"
+                                }
+                            }
                         }
                 }
 
