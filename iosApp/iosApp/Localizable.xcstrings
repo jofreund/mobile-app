@@ -8165,6 +8165,30 @@
         }
       }
     },
+    "settings_qr_scan_unavailable" : {
+      "comment" : "Shown when VisionKit's DataScannerViewController is unavailable (e.g. Simulator, no camera). Swift-only, no Compose equivalent.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kamera-Scan ist auf diesem Gerät nicht verfügbar."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Camera scanning is not available on this device."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Camera scannen is niet beschikbaar op dit apparaat."
+          }
+        }
+      }
+    },
     "settings_remote_id" : {
       "extractionState" : "stale",
       "localizations" : {

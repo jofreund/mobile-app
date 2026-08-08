@@ -31,6 +31,10 @@
 		C8GD00032F5C000000000003 /* GenreDetailsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8GD00132F5C000000000013 /* GenreDetailsView.swift */; };
 		C8HV00032F61000000000003 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8HV00132F61000000000013 /* HomeView.swift */; };
 		C8ST00032F63000000000003 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8ST00132F63000000000013 /* SettingsView.swift */; };
+		C8ST00042F63000000000004 /* ConnectionSetupStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8ST00142F63000000000014 /* ConnectionSetupStore.swift */; };
+		C8ST00052F63000000000005 /* ConnectionSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8ST00152F63000000000015 /* ConnectionSetupView.swift */; };
+		C8ST00072F63000000000007 /* QrScanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8ST00172F63000000000017 /* QrScanView.swift */; };
+		C8ST00082F63000000000008 /* ConnectionValidation.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8ST00182F63000000000018 /* ConnectionValidation.swift */; };
 		C8ID00032F5A000000000003 /* ItemDetailsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8ID00132F5A000000000013 /* ItemDetailsView.swift */; };
 		C8LC00012F4F000000000001 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = C8LC00112F4F000000000011 /* Localizable.xcstrings */; };
 		C8LL00032F5D000000000003 /* LibraryListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8LL00132F5D000000000013 /* LibraryListView.swift */; };
@@ -68,6 +72,10 @@
 		C8GD00132F5C000000000013 /* GenreDetailsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GenreDetailsView.swift; sourceTree = "<group>"; };
 		C8HV00132F61000000000013 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		C8ST00132F63000000000013 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		C8ST00142F63000000000014 /* ConnectionSetupStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionSetupStore.swift; sourceTree = "<group>"; };
+		C8ST00152F63000000000015 /* ConnectionSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionSetupView.swift; sourceTree = "<group>"; };
+		C8ST00172F63000000000017 /* QrScanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QrScanView.swift; sourceTree = "<group>"; };
+		C8ST00182F63000000000018 /* ConnectionValidation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionValidation.swift; sourceTree = "<group>"; };
 		C8ID00132F5A000000000013 /* ItemDetailsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ItemDetailsView.swift; sourceTree = "<group>"; };
 		C8LC00112F4F000000000011 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		C8LL00132F5D000000000013 /* LibraryListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryListView.swift; sourceTree = "<group>"; };
@@ -214,6 +222,10 @@
 			isa = PBXGroup;
 			children = (
 				C8ST00132F63000000000013 /* SettingsView.swift */,
+				C8ST00142F63000000000014 /* ConnectionSetupStore.swift */,
+				C8ST00152F63000000000015 /* ConnectionSetupView.swift */,
+				C8ST00172F63000000000017 /* QrScanView.swift */,
+				C8ST00182F63000000000018 /* ConnectionValidation.swift */,
 			);
 			path = Settings;
 			sourceTree = "<group>";
@@ -433,6 +445,10 @@
 				C8SV00032F60000000000003 /* SearchView.swift in Sources */,
 				C8HV00032F61000000000003 /* HomeView.swift in Sources */,
 				C8ST00032F63000000000003 /* SettingsView.swift in Sources */,
+				C8ST00042F63000000000004 /* ConnectionSetupStore.swift in Sources */,
+				C8ST00052F63000000000005 /* ConnectionSetupView.swift in Sources */,
+				C8ST00072F63000000000007 /* QrScanView.swift in Sources */,
+				C8ST00082F63000000000008 /* ConnectionValidation.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -1,20 +1,18 @@
 import SwiftUI
 import ComposeApp
 
-/// Settings — Phase E4, part 1. `SettingsScreen.kt` (1,309 LOC) does double duty as both
-/// first-run/reconnect connection setup (host/port/TLS, WebRTC + QR scan, connection history)
-/// *and* the authenticated settings screen (server info, login, Sendspin/local-player config,
-/// Car actions, DSP, theme, logs). The connection-setup and authentication pieces sit on top of
-/// real protocol/session logic (`AuthenticationManager`'s server-ID-mismatch detection and
-/// per-server token lifecycle, `SilentReauth`'s bounded-retry-vs-surface-immediately asymmetry)
-/// that must not be hand-reimplemented — getting it subtly wrong risks actually locking a user
-/// out, a materially worse failure mode than anything native so far. So this screen only goes
-/// native for the sections reachable once already connected *and* authenticated (server info,
-/// account/logout, theme, Sendspin, logs); everything else falls back to hosting the existing,
-/// completely unmodified Compose `SettingsScreen` via `ComposeHostView` — a user mid-connection-
-/// setup or logging in sees exactly what they see today. Car actions/DSP settings are deferred
-/// too (lower usage — CarPlay-specific — same low-risk pass-through shape as Sendspin, just not
-/// done yet) and stay reachable only through the Compose fallback for now.
+/// Settings — Phase E4. `SettingsScreen.kt` (1,309 LOC) used to do double duty as both the
+/// first-run/reconnect connection setup flow (host/port/TLS, WebRTC + QR scan, connection
+/// history) *and* the authenticated settings screen (server info, login, Sendspin/local-player
+/// config, Car actions, DSP, theme, logs). Part 1 went native only for the sections reachable
+/// once already connected *and* authenticated; part 2 finishes the rest — connection setup and
+/// login/OAuth — via `ConnectionSetupView`, wrapping (never reimplementing)
+/// `AuthenticationManager`'s real state machine (server-ID-mismatch detection, per-server token
+/// lifecycle, `SilentReauth`'s bounded-retry-vs-surface-immediately asymmetry). Car actions/DSP
+/// settings are still deferred (lower usage — CarPlay-specific — same low-risk pass-through
+/// shape as Sendspin, just not done yet); as of part 2 they have no reachable native or Compose
+/// path from this screen, a pre-existing gap since part 1 shipped (the native authenticated
+/// `Form` below never included them, and nothing routes to the Compose fallback anymore).
 ///
 /// `KmpHelper.sessionState` exposes the real Kotlin `SessionState` sealed class directly (same
 /// pattern `AppTabView.swift` already uses for `DeepLinkDestination`) so this view can branch on
@@ -31,9 +29,7 @@ struct SettingsView: View {
                    let authenticated = connected.dataConnectionState as? DataConnectionStateAuthenticated {
                     nativeContent(connected: connected, authenticated: authenticated)
                 } else {
-                    ComposeHostView(makeController: { ComposeScreenHostsKt.SettingsAppController() })
-                        .ignoresSafeArea()
-                        .toolbar(.hidden, for: .navigationBar)
+                    ConnectionSetupView(sessionState: sessionState)
                 }
             }
             .navigationTitle(String(localized: "nav_settings"))
@@ -59,7 +55,7 @@ struct SettingsView: View {
     @ViewBuilder
     private func nativeContent(connected: SessionState.Connected, authenticated: DataConnectionStateAuthenticated) -> some View {
         Form {
-            serverInfoSection(connected: connected)
+            SettingsServerInfoSection(connected: connected)
             if let user = connected.user {
                 accountSection(user: user)
             }
@@ -72,47 +68,13 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - Server info
-
-    private func serverInfoSection(connected: SessionState.Connected) -> some View {
-        Section(String(localized: "settings_server")) {
-            if let direct = connected as? SessionState.ConnectedDirect {
-                Text(
-                    String(
-                        format: String(localized: "settings_connected_to"),
-                        direct.connectionInfo.host,
-                        direct.connectionInfo.port
-                    )
-                )
-            } else {
-                Text(String(localized: "settings_connected_webrtc"))
-            }
-            if let serverInfo = connected.serverInfo {
-                Text(
-                    String(
-                        format: String(localized: "settings_version_info"),
-                        serverInfo.serverVersion ?? "",
-                        serverInfo.schemaVersion?.stringValue ?? ""
-                    )
-                )
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            }
-            Button(role: .destructive) {
-                KmpHelper.shared.serviceClient.disconnectByUser()
-            } label: {
-                Text(String(localized: "settings_disconnect"))
-            }
-        }
-    }
-
     // MARK: - Account
 
     private func accountSection(user: User) -> some View {
         Section(String(localized: "auth_title")) {
             Text(String(format: String(localized: "auth_logged_in_as"), user.description_))
             Button(String(localized: "auth_logout")) {
-                KmpHelper.shared.serviceClient.logout()
+                _ = KmpHelper.shared.authLogout {}
             }
         }
     }
@@ -144,6 +106,47 @@ struct SettingsView: View {
 
     private var miscSection: some View {
         MiscLogsSection()
+    }
+}
+
+/// Shared between `SettingsView.nativeContent` (authenticated) and `ConnectionSetupView`
+/// (connected but not-yet-authenticated) — Compose shows this section for *any* `Connected`
+/// state, not just the authenticated one, so both native call sites reuse it verbatim rather
+/// than duplicating the Direct/WebRTC info text or the disconnect button.
+struct SettingsServerInfoSection: View {
+
+    let connected: SessionState.Connected
+
+    var body: some View {
+        Section(String(localized: "settings_server")) {
+            if let direct = connected as? SessionState.ConnectedDirect {
+                Text(
+                    String(
+                        format: String(localized: "settings_connected_to"),
+                        direct.connectionInfo.host,
+                        direct.connectionInfo.port
+                    )
+                )
+            } else {
+                Text(String(localized: "settings_connected_webrtc"))
+            }
+            if let serverInfo = connected.serverInfo {
+                Text(
+                    String(
+                        format: String(localized: "settings_version_info"),
+                        serverInfo.serverVersion ?? "",
+                        serverInfo.schemaVersion?.stringValue ?? ""
+                    )
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
+            Button(role: .destructive) {
+                KmpHelper.shared.serviceClient.disconnectByUser()
+            } label: {
+                Text(String(localized: "settings_disconnect"))
+            }
+        }
     }
 }
 

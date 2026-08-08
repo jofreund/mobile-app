@@ -13,9 +13,11 @@ import io.music_assistant.client.api.DeepLinkBus
 import io.music_assistant.client.api.DeepLinkDestination
 import io.music_assistant.client.api.Request
 import io.music_assistant.client.api.ServiceClient
+import io.music_assistant.client.auth.AuthState
 import io.music_assistant.client.auth.AuthenticationManager
 import io.music_assistant.client.bridge.Cancellable
 import io.music_assistant.client.bridge.NativeStateFlow
+import io.music_assistant.client.bridge.NativeSuspend
 import io.music_assistant.client.carplay.CarPlayStrings
 import io.music_assistant.client.data.MainDataSource
 import io.music_assistant.client.data.NowPlayingModes
@@ -39,6 +41,7 @@ import io.music_assistant.client.data.model.client.items.PodcastEpisode
 import io.music_assistant.client.data.model.client.items.RecommendationFolder
 import io.music_assistant.client.data.model.client.items.Track
 import io.music_assistant.client.data.model.client.toItemKind
+import io.music_assistant.client.data.model.server.AuthProvider
 import io.music_assistant.client.data.model.server.ServerProviderInstance
 import io.music_assistant.client.data.model.server.ServerUser
 import io.music_assistant.client.data.planLocalPlayerDispatch
@@ -50,6 +53,7 @@ import io.music_assistant.client.logging.LogSharer
 import io.music_assistant.client.player.sendspin.audio.Codec
 import io.music_assistant.client.player.sendspin.audio.Codecs
 import io.music_assistant.client.settings.CarPlatform
+import io.music_assistant.client.settings.ConnectionHistoryEntry
 import io.music_assistant.client.settings.DefaultClickOption
 import io.music_assistant.client.settings.SettingsRepository
 import io.music_assistant.client.settings.ViewMode
@@ -70,6 +74,7 @@ import io.music_assistant.client.utils.HasConnectionData
 import io.music_assistant.client.utils.SessionState
 import io.music_assistant.client.utils.currentTimeMillis
 import io.music_assistant.client.utils.resultAs
+import io.music_assistant.client.webrtc.model.RemoteId
 import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.addressOf
@@ -392,8 +397,9 @@ object KmpHelper : KoinComponent {
         settingsRepository.setLibraryCategoryConfig(config)
     }
 
-    // MARK: - Settings (native Settings screen, connected+authenticated sections only —
-    // see SettingsView.swift's doc for why connection setup/auth/Car stay Compose-hosted)
+    // MARK: - Settings (native Settings screen — connection setup, login/OAuth, and the
+    // connected+authenticated sections; Car actions/DSP settings still stay Compose-only,
+    // see SettingsView.swift's doc)
 
     /**
      * Live session state, exposed as-is (a real Kotlin sealed class, `is`/`as?`-matchable from
@@ -408,6 +414,103 @@ object KmpHelper : KoinComponent {
      * shows this rather than deriving host/port from the live session, matching the Compose
      * original (`SettingsViewModel.savedConnectionInfo`). */
     fun savedConnectionInfo(): ConnectionInfo? = settingsRepository.connectionInfo.value
+
+    // MARK: - Auth (login/OAuth) — thin wraps over AuthenticationManager, which stays the
+    // sole owner of the actual state machine (server-ID-mismatch detection, per-server token
+    // lifecycle, abandoned-OAuth-flow recovery). Nothing here re-derives any of that.
+
+    /** Live auth state — same `is`/`as?`-matchable pattern as [sessionState]. Drives
+     * `ConnectionSetupStore`'s login-form UI (loading/providers-loaded/authenticated/error). */
+    val authState: NativeStateFlow<AuthState> get() = NativeStateFlow(authManager.authState, mainScope)
+
+    /** Matches `AuthenticationViewModel`'s private `OAUTH_RETURN_URL` — now shared since Swift
+     * needs the same literal for [getOAuthUrl]. Must stay in sync with `iOSApp.swift`'s
+     * `handleIncomingURL` scheme/host/path parsing. */
+    private const val OAUTH_RETURN_URL = "musicassistant://auth/callback"
+
+    /** Wraps `AuthenticationManager.getProviders()`. Swift cancels the returned handle before
+     * starting a new load (mirrors `AuthenticationViewModel`'s `flatMapLatest` — cancelling the
+     * underlying coroutine here is what makes `getProviders()`'s own "rethrow
+     * CancellationException, don't surface as Error" behavior apply). */
+    fun fetchAuthProviders(completion: (List<AuthProvider>?) -> Unit, onError: (Throwable) -> Unit): Cancellable =
+        NativeSuspend(mainScope) { authManager.getProviders().getOrThrow() }
+            .invoke(completion, onError)
+
+    /** Wraps `AuthenticationManager.loginWithCredentials()`. Result surfaces asynchronously via
+     * [authState], same as Compose — this completion is just "the call was made." */
+    fun loginWithCredentials(
+        providerId: String,
+        username: String,
+        password: String,
+        completion: (Unit?) -> Unit,
+        onError: (Throwable) -> Unit,
+    ): Cancellable =
+        NativeSuspend(mainScope) { authManager.loginWithCredentials(providerId, username, password).getOrThrow() }
+            .invoke(completion, onError)
+
+    /** Wraps `AuthenticationManager.getOAuthUrl()`. On success, Swift calls
+     * `authManager.startOAuthFlow(oauthUrl:)` directly (already public, non-suspend — no bridge
+     * needed, same as `handleOAuthCallback` is already called directly). */
+    fun getOAuthUrl(providerId: String, completion: (String?) -> Unit, onError: (Throwable) -> Unit): Cancellable =
+        NativeSuspend(mainScope) { authManager.getOAuthUrl(providerId, OAUTH_RETURN_URL).getOrThrow() }
+            .invoke(completion, onError)
+
+    /** Wraps `AuthenticationManager.logout()` — the `AuthCoordinator` path that sets
+     * `_isLoggingOut = true` before clearing the token, guarding against a race with the
+     * sessionState collector's auto-login-with-saved-token branch. Use this, not
+     * `serviceClient.logout()` directly (which `SettingsViewModel.logout()` uses and is not
+     * wired to any live UI — see the research this bridge is based on). */
+    fun authLogout(completion: () -> Unit): Cancellable =
+        NativeSuspend(mainScope) { authManager.logout().getOrThrow() }
+            .invoke({ completion() }, { completion() })
+
+    // MARK: - Connection setup (Direct/WebRTC connect, history) — thin wraps over
+    // `ServiceClient`/`SettingsRepository`, mirroring `SettingsViewModel` verbatim.
+
+    /** Mirrors `SettingsViewModel.attemptConnection` verbatim, including the bare `toInt()` —
+     * safe because callers gate the Connect button on the same host/port validation Compose
+     * uses before this is reachable. */
+    fun attemptConnection(host: String, port: String, isTls: Boolean) {
+        serviceClient.connect(ConnectionInfo(host, port.toInt(), isTls))
+    }
+
+    /** Mirrors `SettingsViewModel.attemptWebRTCConnection` verbatim — parses/validates via
+     * `RemoteId.parse` in Kotlin rather than exporting its `require()`-guarded constructor to
+     * Swift; silently no-ops on an unparseable id, same as the original. */
+    fun attemptWebRTCConnection(remoteId: String) {
+        RemoteId.parse(remoteId)?.let { serviceClient.connectWebRTC(it) }
+    }
+
+    /** "direct"/"webrtc" — plain string, matches `SettingsRepository.preferredConnectionMethod`
+     * exactly (not normalized to an enum here, to stay a byte-for-byte mirror of the setting). */
+    val preferredConnectionMethod: NativeStateFlow<String>
+        get() = NativeStateFlow(settingsRepository.preferredConnectionMethod, mainScope)
+
+    fun setPreferredConnectionMethod(method: String) {
+        settingsRepository.setPreferredConnectionMethod(method)
+    }
+
+    val webrtcRemoteId: NativeStateFlow<String> get() = NativeStateFlow(settingsRepository.webrtcRemoteId, mainScope)
+
+    fun setWebrtcRemoteId(remoteId: String) {
+        settingsRepository.setWebrtcRemoteId(remoteId)
+    }
+
+    val connectionHistory: NativeStateFlow<List<ConnectionHistoryEntry>>
+        get() = NativeStateFlow(settingsRepository.connectionHistory, mainScope)
+
+    /** Mirrors `SettingsViewModel.removeFromHistory` verbatim — also clears the entry's saved
+     * token, not just the history row. */
+    fun removeFromHistory(entry: ConnectionHistoryEntry) {
+        settingsRepository.removeHistoryEntry(entry.serverIdentifier)
+        settingsRepository.setTokenForServer(entry.serverIdentifier, null)
+    }
+
+    fun hasCredentialsForDirect(host: String, port: Int, isTls: Boolean): Boolean =
+        settingsRepository.getTokenForServer(settingsRepository.getDirectServerIdentifier(host, port, isTls)) != null
+
+    fun hasCredentialsForWebRTC(remoteId: String): Boolean =
+        settingsRepository.getTokenForServer(settingsRepository.getWebRTCServerIdentifier(remoteId)) != null
 
     fun theme(): ThemeSetting = settingsRepository.theme.value
 
