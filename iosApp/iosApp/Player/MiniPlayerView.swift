@@ -26,7 +26,13 @@ struct MiniPlayerView: View {
 
     @State private var scrollID: String?
 
-    private let reservedHeight: CGFloat = 84
+    /// Also used by `AppTabView.swift` to size `FloatingBarSideEffectsController`'s
+    /// `.background` identically — that background is `.background(alignment: .bottom)`'d
+    /// onto the *same* view this reserves space on, so if it were ever taller than this, the
+    /// excess would bleed upward past the reserved region and its opaque Compose backdrop
+    /// would paint over the bottom slice of whatever's scrolling underneath (this exact bug,
+    /// found and fixed once already — do not let the two drift apart again).
+    static let reservedHeight: CGFloat = 84
 
     var body: some View {
         ZStack {
@@ -34,7 +40,7 @@ struct MiniPlayerView: View {
                 pager
             }
         }
-        .frame(height: reservedHeight)
+        .frame(height: Self.reservedHeight)
     }
 
     private var pager: some View {

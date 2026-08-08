@@ -200,7 +200,7 @@ private extension View {
                     onExpand: { playerExpanded.wrappedValue = true }
                 )
             })
-            .frame(height: 100)
+            .frame(height: MiniPlayerView.reservedHeight)
             .allowsHitTesting(false)
         }
     }
