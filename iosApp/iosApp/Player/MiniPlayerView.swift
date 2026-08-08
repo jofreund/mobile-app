@@ -5,9 +5,16 @@ import ComposeApp
 /// connected players. A completed swipe calls `PlayerBarStore.selectPlayer`, mirroring
 /// Compose's `HorizontalPager` + `snapshotFlow { pagerState.settledPage }.collect { selectPlayer(...) }`
 /// wiring it replaces (see `ComposeScreenHosts.kt`'s now-removed `PlayerBarContent` pager
-/// effect for the original). Renders nothing when there are no connected players, so the tab
-/// reclaims full height — matching the Compose original's "renders nothing when not
-/// Data+non-empty" behavior.
+/// effect for the original).
+///
+/// Reserves [reservedHeight] unconditionally — even before `store.players` is populated —
+/// rather than collapsing to zero height while empty. `.safeAreaInset`'s reserved space is
+/// supposed to track its content's size dynamically, but with `store.players` arriving a beat
+/// after first layout (an async Kotlin subscription), the reserve was observed getting stuck
+/// at its original zero-height measurement, leaving scrollable content underneath (e.g.
+/// `HomeView`'s carousels) clipped by the mini player once it appeared. A constant height
+/// sidesteps that regardless of the exact cause, matching the original Compose host's own
+/// always-100pt-regardless-of-content behavior.
 ///
 /// Volume/shuffle/repeat/seek and the expanded (full-screen) player are intentionally not
 /// here — this is the *collapsed* bar only; tapping it opens the still-Compose-hosted expanded
@@ -19,14 +26,15 @@ struct MiniPlayerView: View {
 
     @State private var scrollID: String?
 
+    private let reservedHeight: CGFloat = 84
+
     var body: some View {
-        Group {
-            if store.players.isEmpty {
-                EmptyView()
-            } else {
+        ZStack {
+            if !store.players.isEmpty {
                 pager
             }
         }
+        .frame(height: reservedHeight)
     }
 
     private var pager: some View {
@@ -42,7 +50,6 @@ struct MiniPlayerView: View {
         .scrollTargetBehavior(.paging)
         .scrollIndicators(.hidden)
         .scrollPosition(id: $scrollID)
-        .frame(height: 80)
         .padding(.horizontal, 8)
         .padding(.bottom, 4)
         .onAppear { syncScrollToSelection() }
