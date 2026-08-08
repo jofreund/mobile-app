@@ -64,7 +64,10 @@ struct SettingsView: View {
                 accountSection(user: user)
             }
             themeSection
-            SendspinSection()
+            // SendspinSection() intentionally not shown — local player is a reduced-scope
+            // feature for now (product decision, not a technical gap). Left defined below,
+            // not deleted, and KmpHelper's Sendspin bridge methods stay as-is: re-add this
+            // line to bring it back.
             miscSection
         }
     }
