@@ -178,13 +178,16 @@ private extension View {
     /// Reserves space for, and hosts, this tab's own instance of the collapsed player bar —
     /// see `AppTabView`'s doc for why per-tab rather than shared. The native `MiniPlayerView`
     /// is the visible/interactive layer (`.safeAreaInset`); `FloatingBarSideEffectsController`
-    /// is a fixed-height, non-hit-testable `.overlay` behind it, purely for the toast/
+    /// is a fixed-height, non-hit-testable `.background` behind it, purely for the toast/
     /// volume-hint/deep-link side effects that have no other home (see `ComposeScreenHosts.kt`).
+    /// Must be `.background`, not `.overlay` — `.overlay` draws in *front*, and
+    /// `AppShellChrome`'s opaque `Modifier.background(...)` on the Compose side would paint
+    /// over and completely hide the native mini player underneath it.
     func floatingPlayerBar(store: PlayerBarStore, playerExpanded: Binding<Bool>) -> some View {
         safeAreaInset(edge: .bottom) {
             MiniPlayerView(store: store) { playerExpanded.wrappedValue = true }
         }
-        .overlay(alignment: .bottom) {
+        .background(alignment: .bottom) {
             ComposeHostView(makeController: {
                 ComposeScreenHostsKt.FloatingBarSideEffectsController(
                     onExpand: { playerExpanded.wrappedValue = true }
