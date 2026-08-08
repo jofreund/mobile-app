@@ -34,6 +34,7 @@
 		C8SH00012F3E000000000001 /* AppRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SH00112F3E000000000011 /* AppRouter.swift */; };
 		C8SH00022F3E000000000002 /* AppShellRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SH00122F3E000000000012 /* AppShellRootView.swift */; };
 		C8SH00032F3E000000000003 /* MainTabHostView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SH00132F3E000000000013 /* MainTabHostView.swift */; };
+		C8ID00032F5A000000000003 /* ItemDetailsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8ID00132F5A000000000013 /* ItemDetailsView.swift */; };
 		C8LC00012F4F000000000001 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = C8LC00112F4F000000000011 /* Localizable.xcstrings */; };
 /* End PBXBuildFile section */
 
@@ -63,6 +64,7 @@
 		C8SH00112F3E000000000011 /* AppRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRouter.swift; sourceTree = "<group>"; };
 		C8SH00122F3E000000000012 /* AppShellRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppShellRootView.swift; sourceTree = "<group>"; };
 		C8SH00132F3E000000000013 /* MainTabHostView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabHostView.swift; sourceTree = "<group>"; };
+		C8ID00132F5A000000000013 /* ItemDetailsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ItemDetailsView.swift; sourceTree = "<group>"; };
 		C8LC00112F4F000000000011 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		E184B96B79725950AACD5BE7 /* NowPlayingInfoStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NowPlayingInfoStore.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -149,6 +151,7 @@
 				C8CP00052F1A000000000003 /* CarPlay */,
 				C8SP00062F2D000000000006 /* Spike */,
 				C8SH00062F3E000000000006 /* Shell */,
+				C8ID00062F5A000000000006 /* ItemDetails */,
 				C8LC00112F4F000000000011 /* Localizable.xcstrings */,
 				C8AV00022F2C000000000002 /* AppIntentVocabulary.plist */,
 			);
@@ -201,6 +204,14 @@
 				C8SH00132F3E000000000013 /* MainTabHostView.swift */,
 			);
 			path = Shell;
+			sourceTree = "<group>";
+		};
+		C8ID00062F5A000000000006 /* ItemDetails */ = {
+			isa = PBXGroup;
+			children = (
+				C8ID00132F5A000000000013 /* ItemDetailsView.swift */,
+			);
+			path = ItemDetails;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -361,6 +372,7 @@
 				C8SH00012F3E000000000001 /* AppRouter.swift in Sources */,
 				C8SH00022F3E000000000002 /* AppShellRootView.swift in Sources */,
 				C8SH00032F3E000000000003 /* MainTabHostView.swift in Sources */,
+				C8ID00032F5A000000000003 /* ItemDetailsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

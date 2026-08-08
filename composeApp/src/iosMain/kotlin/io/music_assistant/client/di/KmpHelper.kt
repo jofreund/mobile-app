@@ -28,6 +28,7 @@ import io.music_assistant.client.data.model.client.clientSorted
 import io.music_assistant.client.data.model.client.items.Album
 import io.music_assistant.client.data.model.client.items.AppMediaItem
 import io.music_assistant.client.data.model.client.items.Artist
+import io.music_assistant.client.data.model.client.items.Genre
 import io.music_assistant.client.data.model.client.items.Playlist
 import io.music_assistant.client.data.model.client.items.Podcast
 import io.music_assistant.client.data.model.client.items.PodcastEpisode
@@ -467,6 +468,47 @@ object KmpHelper : KoinComponent {
         }
     }
 
+    /**
+     * Fetches a single container item (Album/Playlist/Podcast/Audiobook) by identity, for
+     * the native ItemDetailsView hero — mirrors ItemDetailsViewModel.getItemById's request
+     * shape for exactly the item types that screen supports today. Artist and Genre are
+     * deliberately excluded: their real detail screens (sections, similar artists, the
+     * two-tab overview) are still Compose-only, so a Swift caller for those media types
+     * would just be dead code. `null` on both an unsupported type and a timed-out/failed
+     * fetch — the caller can't tell those apart, but it only needs "show the error state".
+     */
+    fun fetchItemDetails(
+        itemId: String,
+        mediaType: MediaType,
+        providerId: String,
+        completion: (AppMediaItem?) -> Unit,
+    ) {
+        val request = when (mediaType) {
+            MediaType.ALBUM -> Request.Album.get(itemId, providerId)
+            MediaType.PLAYLIST -> Request.Playlist.get(itemId, providerId)
+            MediaType.PODCAST -> Request.Podcast.get(itemId, providerId)
+            MediaType.AUDIOBOOK -> Request.Audiobook.get(itemId, providerId)
+            else -> null
+        } ?: return completion(null)
+
+        launchFetchSingle("itemDetails:$mediaType:$itemId", completion) {
+            mediaItemRepository.fetchMediaItem(request).getOrNull()
+        }
+    }
+
+    private inline fun <T> launchFetchSingle(
+        label: String,
+        crossinline completion: (T?) -> Unit,
+        crossinline fetch: suspend () -> T?,
+    ) {
+        val startMs = currentTimeMillis()
+        mainScope.launch {
+            val result = withTimeoutOrNull(FETCH_TIMEOUT_MS) { fetch() }
+            log.i { "fetch[$label] ${if (result != null) "loaded" else "failed"} in ${currentTimeMillis() - startMs}ms" }
+            completion(result)
+        }
+    }
+
     // MARK: - Playback
 
     /**
@@ -499,6 +541,50 @@ object KmpHelper : KoinComponent {
             executeLocalPlayerDispatch(serviceClient, plan) { label, error ->
                 log.w(error) { "$label RPC failed: ${error.message}" }
             }
+        }
+        return true
+    }
+
+    /**
+     * Play [item] on whichever player is currently selected (the Home tab's player
+     * picker) — not necessarily this device, unlike [playOnLocalPlayer], which is
+     * CarPlay's deliberate always-local override. Mirrors
+     * `ItemDetailsViewModel.onPlayClick`'s request shape for the native ItemDetailsView's
+     * hero play button and track/episode row taps. False on no selected player or no URI.
+     */
+    fun playOnSelectedPlayer(item: AppMediaItem, option: QueueOption, radio: Boolean): Boolean {
+        val mediaUri = item.mediaUri ?: return false
+        val queueId = mainDataSource.selectedPlayer?.queueOrPlayerId ?: return false
+        mainScope.launch {
+            serviceClient.sendRequest(
+                Request.Library.play(
+                    media = listOf(mediaUri),
+                    queueOrPlayerId = queueId,
+                    option = option,
+                    radioMode = radio && item !is Genre,
+                ),
+            )
+        }
+        return true
+    }
+
+    /**
+     * Plays an audiobook [item] starting at [chapterPosition], on the currently selected
+     * player. Mirrors `ItemDetailsViewModel.onChapterClick`.
+     */
+    fun playChapterOnSelectedPlayer(item: AppMediaItem, chapterPosition: Int): Boolean {
+        val uri = item.uri ?: return false
+        val queueId = mainDataSource.selectedPlayer?.queueOrPlayerId ?: return false
+        mainScope.launch {
+            serviceClient.sendRequest(
+                Request.Library.play(
+                    media = listOf(uri),
+                    queueOrPlayerId = queueId,
+                    option = QueueOption.REPLACE,
+                    radioMode = false,
+                    startItem = chapterPosition.toString(),
+                ),
+            )
         }
         return true
     }

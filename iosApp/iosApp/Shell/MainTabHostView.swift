@@ -33,13 +33,11 @@ struct ItemDetailsRoute: Hashable {
 /// hosts; only a tap that used to push `MainNav.ItemDetails` now surfaces
 /// here instead.
 ///
-/// `ItemDetailsPlaceholderView` below is deliberately not the real detail
-/// screen — building SwiftUI's `ItemDetailsScreen` equivalent (hero artwork,
-/// tabs, track lists, similar-artists sheet, ~1,274 LOC of Compose to port)
-/// is its own real chunk of work. This proves the harder, novel part first:
-/// a live Compose screen, still driving real playback and real data, handing
-/// off navigation to a native `NavigationStack` that pushes a native view —
-/// with nothing about Home/Library/Search/the player bar disturbed.
+/// `ItemDetailsView` (ItemDetails/ItemDetailsView.swift) handles Album, Playlist,
+/// Podcast, and Audiobook natively. Artist and Genre still fall through to
+/// `ItemDetailsPlaceholderView` below — their real screens (artist's three async
+/// sections + similar-artists sheet; genre's two-tab overview) are further,
+/// separately-scoped work.
 struct MainTabHostView: View {
 
     @State private var path: [ItemDetailsRoute] = []
@@ -59,7 +57,7 @@ struct MainTabHostView: View {
                 .ignoresSafeArea()
                 .toolbar(.hidden, for: .navigationBar)
                 .navigationDestination(for: ItemDetailsRoute.self) { route in
-                    ItemDetailsPlaceholderView(route: route)
+                    ItemDetailsView(route: route)
                 }
         }
     }
@@ -71,7 +69,8 @@ struct MainTabHostView: View {
     }
 }
 
-private struct ItemDetailsPlaceholderView: View {
+/// Fallback for the item types `ItemDetailsView` doesn't build yet (Artist, Genre).
+struct ItemDetailsPlaceholderView: View {
 
     let route: ItemDetailsRoute
 
