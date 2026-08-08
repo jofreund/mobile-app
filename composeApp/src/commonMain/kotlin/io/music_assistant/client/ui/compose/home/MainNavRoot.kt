@@ -61,8 +61,6 @@ import io.music_assistant.client.ui.compose.common.rememberToastState
 import io.music_assistant.client.ui.compose.common.viewmodel.ActionsViewModel
 import io.music_assistant.client.ui.compose.home.players.DspSettingsViewModel
 import io.music_assistant.client.ui.compose.home.players.PlayersPager
-import io.music_assistant.client.ui.compose.item.ItemDetailsScreen
-import io.music_assistant.client.ui.compose.item.ItemDetailsViewModel
 import io.music_assistant.client.ui.compose.item.ItemListScreen
 import io.music_assistant.client.ui.compose.item.ItemListViewModel
 import io.music_assistant.client.ui.compose.item.ViewModeViewModel
@@ -112,6 +110,13 @@ fun MainNavigationRoot(
     viewModeViewModel: ViewModeViewModel = koinViewModel(),
     dspSettingsViewModel: DspSettingsViewModel = koinViewModel(),
     goToSettings: () -> Unit,
+    // Phase E1 skeleton: ItemDetails is the first push destination Swift owns
+    // instead of Compose's own MultiBackStack — see ComposeScreenHosts.kt's
+    // doc. Every internal "navigate to an item's detail" call site below
+    // raises this instead of `multiBackStack.add(MainNav.ItemDetails(...))`;
+    // Compose never renders that screen anymore (the MainNav.ItemDetails
+    // route itself is gone — see git history if you need the old entry).
+    onNavigateToItemDetails: (itemId: String, mediaType: MediaType, providerId: String) -> Unit,
 ) {
     val uriHandler = LocalUriHandler.current
     val toastState = rememberToastState()
@@ -282,13 +287,7 @@ fun MainNavigationRoot(
                                 onClose = { playerExpanded = false },
                                 contentPadding = contentPadding,
                             ) { item ->
-                                multiBackStack.add(
-                                    MainNav.ItemDetails(
-                                        itemId = item.itemId,
-                                        mediaType = item.mediaType,
-                                        providerId = item.provider,
-                                    ),
-                                )
+                                onNavigateToItemDetails(item.itemId, item.mediaType, item.provider)
                             }
                         },
                     )
@@ -317,6 +316,7 @@ fun MainNavigationRoot(
                                 homeScreenState,
                                 libraryScreenState,
                                 searchScreenState,
+                                onNavigateToItemDetails,
                             ),
                         ),
                     ),
@@ -341,6 +341,7 @@ private fun mainNavEntryProvider(
     homeScreenState: MutableState<HomeScreenState?>,
     libraryScreenState: MutableState<LibraryScreenState?>,
     searchScreenState: MutableState<SearchScreenState?>,
+    onNavigateToItemDetails: (itemId: String, mediaType: MediaType, providerId: String) -> Unit,
 ): (NavKey) -> NavEntry<NavKey> {
     // Hoisted here (outlives the per-NavEntry SearchViewModel) to carry an empty-quick-search
     // escalation from the library tab to the Search tab. Set by ItemList, consumed by SearchScreen.
@@ -361,15 +362,7 @@ private fun mainNavEntryProvider(
                         is Podcast,
                         is Audiobook,
                         is Genre,
-                            -> {
-                            multiBackStack.add(
-                                MainNav.ItemDetails(
-                                    itemId = item.itemId,
-                                    mediaType = item.mediaType,
-                                    providerId = item.provider,
-                                ),
-                            )
-                        }
+                            -> onNavigateToItemDetails(item.itemId, item.mediaType, item.provider)
 
                         else -> Unit
                     }
@@ -427,15 +420,7 @@ private fun mainNavEntryProvider(
                         is Podcast,
                         is Audiobook,
                         is Genre,
-                            -> {
-                            multiBackStack.add(
-                                MainNav.ItemDetails(
-                                    itemId = item.itemId,
-                                    mediaType = item.mediaType,
-                                    providerId = item.provider,
-                                ),
-                            )
-                        }
+                            -> onNavigateToItemDetails(item.itemId, item.mediaType, item.provider)
 
                         else -> Unit
                     }
@@ -473,13 +458,7 @@ private fun mainNavEntryProvider(
                         is Podcast,
                         is Audiobook,
                         is Genre,
-                        -> multiBackStack.add(
-                            MainNav.ItemDetails(
-                                itemId = item.itemId,
-                                mediaType = item.mediaType,
-                                providerId = item.provider,
-                            ),
-                        )
+                        -> onNavigateToItemDetails(item.itemId, item.mediaType, item.provider)
 
                         else -> Unit
                     }
@@ -506,15 +485,7 @@ private fun mainNavEntryProvider(
                         is Podcast,
                         is Audiobook,
                         is Genre,
-                            -> {
-                            multiBackStack.add(
-                                MainNav.ItemDetails(
-                                    itemId = item.itemId,
-                                    mediaType = item.mediaType,
-                                    providerId = item.provider,
-                                ),
-                            )
-                        }
+                            -> onNavigateToItemDetails(item.itemId, item.mediaType, item.provider)
 
                         else -> Unit
                     }
@@ -522,32 +493,6 @@ private fun mainNavEntryProvider(
                 onBack = { multiBackStack.removeLastOrNull() },
                 contentPadding = contentPadding,
                 clickContext = it.clickContext,
-            )
-        }
-
-        entry<MainNav.ItemDetails> {
-            val itemDetailsViewModel = koinViewModel<ItemDetailsViewModel> {
-                parametersOf(it.itemId, it.mediaType, it.providerId)
-            }
-
-            ItemDetailsScreen(
-                itemDetailsViewModel = itemDetailsViewModel,
-                viewModeViewModel = viewModeViewModel,
-                actionsViewModel = actionsViewModel,
-                onBack = { multiBackStack.removeLastOrNull() },
-                onNavigateToItem = { itemId, mediaType, providerId ->
-                    multiBackStack.add(
-                        MainNav.ItemDetails(
-                            itemId = itemId,
-                            mediaType = mediaType,
-                            providerId = providerId,
-                        ),
-                    )
-                },
-                onNavigateToList = { title, itemList, clickContext ->
-                    multiBackStack.add(MainNav.ItemList(title, itemList, clickContext))
-                },
-                contentPadding = contentPadding,
             )
         }
 
@@ -560,13 +505,7 @@ private fun mainNavEntryProvider(
             SearchScreen(
                 searchViewModel = searchViewModel,
                 onNavigateToItem = { itemId, mediaType, providerId ->
-                    multiBackStack.add(
-                        MainNav.ItemDetails(
-                            itemId = itemId,
-                            mediaType = mediaType,
-                            providerId = providerId,
-                        ),
-                    )
+                    onNavigateToItemDetails(itemId, mediaType, providerId)
                 },
                 contentPadding = contentPadding,
                 actionsViewModel = actionsViewModel,
@@ -608,26 +547,14 @@ private sealed interface MainNav : NavKey {
 
     /**
      * One level of the folder-style Browse tree. [path] is the server browse path (null = root);
-     * [stackingId] keeps stacked levels distinct in the back stack (mirrors [ItemDetails]).
+     * [stackingId] keeps stacked levels distinct in the back stack (multiple instances of the same
+     * folder can appear when the server's browse tree loops back on itself).
      */
     @OptIn(ExperimentalUuidApi::class)
     @Serializable
     data class Browse(
         val path: String?,
         val title: String?,
-        val stackingId: String = Uuid.generateV4().toString(),
-    ) : MainNav
-
-    /**
-     * Multiple instances of the same item can appear in a back stack - [stackingId] ensures they
-     * are treated as different entries.
-     */
-    @OptIn(ExperimentalUuidApi::class)
-    @Serializable
-    data class ItemDetails(
-        val itemId: String,
-        val mediaType: MediaType,
-        val providerId: String,
         val stackingId: String = Uuid.generateV4().toString(),
     ) : MainNav
 
@@ -653,10 +580,6 @@ private fun rememberMainNavBackStack(bottom: MainNav) = rememberNavBackStack(
                     subclass(MainNav.Library::class, MainNav.Library.serializer())
                     subclass(MainNav.LibraryList::class, MainNav.LibraryList.serializer())
                     subclass(MainNav.Browse::class, MainNav.Browse.serializer())
-                    subclass(
-                        MainNav.ItemDetails::class,
-                        MainNav.ItemDetails.serializer(),
-                    )
                     subclass(MainNav.Search::class, MainNav.Search.serializer())
                     subclass(MainNav.ItemList::class, MainNav.ItemList.serializer())
                 }

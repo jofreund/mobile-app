@@ -11,6 +11,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.window.ComposeUIViewController
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.music_assistant.client.data.model.client.MediaType
 import io.music_assistant.client.di.KmpHelper
 import io.music_assistant.client.ui.compose.AppLifecycleObserver
 import io.music_assistant.client.ui.compose.common.dismissKeyboardOnTap
@@ -41,23 +42,37 @@ import platform.UIKit.UIViewController
  * migration plan describes for this phase: [MainNavigationRoot] still owns
  * its internal tab/push navigation (`MultiBackStack`) *and* the persistent
  * floating player bar (`PlayersPager`/`FloatingBar`) exactly as it does
- * today. Replacing those with native `TabView`/`NavigationPath` is real,
- * substantial work of its own — the floating bar in particular isn't a
- * "screen" reachable by push/pop, it's an always-on overlay, so it needs its
- * own hosted-overlay design before it can be pulled out. Doing that alongside
- * an untested rewrite of every push destination (`ItemDetails`, `Browse`,
- * `LibraryList`, `ItemList`, …) in one pass would risk shipping a build that
- * silently drops player controls. This slice proves the Swift↔Kotlin router
- * bridge end to end without touching any of that.
+ * today, for every destination *except* `ItemDetails`. Replacing the rest
+ * with native `TabView`/`NavigationPath` is real, substantial work of its
+ * own — the floating bar in particular isn't a "screen" reachable by
+ * push/pop, it's an always-on overlay, so it needs its own hosted-overlay
+ * design before it can be pulled out. Doing that alongside an untested
+ * rewrite of every remaining push destination (`Browse`, `LibraryList`,
+ * `ItemList`, …) in one pass would risk shipping a build that silently
+ * drops player controls.
+ *
+ * `ItemDetails` is the one exception, and the first real step into Phase E1:
+ * every place [MainNavigationRoot] used to push its own internal
+ * `MainNav.ItemDetails` (Home rows, Library, Browse, Search, and the
+ * floating bar's own queue-item tap) now calls [onNavigateToItemDetails]
+ * instead — a plain Kotlin closure Swift passes in directly, no
+ * NativeStateFlow needed since this is a one-shot call, not an observed
+ * stream. `AppShellRootView`'s Main case wraps this controller in a real
+ * `NavigationStack` and pushes a native detail view when it fires.
  */
 @Suppress(
     "FunctionNaming",
 ) // iOS factory function intentionally PascalCase; called from Swift as if it were a constructor
-fun MainAppController(): UIViewController = ComposeUIViewController(
+fun MainAppController(
+    onNavigateToItemDetails: (itemId: String, mediaType: MediaType, providerId: String) -> Unit,
+): UIViewController = ComposeUIViewController(
     configure = { bootstrapKmp() },
 ) {
     AppShellChrome {
-        MainNavigationRoot(goToSettings = { KmpHelper.requestSettings() })
+        MainNavigationRoot(
+            goToSettings = { KmpHelper.requestSettings() },
+            onNavigateToItemDetails = onNavigateToItemDetails,
+        )
     }
 }
 

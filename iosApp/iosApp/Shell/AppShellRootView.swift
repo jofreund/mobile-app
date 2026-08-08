@@ -2,14 +2,15 @@ import SwiftUI
 import UIKit
 import ComposeApp
 
-/// Wraps a Kotlin `UIViewController` factory (`MainAppController`,
-/// `SettingsAppController`, …) for SwiftUI. A fresh controller — and fresh
-/// Compose composition/ViewModels — is created each time SwiftUI recreates
-/// this view (e.g. `router.destination` flipping), matching what the old
-/// `TopLevelNavRoot`'s `backStack.clear(); backStack.add(...)` already did:
-/// switching between Main and Settings has always discarded each side's
-/// state, so this isn't a new loss.
-private struct ComposeHostView: UIViewControllerRepresentable {
+/// Wraps a Kotlin `UIViewController` factory (`SettingsAppController`,
+/// `MainTabHostView`'s `MainAppController`, …) for SwiftUI. A fresh
+/// controller — and fresh Compose composition/ViewModels — is created each
+/// time SwiftUI recreates this view (e.g. `router.destination` flipping),
+/// matching what the old `TopLevelNavRoot`'s `backStack.clear();
+/// backStack.add(...)` already did: switching between Main and Settings has
+/// always discarded each side's state, so this isn't a new loss. Internal
+/// rather than private — `MainTabHostView.swift` reuses it too.
+struct ComposeHostView: UIViewControllerRepresentable {
     let makeController: () -> UIViewController
 
     func makeUIViewController(context: Context) -> UIViewController { makeController() }
@@ -128,7 +129,7 @@ struct AppShellRootView: View {
         // controller would just stay mounted. .id() forces recreation.
         switch router.destination {
         case .main:
-            ComposeHostView(makeController: ComposeScreenHostsKt.MainAppController)
+            MainTabHostView()
                 .id("main")
         default:
             // Kotlin-exported enums aren't a closed set to Swift's exhaustiveness
