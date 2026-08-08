@@ -73,7 +73,16 @@ struct LibraryListView: View {
         }
         .navigationTitle(categoryTitle)
         .navigationBarTitleDisplayMode(.large)
-        .searchable(text: $searchQuery, prompt: String(localized: "library_quick_search"))
+        // Explicit placement, not .automatic: with a .large navigation title, .automatic
+        // has been observed to render the field but never let it become first responder
+        // (no keyboard, no cursor) — a known-flaky combination on early iOS 26 betas.
+        // .navigationBarDrawer(displayMode: .always) is the classic below-the-title bar,
+        // always present rather than collapsing into the nav bar on scroll.
+        .searchable(
+            text: $searchQuery,
+            placement: .navigationBarDrawer(displayMode: .always),
+            prompt: String(localized: "library_quick_search")
+        )
         .task(id: LoadKey(route: route, query: searchQuery)) {
             try? await Task.sleep(for: .milliseconds(500))
             guard !Task.isCancelled else { return }
