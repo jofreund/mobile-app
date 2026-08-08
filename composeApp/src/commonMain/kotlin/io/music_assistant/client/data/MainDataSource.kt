@@ -7,6 +7,7 @@ import androidx.compose.ui.graphics.Color
 import co.touchlab.kermit.Logger
 import io.music_assistant.client.api.Request
 import io.music_assistant.client.api.ServiceClient
+import io.music_assistant.client.api.isAccepted
 import io.music_assistant.client.data.MainDataSource.Companion.resolveSelectedPlayerId
 import io.music_assistant.client.data.factory.MediaItemFactory
 import io.music_assistant.client.data.factory.PlayerFactory
@@ -1133,16 +1134,19 @@ class MainDataSource(
                             // The server refuses to move an item it has already played or
                             // buffered, and this whole function used to discard every result —
                             // so a rejected move looked identical to an applied one from the
-                            // client's side. Log it instead of guessing.
-                            if (result.isFailure) {
-                                log.e(result.exceptionOrNull()) {
-                                    "Queue move rejected: item=${action.queueItemId} " +
+                            // client's side. Log it instead of guessing. `isAccepted`, not
+                            // `isSuccess`: a rejection still arrives as a successful Result,
+                            // carrying an error payload.
+                            if (result.isAccepted) {
+                                log.d {
+                                    "Queue move accepted: item=${action.queueItemId} " +
                                         "${action.from}->${action.to} (pos_shift=$shift)"
                                 }
                             } else {
-                                log.d {
-                                    "Queue move sent: item=${action.queueItemId} " +
-                                        "${action.from}->${action.to} (pos_shift=$shift) -> $result"
+                                log.e(result.exceptionOrNull()) {
+                                    "Queue move rejected: item=${action.queueItemId} " +
+                                        "${action.from}->${action.to} (pos_shift=$shift) " +
+                                        "details=${result.getOrNull()?.errorDetails}"
                                 }
                             }
                         }

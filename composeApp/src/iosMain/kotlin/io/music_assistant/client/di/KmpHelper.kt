@@ -13,6 +13,7 @@ import io.music_assistant.client.api.DeepLinkBus
 import io.music_assistant.client.api.DeepLinkDestination
 import io.music_assistant.client.api.Request
 import io.music_assistant.client.api.ServiceClient
+import io.music_assistant.client.api.isAccepted
 import io.music_assistant.client.auth.AuthState
 import io.music_assistant.client.auth.AuthenticationManager
 import io.music_assistant.client.bridge.Cancellable
@@ -1289,7 +1290,7 @@ object KmpHelper : KoinComponent {
             val result = serviceClient.sendRequest(
                 Request.Playlist.addTracks(playlistId = playlist.itemId, trackUris = listOf(itemUri)),
             )
-            completion(result.isSuccess)
+            completion(result.isAccepted)
         }
     }
 
@@ -1302,7 +1303,7 @@ object KmpHelper : KoinComponent {
             val result = serviceClient.sendRequest(
                 Request.Playlist.removeTracks(playlistId = playlistId, positions = listOf(position + 1)),
             )
-            completion(result.isSuccess)
+            completion(result.isAccepted)
         }
     }
 
@@ -1318,7 +1319,7 @@ object KmpHelper : KoinComponent {
         mainScope.launch {
             val request = if (played) Request.Library.markPlayed(markable) else Request.Library.markUnplayed(markable)
             val result = serviceClient.sendRequest(request)
-            if (result.isSuccess) {
+            if (result.isAccepted) {
                 val updated = markable.withPlayed(played)
                 mediaItemRepository.publishLocalChange(MediaItemChange.Updated(updated))
                 completion(updated)
