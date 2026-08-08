@@ -30,30 +30,20 @@ struct MiniPlayerView: View {
     }
 
     private var pager: some View {
-        VStack(spacing: 2) {
-            if let name = visiblePlayerName {
-                Text(name)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .padding(.horizontal, 16)
-            }
-
-            ScrollView(.horizontal) {
-                LazyHStack(spacing: 0) {
-                    ForEach(store.players) { player in
-                        MiniPlayerRow(player: player, store: store, onExpand: onExpand)
-                            .containerRelativeFrame(.horizontal)
-                    }
+        ScrollView(.horizontal) {
+            LazyHStack(spacing: 0) {
+                ForEach(store.players) { player in
+                    MiniPlayerRow(player: player, store: store, onExpand: onExpand)
+                        .containerRelativeFrame(.horizontal)
                 }
-                .scrollTargetLayout()
             }
-            .scrollTargetBehavior(.paging)
-            .scrollIndicators(.hidden)
-            .scrollPosition(id: $scrollID)
-            .frame(height: 64)
-            .padding(.horizontal, 8)
+            .scrollTargetLayout()
         }
+        .scrollTargetBehavior(.paging)
+        .scrollIndicators(.hidden)
+        .scrollPosition(id: $scrollID)
+        .frame(height: 80)
+        .padding(.horizontal, 8)
         .padding(.bottom, 4)
         .onAppear { syncScrollToSelection() }
         .onChange(of: store.selectedIndex) { _, _ in syncScrollToSelection() }
@@ -72,15 +62,6 @@ struct MiniPlayerView: View {
         return store.players[store.selectedIndex].id
     }
 
-    /// The name label above the bar — mirrors Compose's `PlayerSelectionButton`, shown above
-    /// `CompactPlayerItem` in `CollapsedPlayerPage`. Tracks `scrollID` (what's actually on
-    /// screen right now) rather than `store.selectedIndex` (the Kotlin-confirmed selection,
-    /// which only updates once a swipe settles and round-trips through the bridge), so the
-    /// name updates in step with the swipe instead of lagging a beat behind it.
-    private var visiblePlayerName: String? {
-        (store.players.first { $0.id == scrollID } ?? store.players[safe: store.selectedIndex])?.name
-    }
-
     /// Pushes a Kotlin-driven selection change into the scroll position — the counterpart to
     /// Compose's `animateScrollToPage(target)`, guarded the same way (only acts when the
     /// target actually differs) to avoid fighting an in-progress user drag.
@@ -90,8 +71,10 @@ struct MiniPlayerView: View {
     }
 }
 
-/// One page: artwork, title/artist, play/pause, skip-forward. Tapping elsewhere on the row
-/// expands — mirrors `FloatingBar.kt`'s tap-anywhere-to-expand-when-collapsed.
+/// One page: the player's name (mirrors Compose's `PlayerSelectionButton`, shown above
+/// `CompactPlayerItem` in `CollapsedPlayerPage` — here it's part of the same card rather than
+/// floating above it), then artwork, title/artist, play/pause, skip-forward. Tapping elsewhere
+/// on the row expands — mirrors `FloatingBar.kt`'s tap-anywhere-to-expand-when-collapsed.
 private struct MiniPlayerRow: View {
 
     let player: PlayerBarItemView
@@ -99,38 +82,45 @@ private struct MiniPlayerRow: View {
     let onExpand: () -> Void
 
     var body: some View {
-        HStack(spacing: 12) {
-            SpikeArtwork(url: player.artworkURL, kind: .track, sizing: .fixed(48))
+        VStack(spacing: 6) {
+            Text(player.name)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(player.title ?? player.name)
-                    .font(.subheadline.weight(.medium))
-                    .lineLimit(1)
-                if let subtitle = player.subtitle, !subtitle.isEmpty {
-                    Text(subtitle)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+            HStack(spacing: 12) {
+                SpikeArtwork(url: player.artworkURL, kind: .track, sizing: .fixed(48))
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(player.title ?? player.name)
+                        .font(.subheadline.weight(.medium))
                         .lineLimit(1)
+                    if let subtitle = player.subtitle, !subtitle.isEmpty {
+                        Text(subtitle)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
                 }
-            }
 
-            Spacer(minLength: 8)
+                Spacer(minLength: 8)
 
-            Button {
-                store.togglePlayPause(id: player.id)
-            } label: {
-                Image(systemName: player.isPlaying ? "pause.fill" : "play.fill")
-                    .font(.title2)
-            }
-            .buttonStyle(.plain)
+                Button {
+                    store.togglePlayPause(id: player.id)
+                } label: {
+                    Image(systemName: player.isPlaying ? "pause.fill" : "play.fill")
+                        .font(.title2)
+                }
+                .buttonStyle(.plain)
 
-            Button {
-                store.skipNext(id: player.id)
-            } label: {
-                Image(systemName: "forward.fill")
-                    .font(.title3)
+                Button {
+                    store.skipNext(id: player.id)
+                } label: {
+                    Image(systemName: "forward.fill")
+                        .font(.title3)
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
@@ -138,11 +128,5 @@ private struct MiniPlayerRow: View {
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .onTapGesture { onExpand() }
-    }
-}
-
-private extension Array {
-    subscript(safe index: Int) -> Element? {
-        indices.contains(index) ? self[index] : nil
     }
 }
