@@ -26,22 +26,28 @@ struct ItemDetailsRoute: Hashable {
 }
 
 /// Wraps `MainAppController()` in a real `NavigationStack` — the first
-/// destination Swift owns instead of Compose's own `MultiBackStack`. See
+/// destinations Swift owns instead of Compose's own `MultiBackStack`. See
 /// `ComposeScreenHosts.kt`'s doc for the full picture: everything *except*
-/// ItemDetails (tabs, Library/Browse/ItemList push navigation, the floating
-/// player bar) still lives inside the one Compose tree `MainAppController()`
-/// hosts; only a tap that used to push `MainNav.ItemDetails` now surfaces
-/// here instead.
+/// ItemDetails and the Library tab's own category grid (tabs, Browse,
+/// ItemList's search/sort/filter, the floating player bar) still lives
+/// inside the one Compose tree `MainAppController()` hosts; a tap that used
+/// to push `MainNav.ItemDetails` or `MainNav.LibraryList` surfaces here
+/// instead.
 ///
 /// `ItemDetailsView` (ItemDetails/ItemDetailsView.swift) routes to a native screen for
 /// every item type this app pushes: Album/Playlist/Podcast/Audiobook share
 /// `ContainerItemDetailsView`, Artist and Genre get their own screens
 /// (`ArtistDetailsView.swift`, `GenreDetailsView.swift`). `ItemDetailsPlaceholderView`
 /// below is now dead code for every reachable `MediaType` but stays as the fallback for
-/// whatever isn't.
+/// whatever isn't. `LibraryListView` (Library/LibraryListView.swift) is the Phase E2
+/// counterpart: one unfiltered grid per category, reached from the Library tab's own
+/// category tiles.
 struct MainTabHostView: View {
 
-    @State private var path: [ItemDetailsRoute] = []
+    // NavigationPath (type-erased), not a typed array: this stack now carries two
+    // distinct route types (ItemDetailsRoute, LibraryCategoryRoute) and will grow
+    // more as further Library-tab pieces move to Swift.
+    @State private var path = NavigationPath()
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -60,13 +66,21 @@ struct MainTabHostView: View {
                 .navigationDestination(for: ItemDetailsRoute.self) { route in
                     ItemDetailsView(route: route)
                 }
+                .navigationDestination(for: LibraryCategoryRoute.self) { route in
+                    LibraryListView(route: route)
+                }
         }
     }
 
     private func makeMainController() -> UIViewController {
-        ComposeScreenHostsKt.MainAppController { [self] itemId, mediaType, providerId in
-            path.append(ItemDetailsRoute(itemId: itemId, mediaType: mediaType, providerId: providerId))
-        }
+        ComposeScreenHostsKt.MainAppController(
+            onNavigateToItemDetails: { [self] itemId, mediaType, providerId in
+                path.append(ItemDetailsRoute(itemId: itemId, mediaType: mediaType, providerId: providerId))
+            },
+            onNavigateToLibraryCategory: { [self] mediaType in
+                path.append(LibraryCategoryRoute(mediaType: mediaType))
+            }
+        )
     }
 }
 

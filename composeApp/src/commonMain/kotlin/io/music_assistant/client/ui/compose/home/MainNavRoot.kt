@@ -68,8 +68,6 @@ import io.music_assistant.client.ui.compose.library.BrowseScreen
 import io.music_assistant.client.ui.compose.library.BrowseViewModel
 import io.music_assistant.client.ui.compose.library.LibraryCategoriesViewModel
 import io.music_assistant.client.ui.compose.library.LibraryCategory
-import io.music_assistant.client.ui.compose.library.LibraryListScreen
-import io.music_assistant.client.ui.compose.library.LibraryListViewModel
 import io.music_assistant.client.ui.compose.library.LibraryScreen
 import io.music_assistant.client.ui.compose.library.LibraryScreenState
 import io.music_assistant.client.ui.compose.nav.AdaptiveNavigationBarLayout
@@ -117,6 +115,12 @@ fun MainNavigationRoot(
     // Compose never renders that screen anymore (the MainNav.ItemDetails
     // route itself is gone — see git history if you need the old entry).
     onNavigateToItemDetails: (itemId: String, mediaType: MediaType, providerId: String) -> Unit,
+    // Same "Compose never navigates" pattern, one level up: the Library tab's
+    // category grid (Artists/Albums/…) no longer pushes Compose's own
+    // MainNav.LibraryList — Swift owns the category-list screen too now.
+    // BROWSE is the one category left on Compose's own MultiBackStack; it's
+    // path-based rather than a MediaType, and porting it is separately scoped.
+    onNavigateToLibraryCategory: (mediaType: MediaType) -> Unit,
 ) {
     val uriHandler = LocalUriHandler.current
     val toastState = rememberToastState()
@@ -195,8 +199,8 @@ fun MainNavigationRoot(
             is DeepLinkDestination.Library -> {
                 multiBackStack.currentBackStack = 1
                 multiBackStack.resetCurrentBackStack()
-                // /library/<category> → push the category list onto the Library tab.
-                dest.mediaType?.let { multiBackStack.add(MainNav.LibraryList(it)) }
+                // /library/<category> → push the category list, now Swift's own screen.
+                dest.mediaType?.let { onNavigateToLibraryCategory(it) }
             }
 
             DeepLinkDestination.Search -> {
@@ -317,6 +321,7 @@ fun MainNavigationRoot(
                                 libraryScreenState,
                                 searchScreenState,
                                 onNavigateToItemDetails,
+                                onNavigateToLibraryCategory,
                             ),
                         ),
                     ),
@@ -342,6 +347,7 @@ private fun mainNavEntryProvider(
     libraryScreenState: MutableState<LibraryScreenState?>,
     searchScreenState: MutableState<SearchScreenState?>,
     onNavigateToItemDetails: (itemId: String, mediaType: MediaType, providerId: String) -> Unit,
+    onNavigateToLibraryCategory: (mediaType: MediaType) -> Unit,
 ): (NavKey) -> NavEntry<NavKey> {
     // Hoisted here (outlives the per-NavEntry SearchViewModel) to carry an empty-quick-search
     // escalation from the library tab to the Search tab. Set by ItemList, consumed by SearchScreen.
@@ -390,39 +396,7 @@ private fun mainNavEntryProvider(
                     if (category == LibraryCategory.BROWSE) {
                         multiBackStack.add(MainNav.Browse(path = null, title = null))
                     } else {
-                        category.mediaType?.let { multiBackStack.add(MainNav.LibraryList(it)) }
-                    }
-                },
-            )
-        }
-
-        entry<MainNav.LibraryList> {
-            val libraryListViewModel = koinViewModel<LibraryListViewModel> {
-                parametersOf(it.mediaType)
-            }
-
-            LibraryListScreen(
-                libraryListViewModel = libraryListViewModel,
-                viewModeViewModel = viewModeViewModel,
-                contentPadding = contentPadding,
-                actionsViewModel = actionsViewModel,
-                onBack = { multiBackStack.removeLastOrNull() },
-                onGlobalSearch = { query ->
-                    pendingSearch = GlobalSearchRequest(query, it.mediaType)
-                    multiBackStack.currentBackStack = 2
-                    multiBackStack.resetCurrentBackStack()
-                },
-                onNavigateClick = { item ->
-                    when (item) {
-                        is Artist,
-                        is Album,
-                        is Playlist,
-                        is Podcast,
-                        is Audiobook,
-                        is Genre,
-                            -> onNavigateToItemDetails(item.itemId, item.mediaType, item.provider)
-
-                        else -> Unit
+                        category.mediaType?.let { onNavigateToLibraryCategory(it) }
                     }
                 },
             )
@@ -542,9 +516,6 @@ private sealed interface MainNav : NavKey {
     @Serializable
     data object Library : MainNav
 
-    @Serializable
-    data class LibraryList(val mediaType: MediaType) : MainNav
-
     /**
      * One level of the folder-style Browse tree. [path] is the server browse path (null = root);
      * [stackingId] keeps stacked levels distinct in the back stack (multiple instances of the same
@@ -578,7 +549,6 @@ private fun rememberMainNavBackStack(bottom: MainNav) = rememberNavBackStack(
                 polymorphic(NavKey::class) {
                     subclass(MainNav.Landing::class, MainNav.Landing.serializer())
                     subclass(MainNav.Library::class, MainNav.Library.serializer())
-                    subclass(MainNav.LibraryList::class, MainNav.LibraryList.serializer())
                     subclass(MainNav.Browse::class, MainNav.Browse.serializer())
                     subclass(MainNav.Search::class, MainNav.Search.serializer())
                     subclass(MainNav.ItemList::class, MainNav.ItemList.serializer())

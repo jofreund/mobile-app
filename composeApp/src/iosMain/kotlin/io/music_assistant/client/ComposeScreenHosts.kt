@@ -51,20 +51,27 @@ import platform.UIKit.UIViewController
  * `ItemList`, …) in one pass would risk shipping a build that silently
  * drops player controls.
  *
- * `ItemDetails` is the one exception, and the first real step into Phase E1:
+ * `ItemDetails` was the first step into Phase E1, and the Library tab's own
+ * category grid (Artists/Albums/…) followed the same pattern for Phase E2:
  * every place [MainNavigationRoot] used to push its own internal
- * `MainNav.ItemDetails` (Home rows, Library, Browse, Search, and the
- * floating bar's own queue-item tap) now calls [onNavigateToItemDetails]
- * instead — a plain Kotlin closure Swift passes in directly, no
- * NativeStateFlow needed since this is a one-shot call, not an observed
- * stream. `AppShellRootView`'s Main case wraps this controller in a real
- * `NavigationStack` and pushes a native detail view when it fires.
+ * `MainNav.ItemDetails` / `MainNav.LibraryList` (Home rows, Library, Browse,
+ * Search, and the floating bar's own queue-item tap) now calls
+ * [onNavigateToItemDetails] / [onNavigateToLibraryCategory] instead — plain
+ * Kotlin closures Swift passes in directly, no NativeStateFlow needed since
+ * these are one-shot calls, not an observed stream. `AppShellRootView`'s
+ * Main case wraps this controller in a real `NavigationStack` and pushes a
+ * native screen when either fires. `Browse` and `ItemList`'s own
+ * search/sort/filter are still Compose-owned — replacing the rest of the
+ * Library tab alongside an untested rewrite of every remaining push
+ * destination in one pass would risk shipping a build that silently drops
+ * player controls.
  */
 @Suppress(
     "FunctionNaming",
 ) // iOS factory function intentionally PascalCase; called from Swift as if it were a constructor
 fun MainAppController(
     onNavigateToItemDetails: (itemId: String, mediaType: MediaType, providerId: String) -> Unit,
+    onNavigateToLibraryCategory: (mediaType: MediaType) -> Unit,
 ): UIViewController = ComposeUIViewController(
     configure = { bootstrapKmp() },
 ) {
@@ -72,6 +79,7 @@ fun MainAppController(
         MainNavigationRoot(
             goToSettings = { KmpHelper.requestSettings() },
             onNavigateToItemDetails = onNavigateToItemDetails,
+            onNavigateToLibraryCategory = onNavigateToLibraryCategory,
         )
     }
 }

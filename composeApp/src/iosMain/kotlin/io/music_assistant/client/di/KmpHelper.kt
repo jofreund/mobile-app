@@ -366,6 +366,13 @@ object KmpHelper : KoinComponent {
         }
     }
 
+    fun fetchGenres(completion: (List<AppMediaItem>?) -> Unit) {
+        launchFetch("genres", completion) {
+            mediaItemRepository.fetchMediaItems(Request.Genre.listLibrary()).getOrNull()
+                ?: emptyList()
+        }
+    }
+
     fun search(query: String, completion: (List<AppMediaItem>?) -> Unit) {
         launchFetch("search:$query", completion) {
             val result = mediaItemRepository.search(
