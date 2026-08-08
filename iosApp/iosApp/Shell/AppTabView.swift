@@ -86,24 +86,7 @@ struct AppTabView: View {
             Tab("nav_search", systemImage: "magnifyingglass", value: .search) { searchTab }
         }
         .fullScreenCover(isPresented: $playerExpanded) {
-            ComposeHostView(makeController: {
-                ComposeScreenHostsKt.FloatingBarExpandedController(
-                    onCollapse: { playerExpanded = false },
-                    onNavigateToItemDetails: { itemId, mediaType, providerId in
-                        // The expanded player is one shared, modally-presented instance
-                        // (not per-tab like the collapsed bar), so a queue-item tap here
-                        // pushes onto whichever tab is actually behind it.
-                        playerExpanded = false
-                        let route = ItemDetailsRoute(itemId: itemId, mediaType: mediaType, providerId: providerId)
-                        switch selectedTab {
-                        case .home: homePath.append(route)
-                        case .library: libraryPath.append(route)
-                        case .search: searchPath.append(route)
-                        }
-                    }
-                )
-            })
-            .ignoresSafeArea()
+            ExpandedPlayerView(store: playerBarStore) { playerExpanded = false }
         }
         .task { playerBarStore.start() }
         .task {

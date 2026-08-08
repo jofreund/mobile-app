@@ -16,9 +16,9 @@ import ComposeApp
 /// sidesteps that regardless of the exact cause, matching the original Compose host's own
 /// always-100pt-regardless-of-content behavior.
 ///
-/// Volume/shuffle/repeat/seek and the expanded (full-screen) player are intentionally not
-/// here — this is the *collapsed* bar only; tapping it opens the still-Compose-hosted expanded
-/// player via `onExpand`, unchanged.
+/// This is the *collapsed* bar only, styled after Apple Music's mini player — no volume/
+/// shuffle/repeat/seek here; tapping it opens `ExpandedPlayerView.swift` via `onExpand`, which
+/// has the full transport set.
 struct MiniPlayerView: View {
 
     var store: PlayerBarStore

@@ -16,6 +16,7 @@ import io.music_assistant.client.api.ServiceClient
 import io.music_assistant.client.auth.AuthState
 import io.music_assistant.client.auth.AuthenticationManager
 import io.music_assistant.client.bridge.Cancellable
+import io.music_assistant.client.bridge.NativeFlow
 import io.music_assistant.client.bridge.NativeStateFlow
 import io.music_assistant.client.bridge.NativeSuspend
 import io.music_assistant.client.carplay.CarPlayStrings
@@ -27,6 +28,7 @@ import io.music_assistant.client.data.PlayerBarState
 import io.music_assistant.client.data.executeLocalPlayerDispatch
 import io.music_assistant.client.data.model.client.LibraryFilters
 import io.music_assistant.client.data.model.client.MediaType
+import io.music_assistant.client.data.model.client.PlayerData
 import io.music_assistant.client.data.model.client.QueueOption
 import io.music_assistant.client.data.model.client.SortConfig
 import io.music_assistant.client.data.model.client.SortOption
@@ -70,6 +72,7 @@ import io.music_assistant.client.ui.AppRootDestination
 import io.music_assistant.client.ui.AppRootRouter
 import io.music_assistant.client.ui.SchemaVersionWarningViewModel
 import io.music_assistant.client.ui.SchemaWarning
+import io.music_assistant.client.ui.compose.common.DataState
 import io.music_assistant.client.ui.compose.common.action.PlayerAction
 import io.music_assistant.client.ui.compose.common.viewmodel.createPlaylistAwaitingConfirmation
 import io.music_assistant.client.ui.compose.item.ItemUseCases
@@ -1345,14 +1348,15 @@ object KmpHelper : KoinComponent {
         }
     }
 
-    // MARK: - Player bar (native mini player)
+    // MARK: - Player bar (native mini + expanded player)
     //
     // Thin wraps over MainDataSource — the real state (player list, selection resolution,
-    // local-vs-remote command routing/optimistic dispatch) all stays in Kotlin. Only
-    // toggle-play-pause and skip-next are exposed: this is the *collapsed* mini player only
-    // (Apple Music's mini player itself has no skip-back/volume/shuffle/repeat either); the
-    // full set of PlayerAction cases stays reachable only via the still-Compose-hosted
-    // expanded player for now.
+    // local-vs-remote command routing/optimistic dispatch) all stays in Kotlin. Shuffle/repeat/
+    // mute toggles follow the same "pass the current value, Kotlin computes the next one" shape
+    // `PlayerRequestFactory.resolve()` already uses server-side (e.g. repeat cycles
+    // OFF→ALL→ONE→OFF there, not in Swift) — [currentPlayerData] backs all four of them. Group
+    // volume, DSP, queue transfer, and the rest of PlayerAction's cases stay unreached for now —
+    // the expanded player's overflow menu and queue list aren't ported yet.
 
     val playerBarState: NativeStateFlow<PlayerBarState>
         get() = NativeStateFlow(mainDataSource.playerBarState, mainScope)
@@ -1362,4 +1366,42 @@ object KmpHelper : KoinComponent {
     fun togglePlayerBarPlayPause(playerId: String) = mainDataSource.playerAction(playerId, PlayerAction.TogglePlayPause)
 
     fun skipPlayerBarNext(playerId: String) = mainDataSource.playerAction(playerId, PlayerAction.Next)
+
+    fun skipPlayerBarPrevious(playerId: String) = mainDataSource.playerAction(playerId, PlayerAction.Previous)
+
+    fun seekPlayerBar(playerId: String, seconds: Double) =
+        mainDataSource.playerAction(playerId, PlayerAction.SeekTo(seconds.toLong()))
+
+    fun togglePlayerBarShuffle(playerId: String) {
+        val enabled = currentPlayerData(playerId)?.queueInfo?.shuffleEnabled ?: return
+        mainDataSource.playerAction(playerId, PlayerAction.ToggleShuffle(enabled))
+    }
+
+    fun cyclePlayerBarRepeatMode(playerId: String) {
+        val current = currentPlayerData(playerId)?.queueInfo?.repeatMode ?: return
+        mainDataSource.playerAction(playerId, PlayerAction.ToggleRepeatMode(current))
+    }
+
+    fun togglePlayerBarMute(playerId: String) {
+        val muted = currentPlayerData(playerId)?.player?.currentMuteState ?: return
+        mainDataSource.playerAction(playerId, PlayerAction.ToggleMute(muted))
+    }
+
+    fun setPlayerBarVolume(playerId: String, level: Float) =
+        mainDataSource.playerAction(playerId, PlayerAction.VolumeSet(level.toDouble()))
+
+    /**
+     * A ticking position source for the expanded player's seek slider — wraps
+     * `MainDataSource.positionTracker.observe(queueId)`, the same cold, plays-only-while-playing
+     * flow every other now-playing surface (notification, CarPlay) already reads. `Double` is a
+     * primitive, so per [NativeFlow]'s own doc it arrives as `KotlinDouble` in Swift — needs
+     * `.doubleValue`, same as the already-known `KotlinBoolean` gotcha elsewhere in this file.
+     */
+    fun observePlayerBarPosition(playerId: String): NativeFlow<Double> {
+        val queueId = currentPlayerData(playerId)?.queueOrPlayerId ?: playerId
+        return NativeFlow(mainDataSource.positionTracker.observe(queueId), mainScope)
+    }
+
+    private fun currentPlayerData(playerId: String): PlayerData? =
+        (mainDataSource.playersData.value as? DataState.Data)?.data?.firstOrNull { it.playerId == playerId }
 }

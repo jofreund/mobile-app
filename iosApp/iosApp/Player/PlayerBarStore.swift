@@ -44,6 +44,30 @@ final class PlayerBarStore {
         KmpHelper.shared.skipPlayerBarNext(playerId: id)
     }
 
+    func skipPrevious(id: String) {
+        KmpHelper.shared.skipPlayerBarPrevious(playerId: id)
+    }
+
+    func seek(id: String, seconds: Double) {
+        KmpHelper.shared.seekPlayerBar(playerId: id, seconds: seconds)
+    }
+
+    func toggleShuffle(id: String) {
+        KmpHelper.shared.togglePlayerBarShuffle(playerId: id)
+    }
+
+    func cycleRepeatMode(id: String) {
+        KmpHelper.shared.cyclePlayerBarRepeatMode(playerId: id)
+    }
+
+    func toggleMute(id: String) {
+        KmpHelper.shared.togglePlayerBarMute(playerId: id)
+    }
+
+    func setVolume(id: String, level: Float) {
+        KmpHelper.shared.setPlayerBarVolume(playerId: id, level: level)
+    }
+
     private func handle(_ state: PlayerBarState?) {
         guard let data = state as? PlayerBarState.Data else {
             players = []
@@ -56,8 +80,9 @@ final class PlayerBarStore {
 }
 
 /// SwiftUI-shaped projection of the Kotlin `PlayerBarItem` — same "flatten at the bridge
-/// boundary" pattern `SpikeMediaItem` uses over `AppMediaItem`.
-struct PlayerBarItemView: Identifiable, Equatable {
+/// boundary" pattern `SpikeMediaItem` uses over `AppMediaItem`. Read by both `MiniPlayerView`
+/// (first eight fields only) and `ExpandedPlayerView` (everything).
+struct PlayerBarItemView: Identifiable {
     let id: String
     let name: String
     let isPlaying: Bool
@@ -65,6 +90,19 @@ struct PlayerBarItemView: Identifiable, Equatable {
     let title: String?
     let subtitle: String?
     let artworkURL: URL?
+    let canPlay: Bool
+    let duration: Double?
+    let elapsedTime: Double?
+    let shuffleEnabled: Bool
+    let repeatMode: RepeatMode?
+    let isDynamicPlaylist: Bool
+    let volumeLevel: Float?
+    let isMuted: Bool
+    let canMute: Bool
+    /// The current queue track — kept as the real Kotlin type (not flattened further) so
+    /// `ExpandedPlayerView` can read `.favorite`/`.uri` directly and reuse the existing
+    /// `KmpHelper.setFavorite(item:favorite:)` bridge instead of adding a favorite-specific one.
+    let trackItem: AppMediaItem?
 
     init(_ item: PlayerBarItem) {
         self.id = item.playerId
@@ -74,5 +112,22 @@ struct PlayerBarItemView: Identifiable, Equatable {
         self.title = item.title
         self.subtitle = item.subtitle
         self.artworkURL = item.artworkUrl.flatMap { URL(string: $0) }
+        self.canPlay = item.canPlay
+        self.duration = item.duration?.doubleValue
+        self.elapsedTime = item.elapsedTime?.doubleValue
+        self.shuffleEnabled = item.shuffleEnabled
+        self.repeatMode = item.repeatMode
+        self.isDynamicPlaylist = item.isDynamicPlaylist
+        self.volumeLevel = item.volumeLevel?.floatValue
+        self.isMuted = item.isMuted
+        self.canMute = item.canMute
+        self.trackItem = item.trackItem
     }
+}
+
+/// Player identity only — matches `SpikeMediaItem`'s own `==`/`hash` precedent. `trackItem`
+/// (a bridged Kotlin class) doesn't conform to Swift's `Equatable`, so this can't be
+/// auto-synthesized.
+extension PlayerBarItemView: Equatable {
+    static func == (lhs: PlayerBarItemView, rhs: PlayerBarItemView) -> Bool { lhs.id == rhs.id }
 }

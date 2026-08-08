@@ -5,14 +5,11 @@ package io.music_assistant.client
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.pager.PagerState
-import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.window.ComposeUIViewController
 import androidx.lifecycle.Lifecycle
@@ -22,7 +19,6 @@ import androidx.lifecycle.repeatOnLifecycle
 import io.music_assistant.client.api.DeepLinkBus
 import io.music_assistant.client.api.DeepLinkDestination
 import io.music_assistant.client.api.ErrorMessageBus
-import io.music_assistant.client.data.model.client.MediaType
 import io.music_assistant.client.di.KmpHelper
 import io.music_assistant.client.input.VolumeButtonService
 import io.music_assistant.client.ui.compose.AppLifecycleObserver
@@ -31,11 +27,7 @@ import io.music_assistant.client.ui.compose.common.ToastHost
 import io.music_assistant.client.ui.compose.common.dismissKeyboardOnTap
 import io.music_assistant.client.ui.compose.common.items.ProvideClickActionPrefs
 import io.music_assistant.client.ui.compose.common.rememberToastState
-import io.music_assistant.client.ui.compose.common.viewmodel.ActionsViewModel
-import io.music_assistant.client.ui.compose.home.FloatingBar
 import io.music_assistant.client.ui.compose.home.HomeScreenViewModel
-import io.music_assistant.client.ui.compose.home.players.DspSettingsViewModel
-import io.music_assistant.client.ui.compose.home.players.PlayersPager
 import io.music_assistant.client.ui.compose.home.selectedPlayer
 import io.music_assistant.client.ui.compose.nav.exitApp
 import io.music_assistant.client.ui.compose.settings.SettingsScreen
@@ -78,24 +70,19 @@ import platform.UIKit.UIViewController
  * via `KmpHelper.libraryCategoryConfig`/`setLibraryCategoryConfig`. See each Swift file's own
  * doc for the full reasoning.
  *
- * The floating player bar (`PlayersPager`/`FloatingBar`) is the one thing that was never a
- * "screen" reachable by push/pop — it's an always-on overlay spanning every tab, so it can't
- * just become a per-tab host. Splitting it into `FloatingBarCollapsedController` (mounted once
- * per tab, via each tab's own `.safeAreaInset` — see `AppTabView.swift`'s doc for why per-tab
- * rather than shared) and `FloatingBarExpandedController` (one shared instance, mounted only
- * while `.fullScreenCover` presents it) avoids the harder problem a single always-full-screen
- * overlay host would have — Compose UIViewControllers don't pass touches through to whatever's
- * underneath empty space, so a full-screen collapsed host would swallow taps on the tab bar and
- * every tab's content. Two ordinary SwiftUI presentations (a small fixed-height inset per tab, a
- * real full-screen cover) sidestep that entirely, at the cost of the expanded page's
- * queue-expanded/dialog-open state resetting on each expand — an accepted, minor loss; the
- * actually-important state (which player is selected, the queue itself) lives in the
- * `MainDataSource` singleton underneath every host, not in any one's local `remember`, so it
- * survives every mount/unmount any of them does. `ErrorMessageBus` (single-consumer by
- * construction — a `Channel`, not a broadcast `SharedFlow`) and the volume-button
- * remote-playback hint toast both live in `FloatingBarCollapsedController`, which — now that
- * it's per-tab — means an error toast surfaces on whichever tab's instance happens to receive
- * it, not necessarily the one on screen (documented, accepted tradeoff — see `AppTabView.swift`).
+ * The floating player bar (`PlayersPager`/`FloatingBar`, both collapsed and expanded) is now
+ * fully native SwiftUI (`Player/MiniPlayerView.swift`, `Player/ExpandedPlayerView.swift`) —
+ * `FloatingBarCollapsedController` and `FloatingBarExpandedController`, which used to host it
+ * here, are both gone. What's left, `FloatingBarSideEffectsController` below, is the one thing
+ * that has no native home yet: it's mounted once per tab (via each tab's own `.safeAreaInset` —
+ * see `AppTabView.swift`'s doc for why per-tab rather than shared) purely for `ErrorMessageBus`
+ * toasts, the volume-button remote-playback hint, and consuming `DeepLinkDestination.Players`
+ * to trigger expand — a fixed-height, non-hit-testable passenger sitting behind the real native
+ * UI rather than rendering anything itself. Being per-tab means an error toast surfaces on
+ * whichever tab's instance happens to receive it, not necessarily the one on screen (a
+ * pre-existing, documented, accepted tradeoff — see `AppTabView.swift`). The player-selection
+ * state itself (which player, the queue) lives in the `MainDataSource` singleton underneath
+ * every host, not in any Compose `remember`, so it was never at risk from any of this.
  */
 @Suppress(
     "FunctionNaming",
@@ -171,81 +158,6 @@ fun FloatingBarSideEffectsController(
         Box(Modifier.fillMaxSize()) {
             ToastHost(toastState = toastState)
         }
-    }
-}
-
-/** Mounted only while `.fullScreenCover` presents it — see this file's doc. */
-@Suppress(
-    "FunctionNaming",
-) // iOS factory function intentionally PascalCase; called from Swift as if it were a constructor
-fun FloatingBarExpandedController(
-    onCollapse: () -> Unit,
-    onNavigateToItemDetails: (itemId: String, mediaType: MediaType, providerId: String) -> Unit,
-): UIViewController = ComposeUIViewController(
-    configure = { bootstrapKmp() },
-) {
-    AppShellChrome {
-        val homeScreenViewModel = koinViewModel<HomeScreenViewModel>()
-        val playersState by homeScreenViewModel.playersState.collectAsStateWithLifecycle()
-        PlayerBarContent(
-            expanded = true,
-            onExpandedChange = { if (!it) onCollapse() },
-            onClose = onCollapse,
-            homeScreenViewModel = homeScreenViewModel,
-            playersState = playersState,
-            onNavigateToItemDetails = onNavigateToItemDetails,
-        )
-    }
-}
-
-/**
- * Shared by both floating-bar hosts: a fresh [PagerState] per mount (re-derived from the
- * current [HomeScreenViewModel.PlayersState.Data.selectedPlayerIndex], not carried over from a
- * prior mount — see this file's doc on what's an accepted loss), the bidirectional pager<->
- * selection sync `MainNavRoot.kt` used to run at the top level, and the `FloatingBar` chrome
- * wrapping `PlayersPager`.
- */
-@Composable
-private fun PlayerBarContent(
-    expanded: Boolean,
-    onExpandedChange: (Boolean) -> Unit,
-    onClose: () -> Unit,
-    homeScreenViewModel: HomeScreenViewModel,
-    playersState: HomeScreenViewModel.PlayersState,
-    onNavigateToItemDetails: (itemId: String, mediaType: MediaType, providerId: String) -> Unit,
-) {
-    val actionsViewModel = koinViewModel<ActionsViewModel>()
-    val dspSettingsViewModel = koinViewModel<DspSettingsViewModel>()
-
-    val data = playersState as? HomeScreenViewModel.PlayersState.Data
-    val playerPagerState = rememberPagerState(
-        initialPage = data?.selectedPlayerIndex ?: 0,
-        pageCount = { data?.playerData?.size ?: 0 },
-    )
-    LaunchedEffect(playerPagerState, playersState) {
-        val currentData = playersState as? HomeScreenViewModel.PlayersState.Data ?: return@LaunchedEffect
-        val target = currentData.selectedPlayerIndex ?: return@LaunchedEffect
-        if (!playerPagerState.isScrollInProgress) {
-            playerPagerState.animateScrollToPage(target)
-        }
-        snapshotFlow { playerPagerState.settledPage }.collect { currentPage ->
-            currentData.playerData.getOrNull(currentPage)?.let { playerData ->
-                homeScreenViewModel.selectPlayer(playerData.player)
-            }
-        }
-    }
-
-    FloatingBar(expanded = expanded, onExpand = onExpandedChange) { isExpanded, contentPadding ->
-        PlayersPager(
-            playerPagerState = playerPagerState,
-            state = playersState,
-            homeScreenViewModel = homeScreenViewModel,
-            actionsViewModel = actionsViewModel,
-            dspSettingsViewModel = dspSettingsViewModel,
-            expanded = isExpanded,
-            onClose = onClose,
-            contentPadding = contentPadding,
-        ) { item -> onNavigateToItemDetails(item.itemId, item.mediaType, item.provider) }
     }
 }
 
