@@ -75,6 +75,9 @@ private val log = Logger.withTag("KmpHelper")
 /** CarPlay round-trip budget before a fetch surfaces a disconnected affordance. */
 private const val FETCH_TIMEOUT_MS = 5_000L
 
+/** See [fetchTracks]. */
+private const val TRACKS_FETCH_LIMIT = 500
+
 /**
  * KmpHelper - Bridge for accessing Koin dependencies from Swift
  */
@@ -345,9 +348,18 @@ object KmpHelper : KoinComponent {
         }
     }
 
+    /**
+     * Capped, unlike every other `fetchX` in this file: a track library is routinely the
+     * largest catalog in the app (often thousands of rows, versus dozens-to-hundreds of
+     * artists/albums/playlists), and LibraryListView.swift has no pagination yet. Fetching
+     * it unbounded (the `Int.MAX_VALUE` default) was observed to make the round trip +
+     * decode large enough that the simulator's own background/foreground lifecycle
+     * spuriously fired mid-request, cancelling it — `TRACKS_FETCH_LIMIT` keeps the request
+     * small enough that this doesn't happen while native search/pagination isn't built yet.
+     */
     fun fetchTracks(completion: (List<AppMediaItem>?) -> Unit) {
         launchFetch("tracks", completion) {
-            mediaItemRepository.fetchMediaItems(Request.Track.list()).getOrNull()
+            mediaItemRepository.fetchMediaItems(Request.Track.list(limit = TRACKS_FETCH_LIMIT)).getOrNull()
                 ?: emptyList()
         }
     }
