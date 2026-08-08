@@ -43,7 +43,6 @@ struct HomeView: View {
             .toolbar {
                 ToolbarItem(placement: .primaryAction) { editButton }
                 if !isEditing {
-                    ToolbarItem(placement: .primaryAction) { refreshButton }
                     ToolbarItem(placement: .primaryAction) { settingsButton }
                 }
             }
@@ -67,6 +66,7 @@ struct HomeView: View {
                     }
                     .padding(.vertical, 12)
                 }
+                .refreshable { await load() }
             }
         } else if loadFailed {
             ContentUnavailableView(String(localized: "library_error"), systemImage: "wifi.exclamationmark")
@@ -106,15 +106,6 @@ struct HomeView: View {
         }
         .accessibilityLabel(String(localized: isEditing ? "home_save_rows" : "home_edit_rows"))
         .disabled(rows == nil)
-    }
-
-    private var refreshButton: some View {
-        Button {
-            reloadTrigger = UUID()
-        } label: {
-            Image(systemName: "arrow.clockwise")
-        }
-        .accessibilityLabel(String(localized: "refresh"))
     }
 
     private var settingsButton: some View {
