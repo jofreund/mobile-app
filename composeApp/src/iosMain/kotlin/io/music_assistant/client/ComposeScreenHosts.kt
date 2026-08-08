@@ -50,6 +50,9 @@ import platform.UIKit.UIViewController
  * silently drops player controls. This slice proves the Swift↔Kotlin router
  * bridge end to end without touching any of that.
  */
+@Suppress(
+    "FunctionNaming",
+) // iOS factory function intentionally PascalCase; called from Swift as if it were a constructor
 fun MainAppController(): UIViewController = ComposeUIViewController(
     configure = { bootstrapKmp() },
 ) {
@@ -58,6 +61,9 @@ fun MainAppController(): UIViewController = ComposeUIViewController(
     }
 }
 
+@Suppress(
+    "FunctionNaming",
+) // iOS factory function intentionally PascalCase; called from Swift as if it were a constructor
 fun SettingsAppController(): UIViewController = ComposeUIViewController(
     configure = { bootstrapKmp() },
 ) {
