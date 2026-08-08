@@ -11,6 +11,11 @@ import ComposeApp
 /// doesn't return genres from this endpoint.
 struct SearchView: View {
 
+    /// Whether the search field is focused/active — threaded up to `AppTabView` so the
+    /// floating mini player can hide itself while the keyboard is up (it otherwise renders
+    /// squeezed directly above the keyboard, which looks broken).
+    @Binding var isSearchFieldActive: Bool
+
     @State private var query = ""
     @State private var selectedTypes: Set<MediaType> = []
     @State private var libraryOnly = false
@@ -28,6 +33,7 @@ struct SearchView: View {
             .navigationBarTitleDisplayMode(.large)
             .searchable(
                 text: $query,
+                isPresented: $isSearchFieldActive,
                 placement: .navigationBarDrawer(displayMode: .always),
                 prompt: String(localized: "library_quick_search")
             )

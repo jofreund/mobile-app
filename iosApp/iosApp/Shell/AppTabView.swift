@@ -77,6 +77,7 @@ struct AppTabView: View {
     @State private var playerExpanded = false
     @State private var deepLinkSubscription: Cancellable?
     @State private var playerBarStore = PlayerBarStore()
+    @State private var isSearchFieldActive = false
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -165,12 +166,12 @@ struct AppTabView: View {
 
     private var searchTab: some View {
         NavigationStack(path: $searchPath) {
-            SearchView()
+            SearchView(isSearchFieldActive: $isSearchFieldActive)
                 .navigationDestination(for: ItemDetailsRoute.self) { route in
                     ItemDetailsView(route: route)
                 }
         }
-        .floatingPlayerBar(store: playerBarStore, playerExpanded: $playerExpanded)
+        .floatingPlayerBar(store: playerBarStore, playerExpanded: $playerExpanded, isHidden: isSearchFieldActive)
     }
 }
 
@@ -183,9 +184,15 @@ private extension View {
     /// Must be `.background`, not `.overlay` — `.overlay` draws in *front*, and
     /// `AppShellChrome`'s opaque `Modifier.background(...)` on the Compose side would paint
     /// over and completely hide the native mini player underneath it.
-    func floatingPlayerBar(store: PlayerBarStore, playerExpanded: Binding<Bool>) -> some View {
+    ///
+    /// `isHidden` (only ever true on the Search tab, while its search field has focus) skips
+    /// just the native mini player — otherwise it renders squeezed directly above the
+    /// keyboard. The side-effects host stays mounted regardless, so toasts/deep-links still work.
+    func floatingPlayerBar(store: PlayerBarStore, playerExpanded: Binding<Bool>, isHidden: Bool = false) -> some View {
         safeAreaInset(edge: .bottom) {
-            MiniPlayerView(store: store) { playerExpanded.wrappedValue = true }
+            if !isHidden {
+                MiniPlayerView(store: store) { playerExpanded.wrappedValue = true }
+            }
         }
         .background(alignment: .bottom) {
             ComposeHostView(makeController: {
