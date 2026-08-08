@@ -40,6 +40,7 @@ import io.music_assistant.client.data.model.client.toItemKind
 import io.music_assistant.client.data.model.server.ServerProviderInstance
 import io.music_assistant.client.data.planLocalPlayerDispatch
 import io.music_assistant.client.data.repository.MediaItemRepository
+import io.music_assistant.client.data.repository.SearchResultData
 import io.music_assistant.client.input.VolumeButtonService
 import io.music_assistant.client.settings.CarPlatform
 import io.music_assistant.client.settings.DefaultClickOption
@@ -86,6 +87,9 @@ private const val TRACKS_FETCH_LIMIT = 500
 
 /** See [fetchLibraryItems]. Matches LibraryListViewModel.PAGE_SIZE. */
 private const val LIBRARY_PAGE_SIZE = 50
+
+/** See [KmpHelper.searchDetailed]. Matches SearchViewModel.performSearch's own limit. */
+private const val SEARCH_RESULT_LIMIT = 200
 
 /** A provider entry for the library filter sheet's provider picker. See [KmpHelper.fetchLibraryProviderOptions]. */
 data class LibraryProviderOption(val instanceId: String, val label: String)
@@ -612,6 +616,31 @@ object KmpHelper : KoinComponent {
                 addAll(result.radios)
                 addAll(result.genres)
             }
+        }
+    }
+
+    /**
+     * The native Search tab's entry point — mirrors `SearchViewModel.performSearch`'s request
+     * shape exactly (limit 200, [mediaTypes] empty = server searches every type), unlike
+     * [search] above (a narrower, fixed-6-type, limit-10 stopgap that predates this and stays
+     * as-is for its own CarPlay/Siri callers). Returns the type-bucketed [SearchResultData]
+     * as-is rather than flattening it, so Swift can group results by type itself.
+     */
+    fun searchDetailed(
+        query: String,
+        mediaTypes: List<MediaType>,
+        libraryOnly: Boolean,
+        completion: (SearchResultData?) -> Unit,
+    ) {
+        launchFetchSingle("searchDetailed:$query:$mediaTypes:$libraryOnly", completion) {
+            mediaItemRepository.search(
+                Request.Library.search(
+                    query = query,
+                    mediaTypes = mediaTypes,
+                    limit = SEARCH_RESULT_LIMIT,
+                    libraryOnly = libraryOnly,
+                ),
+            ).getOrNull()
         }
     }
 
