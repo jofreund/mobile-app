@@ -49,6 +49,38 @@ data class PlayerBarItem(
     /** Only ever non-empty for the *currently playing* item, and only when it's an [Audiobook] —
      * mirrors `QueueDisplayRows.kt`'s chapter-nesting rule exactly. */
     val currentItemChapters: List<Chapter>,
+    /** `PlayerType.GROUP` — the pivot card in group settings drives group volume, not its own. */
+    val isGroup: Boolean,
+    /** A non-GROUP player currently leading a sync group — shows the extra group-volume row. */
+    val isGrouped: Boolean,
+    val groupVolume: Float?,
+    val groupVolumeMuted: Boolean,
+    /** The player's RAW own volume/mute (`player.volumeLevel`/`volumeMuted`) — unlike
+     * [volumeLevel] above, which is `currentVolume` (group volume while grouped). The group
+     * settings pivot row shows the player's own level, exactly like Compose's dialog did. */
+    val ownVolume: Float?,
+    val ownVolumeMuted: Boolean,
+    /** `player.isVolumeSliderAccessible` — the pivot row's enabled gate in group settings. */
+    val volumeSliderAccessible: Boolean,
+    /** Bound members and groupable candidates, bound-first — from [PlayerData.childrenBinds]. */
+    val groupMembers: List<GroupMemberBarItem>,
+)
+
+/**
+ * Flat, Swift-bridgeable projection of [PlayerData.ChildBind] — one row in the native group
+ * settings sheet. [canMute] flattens ChildBind's nullable `isMuted` (null = no mute control)
+ * so Swift never sees a `KotlinBoolean?`.
+ */
+data class GroupMemberBarItem(
+    val id: String,
+    val name: String,
+    val volume: Float?,
+    val volumeSliderAccessible: Boolean,
+    val isMuted: Boolean,
+    val canMute: Boolean,
+    val isBound: Boolean,
+    /** False for static group members — the server won't let them be removed. */
+    val isManageable: Boolean,
 )
 
 /**
@@ -123,6 +155,27 @@ internal fun buildPlayerBarState(
                 },
                 currentQueueItemId = queue?.currentItem?.id,
                 currentItemChapters = (queue?.currentItem?.track as? Audiobook)?.chapters.orEmpty(),
+                isGroup = player.isGroup,
+                isGrouped = player.isGrouped,
+                groupVolume = player.groupVolume,
+                groupVolumeMuted = player.groupVolumeMuted,
+                ownVolume = player.volumeLevel,
+                ownVolumeMuted = player.volumeMuted,
+                volumeSliderAccessible = player.isVolumeSliderAccessible,
+                groupMembers = data.childrenBinds
+                    .sortedByDescending { it.isBound }
+                    .map { bind ->
+                        GroupMemberBarItem(
+                            id = bind.id,
+                            name = bind.name,
+                            volume = bind.volume,
+                            volumeSliderAccessible = bind.volumeSliderAccessible,
+                            isMuted = bind.isMuted ?: false,
+                            canMute = bind.isMuted != null,
+                            isBound = bind.isBound,
+                            isManageable = bind.isManageable,
+                        )
+                    },
             )
         },
         selectedIndex = selectedIndex?.takeIf { it in players.indices } ?: 0,

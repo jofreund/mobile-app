@@ -51,6 +51,7 @@
 		C8PL00032F70000000000003 /* PlayerBarStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8PL00132F70000000000013 /* PlayerBarStore.swift */; };
 		C8PL00042F70000000000004 /* MiniPlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8PL00142F70000000000014 /* MiniPlayerView.swift */; };
 		C8PL00052F70000000000005 /* ExpandedPlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8PL00152F70000000000015 /* ExpandedPlayerView.swift */; };
+		C8PL00072F70000000000007 /* GroupSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8PL00172F70000000000017 /* GroupSettingsView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -96,6 +97,7 @@
 		C8PL00132F70000000000013 /* PlayerBarStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerBarStore.swift; sourceTree = "<group>"; };
 		C8PL00142F70000000000014 /* MiniPlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniPlayerView.swift; sourceTree = "<group>"; };
 		C8PL00152F70000000000015 /* ExpandedPlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExpandedPlayerView.swift; sourceTree = "<group>"; };
+		C8PL00172F70000000000017 /* GroupSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupSettingsView.swift; sourceTree = "<group>"; };
 		E184B96B79725950AACD5BE7 /* NowPlayingInfoStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NowPlayingInfoStore.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -295,6 +297,7 @@
 				C8PL00132F70000000000013 /* PlayerBarStore.swift */,
 				C8PL00142F70000000000014 /* MiniPlayerView.swift */,
 				C8PL00152F70000000000015 /* ExpandedPlayerView.swift */,
+				C8PL00172F70000000000017 /* GroupSettingsView.swift */,
 			);
 			path = Player;
 			sourceTree = "<group>";
@@ -467,6 +470,7 @@
 				C8PL00032F70000000000003 /* PlayerBarStore.swift in Sources */,
 				C8PL00042F70000000000004 /* MiniPlayerView.swift in Sources */,
 				C8PL00052F70000000000005 /* ExpandedPlayerView.swift in Sources */,
+				C8PL00072F70000000000007 /* GroupSettingsView.swift in Sources */,
 				C8HV00032F61000000000003 /* HomeView.swift in Sources */,
 				C8ST00032F63000000000003 /* SettingsView.swift in Sources */,
 				C8ST00042F63000000000004 /* ConnectionSetupStore.swift in Sources */,

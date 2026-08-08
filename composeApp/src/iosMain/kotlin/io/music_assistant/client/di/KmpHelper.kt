@@ -1414,4 +1414,32 @@ object KmpHelper : KoinComponent {
 
     fun removeQueueItem(queueId: String, queueItemId: String) =
         mainDataSource.queueAction(QueueAction.RemoveItems(queueId, listOf(queueItemId)))
+
+    // MARK: - Player grouping (native group settings sheet)
+    //
+    // All six deliberately use the STRING-id `playerAction(playerId, action)` overload, not
+    // `dispatchPlayerBarAction`'s data-based one: member actions target child-player ids that
+    // aren't necessarily in the visible players list (`currentPlayerData` would return null and
+    // silently drop them), and that overload is exactly what Compose's GroupSettingsDialog
+    // dispatched through. It handles VolumeSet/ToggleMute and all five Group* cases and
+    // re-routes the local player internally — the "incomplete when" trap it has concerns other
+    // actions (shuffle/repeat), none of which are dispatched here.
+
+    fun addGroupMember(parentId: String, childId: String) =
+        mainDataSource.playerAction(parentId, PlayerAction.GroupManage(toAdd = listOf(childId)))
+
+    fun removeGroupMember(parentId: String, childId: String) =
+        mainDataSource.playerAction(parentId, PlayerAction.GroupManage(toRemove = listOf(childId)))
+
+    fun setGroupVolume(playerId: String, level: Float) =
+        mainDataSource.playerAction(playerId, PlayerAction.GroupVolumeSet(level.toDouble()))
+
+    fun toggleGroupMute(playerId: String, isMutedNow: Boolean) =
+        mainDataSource.playerAction(playerId, PlayerAction.GroupToggleMute(isMutedNow))
+
+    fun setMemberVolume(playerId: String, level: Float) =
+        mainDataSource.playerAction(playerId, PlayerAction.VolumeSet(level.toDouble()))
+
+    fun toggleMemberMute(playerId: String, isMutedNow: Boolean) =
+        mainDataSource.playerAction(playerId, PlayerAction.ToggleMute(isMutedNow))
 }

@@ -76,6 +76,30 @@ final class PlayerBarStore {
         KmpHelper.shared.moveQueueItem(queueId: queueId, queueItemId: queueItemId, from: Int32(from), to: Int32(to))
     }
 
+    func addGroupMember(parentId: String, childId: String) {
+        KmpHelper.shared.addGroupMember(parentId: parentId, childId: childId)
+    }
+
+    func removeGroupMember(parentId: String, childId: String) {
+        KmpHelper.shared.removeGroupMember(parentId: parentId, childId: childId)
+    }
+
+    func setGroupVolume(id: String, level: Float) {
+        KmpHelper.shared.setGroupVolume(playerId: id, level: level)
+    }
+
+    func toggleGroupMute(id: String, isMutedNow: Bool) {
+        KmpHelper.shared.toggleGroupMute(playerId: id, isMutedNow: isMutedNow)
+    }
+
+    func setMemberVolume(id: String, level: Float) {
+        KmpHelper.shared.setMemberVolume(playerId: id, level: level)
+    }
+
+    func toggleMemberMute(id: String, isMutedNow: Bool) {
+        KmpHelper.shared.toggleMemberMute(playerId: id, isMutedNow: isMutedNow)
+    }
+
     private func handle(_ state: PlayerBarState?) {
         guard let data = state as? PlayerBarState.Data else {
             players = []
@@ -119,6 +143,19 @@ struct PlayerBarItemView: Identifiable {
     /// Non-empty only when the current queue item is an audiobook — mirrors
     /// `QueueDisplayRows.kt`'s chapter-nesting rule.
     let currentItemChapters: [Chapter]
+    /// `PlayerType.GROUP` — the group-settings pivot row drives group volume, not its own.
+    let isGroup: Bool
+    /// Sync-group leader with members — shows the extra group-volume row in group settings.
+    let isGrouped: Bool
+    let groupVolume: Float?
+    let groupVolumeMuted: Bool
+    /// Raw own volume/mute (not group-adjusted like `volumeLevel`) — the group-settings pivot row.
+    let ownVolume: Float?
+    let ownVolumeMuted: Bool
+    let volumeSliderAccessible: Bool
+    /// Bound members + groupable candidates, bound-first. Non-empty (or `isGrouped`) is what
+    /// makes the expanded player's group-settings header icon appear at all.
+    let groupMembers: [GroupMemberBarItemView]
 
     init(_ item: PlayerBarItem) {
         self.id = item.playerId
@@ -142,6 +179,38 @@ struct PlayerBarItemView: Identifiable {
         self.queueItems = item.queueItems.map(QueueBarItemView.init)
         self.currentQueueItemId = item.currentQueueItemId
         self.currentItemChapters = item.currentItemChapters
+        self.isGroup = item.isGroup
+        self.isGrouped = item.isGrouped
+        self.groupVolume = item.groupVolume?.floatValue
+        self.groupVolumeMuted = item.groupVolumeMuted
+        self.ownVolume = item.ownVolume?.floatValue
+        self.ownVolumeMuted = item.ownVolumeMuted
+        self.volumeSliderAccessible = item.volumeSliderAccessible
+        self.groupMembers = item.groupMembers.map(GroupMemberBarItemView.init)
+    }
+}
+
+/// SwiftUI-shaped projection of the Kotlin `GroupMemberBarItem` — one row in the group
+/// settings sheet (a bound member or a groupable candidate).
+struct GroupMemberBarItemView: Identifiable {
+    let id: String
+    let name: String
+    let volume: Float?
+    let volumeSliderAccessible: Bool
+    let isMuted: Bool
+    let canMute: Bool
+    let isBound: Bool
+    let isManageable: Bool
+
+    init(_ item: GroupMemberBarItem) {
+        self.id = item.id
+        self.name = item.name
+        self.volume = item.volume?.floatValue
+        self.volumeSliderAccessible = item.volumeSliderAccessible
+        self.isMuted = item.isMuted
+        self.canMute = item.canMute
+        self.isBound = item.isBound
+        self.isManageable = item.isManageable
     }
 }
 

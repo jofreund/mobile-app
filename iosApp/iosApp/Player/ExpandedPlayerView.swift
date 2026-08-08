@@ -131,6 +131,7 @@ private struct ExpandedPlayerRow: View {
     @State private var showPlayerPicker = false
 
     @State private var showQueue = false
+    @State private var showGroupSettings = false
     /// Optimistic local reorder — reset to `nil` (falling back to `player.queueItems`' own
     /// order) whenever the Kotlin-driven order changes, mirroring Compose's
     /// `remember(items) { mutableStateOf(items) }` reset-on-server-echo.
@@ -165,6 +166,10 @@ private struct ExpandedPlayerRow: View {
             if abs(newValue - released) < 0.5 { releasedSeekPosition = nil }
         }
         .onChange(of: player.queueItems.map(\.id)) { _, _ in displayOrder = nil }
+        .sheet(isPresented: $showGroupSettings) {
+            GroupSettingsView(store: store, playerId: player.id)
+                .presentationDetents([.medium, .large])
+        }
     }
 
     // MARK: - Header
@@ -194,13 +199,26 @@ private struct ExpandedPlayerRow: View {
                 .presentationCompactAdaptation(.popover)
             }
             Spacer()
-            Button {
-                withAnimation(.easeInOut(duration: 0.2)) { showQueue.toggle() }
-            } label: {
-                Image(systemName: showQueue ? "list.bullet.circle.fill" : "list.bullet.circle")
-                    .font(.title3)
+            HStack(spacing: 16) {
+                // Only shown when there's anything to manage — a bound group or at least one
+                // groupable candidate (mirrors when Compose's dialog had content to offer).
+                if player.isGrouped || !player.groupMembers.isEmpty {
+                    Button {
+                        showGroupSettings = true
+                    } label: {
+                        Image(systemName: "hifispeaker.2")
+                            .font(.title3)
+                    }
+                    .accessibilityLabel(String(localized: "players_group_settings"))
+                }
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) { showQueue.toggle() }
+                } label: {
+                    Image(systemName: showQueue ? "list.bullet.circle.fill" : "list.bullet.circle")
+                        .font(.title3)
+                }
+                .accessibilityLabel(String(localized: "cd_toggle_queue"))
             }
-            .accessibilityLabel(String(localized: "cd_toggle_queue"))
         }
     }
 
