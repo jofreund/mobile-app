@@ -105,6 +105,7 @@ struct LibraryListView: View {
                         ProgressView().padding(.vertical, 12)
                     }
                 }
+                .refreshable { await load() }
             } else if loadFailed {
                 ContentUnavailableView(
                     String(localized: "library_error"),
