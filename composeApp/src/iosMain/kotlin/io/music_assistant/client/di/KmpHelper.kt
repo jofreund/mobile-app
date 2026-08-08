@@ -374,6 +374,15 @@ object KmpHelper : KoinComponent {
         settingsRepository.setHomeRowsConfig(config)
     }
 
+    /** Read/write pair over `SettingsRepository.libraryCategoryConfig` — same shape as
+     * [homeRowsConfig]/[setHomeRowsConfig], for the native Library tab's category grid edit mode. */
+    fun libraryCategoryConfig(): List<SettingsRepository.LibraryCategoryPref> =
+        settingsRepository.libraryCategoryConfig.value ?: emptyList()
+
+    fun setLibraryCategoryConfig(config: List<SettingsRepository.LibraryCategoryPref>) {
+        settingsRepository.setLibraryCategoryConfig(config)
+    }
+
     fun fetchPlaylists(completion: (List<AppMediaItem>?) -> Unit) {
         launchFetch("playlists", completion) {
             mediaItemRepository.fetchMediaItems(Request.Playlist.listLibrary()).getOrNull()

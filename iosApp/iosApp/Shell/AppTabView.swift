@@ -142,18 +142,14 @@ struct AppTabView: View {
 
     private var libraryTab: some View {
         NavigationStack(path: $libraryPath) {
-            ComposeHostView(makeController: {
-                ComposeScreenHostsKt.LibraryAppController(
-                    onNavigateToLibraryCategory: { mediaType in
-                        libraryPath.append(LibraryCategoryRoute(mediaType: mediaType))
-                    },
-                    onNavigateToBrowse: {
-                        libraryPath.append(BrowseRoute(path: nil, title: nil))
-                    }
-                )
-            })
-            .ignoresSafeArea(edges: .top)
-            .toolbar(.hidden, for: .navigationBar)
+            LibraryView(
+                onNavigateToLibraryCategory: { mediaType in
+                    libraryPath.append(LibraryCategoryRoute(mediaType: mediaType))
+                },
+                onNavigateToBrowse: {
+                    libraryPath.append(BrowseRoute(path: nil, title: nil))
+                }
+            )
             .navigationDestination(for: ItemDetailsRoute.self) { route in
                 ItemDetailsView(route: route)
             }

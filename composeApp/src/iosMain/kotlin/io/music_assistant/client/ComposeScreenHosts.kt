@@ -4,7 +4,6 @@ package io.music_assistant.client
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
@@ -15,7 +14,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.ComposeUIViewController
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -39,10 +37,6 @@ import io.music_assistant.client.ui.compose.home.HomeScreenViewModel
 import io.music_assistant.client.ui.compose.home.players.DspSettingsViewModel
 import io.music_assistant.client.ui.compose.home.players.PlayersPager
 import io.music_assistant.client.ui.compose.home.selectedPlayer
-import io.music_assistant.client.ui.compose.library.LibraryCategoriesViewModel
-import io.music_assistant.client.ui.compose.library.LibraryCategory
-import io.music_assistant.client.ui.compose.library.LibraryScreen
-import io.music_assistant.client.ui.compose.library.LibraryScreenState
 import io.music_assistant.client.ui.compose.nav.exitApp
 import io.music_assistant.client.ui.compose.settings.SettingsScreen
 import io.music_assistant.client.ui.theme.AppTheme
@@ -70,18 +64,19 @@ import platform.UIKit.UIViewController
  * so `AppTabView.swift` now owns tab switching and each tab's own `NavigationStack` — this file
  * stopped composing them all together.
  *
- * `LibraryAppController` hosts exactly the screen `MainNavRoot.kt`'s `entry<MainNav.Library>`
- * used to render inline, now standalone — mechanically easy since `LibraryScreen` already took
- * `contentPadding` and pure navigation callbacks rather than doing any push navigation itself.
- * Home lost its Compose host entirely (`HomeAppController` is gone, along with the
- * `ScreenState`/`rememberPublishedScreenState` machinery that let the old shared nav bar scroll
- * the active tab to top on re-tap — nothing in `TabView` reproduces that trigger for free, so
- * it's gone until someone rebuilds it, not silently preserved): `HomeScreenViewModel`'s
- * complexity turned out to be about *when* to show loading/reconnecting states, not about
- * producing the row data itself, so `HomeView.swift` fetches recommendations/shortcuts as
- * one-shot round trips (`KmpHelper.fetchRecommendationFolders`/`fetchShortcuts`) rather than
- * wrapping the ViewModel's session state machine — see `HomeView.swift`'s doc for the full
- * reasoning.
+ * Home and Library both lost their Compose hosts entirely now (`HomeAppController`/
+ * `LibraryAppController` are gone, along with the `ScreenState`/`rememberPublishedScreenState`
+ * machinery that let the old shared nav bar scroll the active tab to top on re-tap — nothing in
+ * `TabView` reproduces that trigger for free, so it's gone until someone rebuilds it, not
+ * silently preserved). Neither screen's Kotlin ViewModel needed wrapping to get there:
+ * `HomeScreenViewModel`'s complexity turned out to be about *when* to show loading/reconnecting
+ * states, not about producing the row data itself, so `HomeView.swift` fetches
+ * recommendations/shortcuts as one-shot round trips (`KmpHelper.fetchRecommendationFolders`/
+ * `fetchShortcuts`) rather than wrapping the ViewModel's session state machine —
+ * `LibraryCategoriesViewModel` was thinner still, a pass-through over
+ * `SettingsRepository.libraryCategoryConfig`, so `LibraryView.swift` reads/writes that directly
+ * via `KmpHelper.libraryCategoryConfig`/`setLibraryCategoryConfig`. See each Swift file's own
+ * doc for the full reasoning.
  *
  * The floating player bar (`PlayersPager`/`FloatingBar`) is the one thing that was never a
  * "screen" reachable by push/pop — it's an always-on overlay spanning every tab, so it can't
@@ -102,33 +97,6 @@ import platform.UIKit.UIViewController
  * it's per-tab — means an error toast surfaces on whichever tab's instance happens to receive
  * it, not necessarily the one on screen (documented, accepted tradeoff — see `AppTabView.swift`).
  */
-@Suppress(
-    "FunctionNaming",
-) // iOS factory function intentionally PascalCase; called from Swift as if it were a constructor
-fun LibraryAppController(
-    onNavigateToLibraryCategory: (mediaType: MediaType) -> Unit,
-    onNavigateToBrowse: () -> Unit,
-): UIViewController = ComposeUIViewController(
-    configure = { bootstrapKmp() },
-) {
-    AppShellChrome {
-        val libraryCategoriesViewModel = koinViewModel<LibraryCategoriesViewModel>()
-        val state = LibraryScreenState.create()
-        LibraryScreen(
-            libraryCategoriesViewModel,
-            contentPadding = PaddingValues(bottom = FLOATING_BAR_CLEARANCE),
-            state = state,
-            onCategoryClick = { category ->
-                if (category == LibraryCategory.BROWSE) {
-                    onNavigateToBrowse()
-                } else {
-                    category.mediaType?.let { onNavigateToLibraryCategory(it) }
-                }
-            },
-        )
-    }
-}
-
 @Suppress(
     "FunctionNaming",
 ) // iOS factory function intentionally PascalCase; called from Swift as if it were a constructor
@@ -284,12 +252,6 @@ private fun PlayerBarContent(
         ) { item -> onNavigateToItemDetails(item.itemId, item.mediaType, item.provider) }
     }
 }
-
-/** See doc on [LibraryAppController]. Matches the collapsed floating bar's measured footprint
- * (84dp [PlayersPager]'s `CollapsedPlayerPage`/loading row + 8dp top/bottom `FloatingBar`
- * padding) — there's no shared constant to reuse since `FloatingBarLayout` used to measure this
- * dynamically; approximated here since the floating bar is now a separate host. */
-private val FLOATING_BAR_CLEARANCE = 100.dp
 
 private const val MAX_TOAST_MESSAGE_LENGTH = 150
 
