@@ -30,20 +30,30 @@ struct MiniPlayerView: View {
     }
 
     private var pager: some View {
-        ScrollView(.horizontal) {
-            LazyHStack(spacing: 0) {
-                ForEach(store.players) { player in
-                    MiniPlayerRow(player: player, store: store, onExpand: onExpand)
-                        .containerRelativeFrame(.horizontal)
-                }
+        VStack(spacing: 2) {
+            if let name = visiblePlayerName {
+                Text(name)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .padding(.horizontal, 16)
             }
-            .scrollTargetLayout()
+
+            ScrollView(.horizontal) {
+                LazyHStack(spacing: 0) {
+                    ForEach(store.players) { player in
+                        MiniPlayerRow(player: player, store: store, onExpand: onExpand)
+                            .containerRelativeFrame(.horizontal)
+                    }
+                }
+                .scrollTargetLayout()
+            }
+            .scrollTargetBehavior(.paging)
+            .scrollIndicators(.hidden)
+            .scrollPosition(id: $scrollID)
+            .frame(height: 64)
+            .padding(.horizontal, 8)
         }
-        .scrollTargetBehavior(.paging)
-        .scrollIndicators(.hidden)
-        .scrollPosition(id: $scrollID)
-        .frame(height: 64)
-        .padding(.horizontal, 8)
         .padding(.bottom, 4)
         .onAppear { syncScrollToSelection() }
         .onChange(of: store.selectedIndex) { _, _ in syncScrollToSelection() }
@@ -60,6 +70,15 @@ struct MiniPlayerView: View {
     private var currentPlayerID: String? {
         guard store.players.indices.contains(store.selectedIndex) else { return nil }
         return store.players[store.selectedIndex].id
+    }
+
+    /// The name label above the bar — mirrors Compose's `PlayerSelectionButton`, shown above
+    /// `CompactPlayerItem` in `CollapsedPlayerPage`. Tracks `scrollID` (what's actually on
+    /// screen right now) rather than `store.selectedIndex` (the Kotlin-confirmed selection,
+    /// which only updates once a swipe settles and round-trips through the bridge), so the
+    /// name updates in step with the swipe instead of lagging a beat behind it.
+    private var visiblePlayerName: String? {
+        (store.players.first { $0.id == scrollID } ?? store.players[safe: store.selectedIndex])?.name
     }
 
     /// Pushes a Kotlin-driven selection change into the scroll position — the counterpart to
@@ -119,5 +138,11 @@ private struct MiniPlayerRow: View {
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .onTapGesture { onExpand() }
+    }
+}
+
+private extension Array {
+    subscript(safe index: Int) -> Element? {
+        indices.contains(index) ? self[index] : nil
     }
 }
