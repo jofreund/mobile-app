@@ -5,8 +5,10 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 /**
  * Guards the contract of [Answer.resultAs]: a decode failure must stay
@@ -70,5 +72,53 @@ class AnswerTest {
         val answer = envelopeNoResult()
 
         assertEquals("m1", answer.messageId)
+    }
+
+    // The distinction below is easy to get wrong and expensive when it goes wrong:
+    // `sendRequest` resolves an error answer as Result.success (failure is reserved for
+    // transport problems), so callers that read `isSuccess` as "the server did it" report
+    // rejections as wins — and one of them wrote optimistic local state off that answer.
+
+    @Test
+    fun errorAnswerIsFlaggedWithItsDetails() {
+        val raw = """{"message_id": "m1", "error_code": 5, "details": "already played/buffered"}"""
+        val answer = Answer(Json.parseToJsonElement(raw) as JsonObject)
+
+        assertTrue(answer.isError)
+        assertEquals("already played/buffered", answer.errorDetails)
+    }
+
+    @Test
+    fun normalAnswerIsNotAnError() {
+        val answer = envelope("""{"player_id": "p1", "type": "player"}""")
+
+        assertFalse(answer.isError)
+        assertNull(answer.errorDetails)
+    }
+
+    @Test
+    fun errorDetailsSurvivesANonPrimitiveDetailsPayload() {
+        // Reading `details` as a primitive unconditionally would throw here, on a background
+        // dispatcher, which on Kotlin/Native takes the process with it.
+        val raw = """{"message_id": "m1", "error_code": 5, "details": {"nested": true}}"""
+        val answer = Answer(Json.parseToJsonElement(raw) as JsonObject)
+
+        assertTrue(answer.isError)
+        assertNull(answer.errorDetails)
+    }
+
+    @Test
+    fun isAcceptedIsFalseForARejectionDespiteBeingASuccessfulResult() {
+        val raw = """{"message_id": "m1", "error_code": 5, "details": "nope"}"""
+        val rejected = Result.success(Answer(Json.parseToJsonElement(raw) as JsonObject))
+
+        assertTrue(rejected.isSuccess, "precondition: rejections arrive as successful Results")
+        assertFalse(rejected.isAccepted)
+    }
+
+    @Test
+    fun isAcceptedIsTrueOnlyWhenTheServerAnsweredWithoutAnError() {
+        assertTrue(Result.success(envelope("""{"player_id": "p1", "type": "player"}""")).isAccepted)
+        assertFalse(Result.failure<Answer>(IllegalStateException("Not ready for commands")).isAccepted)
     }
 }
