@@ -15,9 +15,20 @@ struct ItemMenuContext {
     /// refresh its list after a successful removal (mirrors `ItemDetailsViewModel::reload`).
     var removeFromPlaylist: (playlistId: String, position: Int, onSuccess: () -> Void)?
 
-    init(parentForPlayFromHere: AppMediaItem? = nil, removeFromPlaylist: (playlistId: String, position: Int, onSuccess: () -> Void)? = nil) {
+    /// Non-nil only for an upcoming, playable, non-current row in the expanded player's queue
+    /// list — enables "Delete" (removes the item from the queue). Unlike `removeFromPlaylist`,
+    /// dispatched with no confirmation dialog, matching Compose's own immediate-dispatch queue
+    /// delete; the queue re-renders reactively off the next `playerBarState` emission.
+    var removeFromQueue: (queueId: String, queueItemId: String)?
+
+    init(
+        parentForPlayFromHere: AppMediaItem? = nil,
+        removeFromPlaylist: (playlistId: String, position: Int, onSuccess: () -> Void)? = nil,
+        removeFromQueue: (queueId: String, queueItemId: String)? = nil
+    ) {
         self.parentForPlayFromHere = parentForPlayFromHere
         self.removeFromPlaylist = removeFromPlaylist
+        self.removeFromQueue = removeFromQueue
     }
 }
 
@@ -32,6 +43,7 @@ enum ItemMenuAction: Hashable, Identifiable {
     case addToPlaylist
     case removeFromPlaylist
     case markPlayed, markUnplayed
+    case removeFromQueue
 
     var id: Self { self }
 
@@ -51,6 +63,7 @@ enum ItemMenuAction: Hashable, Identifiable {
         case .removeFromPlaylist: String(localized: "action_remove_from_playlist")
         case .markPlayed: String(localized: "action_mark_played")
         case .markUnplayed: String(localized: "action_mark_unplayed")
+        case .removeFromQueue: String(localized: "common_delete")
         }
     }
 
@@ -70,10 +83,11 @@ enum ItemMenuAction: Hashable, Identifiable {
         case .removeFromPlaylist: "trash"
         case .markPlayed: "checkmark.circle"
         case .markUnplayed: "arrow.counterclockwise.circle"
+        case .removeFromQueue: "trash"
         }
     }
 
-    var isDestructive: Bool { self == .removeFromLibrary || self == .removeFromPlaylist }
+    var isDestructive: Bool { self == .removeFromLibrary || self == .removeFromPlaylist || self == .removeFromQueue }
 }
 
 /// Which actions apply to [item] in [context] — ported 1:1 from
@@ -118,6 +132,10 @@ func resolveMenuActions(for item: SpikeMediaItem, context: ItemMenuContext) -> [
         actions.append((episode.fullyPlayed?.boolValue ?? false) ? .markUnplayed : .markPlayed)
     } else if let audiobook = kotlin as? Audiobook {
         actions.append((audiobook.fullyPlayed?.boolValue ?? false) ? .markUnplayed : .markPlayed)
+    }
+
+    if context.removeFromQueue != nil {
+        actions.append(.removeFromQueue)
     }
 
     return actions
@@ -216,6 +234,9 @@ private struct ItemContextMenuModifier: ViewModifier {
             KmpHelper.shared.setMarkPlayed(item: kotlin, played: true) { _ in }
         case .markUnplayed:
             KmpHelper.shared.setMarkPlayed(item: kotlin, played: false) { _ in }
+        case .removeFromQueue:
+            guard let target = context.removeFromQueue else { return }
+            KmpHelper.shared.removeQueueItem(queueId: target.queueId, queueItemId: target.queueItemId)
         }
     }
 }

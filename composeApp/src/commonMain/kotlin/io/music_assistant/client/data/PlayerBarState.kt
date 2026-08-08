@@ -1,8 +1,11 @@
 package io.music_assistant.client.data
 
+import io.music_assistant.client.data.model.client.Chapter
+import io.music_assistant.client.data.model.client.ImageType
 import io.music_assistant.client.data.model.client.PlayerData
 import io.music_assistant.client.data.model.client.RepeatMode
 import io.music_assistant.client.data.model.client.items.AppMediaItem
+import io.music_assistant.client.data.model.client.items.Audiobook
 import io.music_assistant.client.ui.compose.common.DataState
 
 /**
@@ -37,6 +40,29 @@ data class PlayerBarItem(
     val canMute: Boolean,
     /** The current queue track, exposed so Swift can reuse the existing `setFavorite`/`favorite`/`uri`
      * fields directly instead of adding separate favorite-specific fields here. */
+    val trackItem: AppMediaItem?,
+    /** What queue actions (`playQueueItem`/`moveQueueItem`/`removeQueueItem`) key on — null when
+     * this player has no queue at all. */
+    val queueId: String?,
+    val queueItems: List<QueueBarItem>,
+    val currentQueueItemId: String?,
+    /** Only ever non-empty for the *currently playing* item, and only when it's an [Audiobook] —
+     * mirrors `QueueDisplayRows.kt`'s chapter-nesting rule exactly. */
+    val currentItemChapters: List<Chapter>,
+)
+
+/**
+ * Flat, Swift-bridgeable projection of a single `QueueTrack` — same "flatten at the boundary"
+ * pattern as [PlayerBarItem] itself. Carries the full [trackItem] (not just title/subtitle/
+ * artwork) so the native queue row can reuse `ItemContextMenu.swift`'s `.itemContextMenu()`
+ * wholesale instead of a queue-specific menu.
+ */
+data class QueueBarItem(
+    val id: String,
+    val title: String,
+    val subtitle: String?,
+    val artworkUrl: String?,
+    val isPlayable: Boolean,
     val trackItem: AppMediaItem?,
 )
 
@@ -83,6 +109,20 @@ internal fun buildPlayerBarState(
                 isMuted = player.currentMuteState,
                 canMute = player.canMute,
                 trackItem = queue?.currentItem?.track as? AppMediaItem,
+                queueId = data.queueOrPlayerId,
+                queueItems = data.queueItems.orEmpty().map { queueTrack ->
+                    val itemMedia = queueTrack.track as? AppMediaItem
+                    QueueBarItem(
+                        id = queueTrack.id,
+                        title = itemMedia?.displayName ?: itemMedia?.name.orEmpty(),
+                        subtitle = itemMedia?.subtitle,
+                        artworkUrl = itemMedia?.image(ImageType.THUMB)?.url,
+                        isPlayable = queueTrack.isPlayable,
+                        trackItem = itemMedia,
+                    )
+                },
+                currentQueueItemId = queue?.currentItem?.id,
+                currentItemChapters = (queue?.currentItem?.track as? Audiobook)?.chapters.orEmpty(),
             )
         },
         selectedIndex = selectedIndex?.takeIf { it in players.indices } ?: 0,

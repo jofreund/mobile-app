@@ -74,6 +74,7 @@ import io.music_assistant.client.ui.SchemaVersionWarningViewModel
 import io.music_assistant.client.ui.SchemaWarning
 import io.music_assistant.client.ui.compose.common.DataState
 import io.music_assistant.client.ui.compose.common.action.PlayerAction
+import io.music_assistant.client.ui.compose.common.action.QueueAction
 import io.music_assistant.client.ui.compose.common.viewmodel.createPlaylistAwaitingConfirmation
 import io.music_assistant.client.ui.compose.item.ItemUseCases
 import io.music_assistant.client.ui.compose.library.LibraryCategory
@@ -1402,4 +1403,21 @@ object KmpHelper : KoinComponent {
 
     private fun currentPlayerData(playerId: String): PlayerData? =
         (mainDataSource.playersData.value as? DataState.Data)?.data?.firstOrNull { it.playerId == playerId }
+
+    // MARK: - Player queue
+    //
+    // All three route through MainDataSource.queueAction(QueueAction) — confirmed (unlike
+    // playerAction) to be a single, canonical implementation with no sibling overload to
+    // accidentally miss; it's the exact same entry point Compose's own CollapsibleQueue/
+    // PlayersPager call. MainDataSource itself already no-ops a MoveItem when to == from, so
+    // Swift doesn't need to guard that case before calling.
+
+    fun playQueueItem(queueId: String, queueItemId: String) =
+        mainDataSource.queueAction(QueueAction.PlayQueueItem(queueId, queueItemId))
+
+    fun moveQueueItem(queueId: String, queueItemId: String, from: Int, to: Int) =
+        mainDataSource.queueAction(QueueAction.MoveItem(queueId, queueItemId, from, to))
+
+    fun removeQueueItem(queueId: String, queueItemId: String) =
+        mainDataSource.queueAction(QueueAction.RemoveItems(queueId, listOf(queueItemId)))
 }

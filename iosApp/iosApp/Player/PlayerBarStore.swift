@@ -68,6 +68,14 @@ final class PlayerBarStore {
         KmpHelper.shared.setPlayerBarVolume(playerId: id, level: level)
     }
 
+    func playQueueItem(queueId: String, queueItemId: String) {
+        KmpHelper.shared.playQueueItem(queueId: queueId, queueItemId: queueItemId)
+    }
+
+    func moveQueueItem(queueId: String, queueItemId: String, from: Int, to: Int) {
+        KmpHelper.shared.moveQueueItem(queueId: queueId, queueItemId: queueItemId, from: Int32(from), to: Int32(to))
+    }
+
     private func handle(_ state: PlayerBarState?) {
         guard let data = state as? PlayerBarState.Data else {
             players = []
@@ -103,6 +111,14 @@ struct PlayerBarItemView: Identifiable {
     /// `ExpandedPlayerView` can read `.favorite`/`.uri` directly and reuse the existing
     /// `KmpHelper.setFavorite(item:favorite:)` bridge instead of adding a favorite-specific one.
     let trackItem: AppMediaItem?
+    /// What `KmpHelper.playQueueItem`/`moveQueueItem`/`removeQueueItem` key on — nil when this
+    /// player has no queue at all.
+    let queueId: String?
+    let queueItems: [QueueBarItemView]
+    let currentQueueItemId: String?
+    /// Non-empty only when the current queue item is an audiobook — mirrors
+    /// `QueueDisplayRows.kt`'s chapter-nesting rule.
+    let currentItemChapters: [Chapter]
 
     init(_ item: PlayerBarItem) {
         self.id = item.playerId
@@ -121,6 +137,29 @@ struct PlayerBarItemView: Identifiable {
         self.volumeLevel = item.volumeLevel?.floatValue
         self.isMuted = item.isMuted
         self.canMute = item.canMute
+        self.trackItem = item.trackItem
+        self.queueId = item.queueId
+        self.queueItems = item.queueItems.map(QueueBarItemView.init)
+        self.currentQueueItemId = item.currentQueueItemId
+        self.currentItemChapters = item.currentItemChapters
+    }
+}
+
+/// SwiftUI-shaped projection of the Kotlin `QueueBarItem` — one queue row.
+struct QueueBarItemView: Identifiable {
+    let id: String
+    let title: String
+    let subtitle: String?
+    let artworkURL: URL?
+    let isPlayable: Bool
+    let trackItem: AppMediaItem?
+
+    init(_ item: QueueBarItem) {
+        self.id = item.id
+        self.title = item.title
+        self.subtitle = item.subtitle
+        self.artworkURL = item.artworkUrl.flatMap { URL(string: $0) }
+        self.isPlayable = item.isPlayable
         self.trackItem = item.trackItem
     }
 }
