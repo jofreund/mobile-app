@@ -423,7 +423,18 @@ private struct ExpandedPlayerRow: View {
         order.move(fromOffsets: IndexSet(integer: fromQueueIndex), toOffset: toQueueIndex)
         displayOrder = order
 
-        store.moveQueueItem(queueId: queueId, queueItemId: fromItem.id, from: fromQueueIndex, to: toQueueIndex)
+        // `toQueueIndex` is a pre-removal "insert before this original index" position — the
+        // convention `Array.move`/SwiftUI's own `.onMove` use, needed for the optimistic
+        // `order.move` above. The server's `pos_shift` mirrors Compose's own
+        // `add(toQueueIndex, removeAt(fromQueueIndex))` sequence, which is measured
+        // post-removal: removing the source item first shifts every index after it down by one.
+        // Forward moves (the only direction this feature allows — dropping before the current
+        // item is rejected above) need that index shifted back by one to match; backward moves
+        // are unaffected since removal never touches indices before itself. Sending the
+        // unadjusted pre-removal index overshoots by one position on every forward drag — the
+        // cause of reorders that looked right locally but didn't persist correctly server-side.
+        let serverToIndex = toQueueIndex > fromQueueIndex ? toQueueIndex - 1 : toQueueIndex
+        store.moveQueueItem(queueId: queueId, queueItemId: fromItem.id, from: fromQueueIndex, to: serverToIndex)
     }
 
     /// Maps a *display* drop position (an index into `rows`, which omits the current item's own
