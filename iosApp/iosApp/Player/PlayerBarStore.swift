@@ -233,9 +233,10 @@ struct QueueBarItemView: Identifiable {
     }
 }
 
-/// Player identity only — matches `SpikeMediaItem`'s own `==`/`hash` precedent. `trackItem`
-/// (a bridged Kotlin class) doesn't conform to Swift's `Equatable`, so this can't be
-/// auto-synthesized.
-extension PlayerBarItemView: Equatable {
-    static func == (lhs: PlayerBarItemView, rhs: PlayerBarItemView) -> Bool { lhs.id == rhs.id }
-}
+// Deliberately NOT Equatable. An id-only `==` (which is all this could offer — `trackItem` is a
+// bridged Kotlin class Swift can't compare) reads as "these two players are the same" to
+// SwiftUI's view-value diffing, which uses stored properties' Equatable conformance to decide
+// whether to skip re-running a body. Every state change here keeps the same id, so that `==`
+// told SwiftUI "nothing changed" on literally every update. Without the conformance SwiftUI
+// can't prove equality and re-renders, which is the correct default for a value whose contents
+// change constantly. Nothing in the app compares these directly.

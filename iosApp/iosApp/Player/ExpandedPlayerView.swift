@@ -167,7 +167,7 @@ private struct ExpandedPlayerRow: View {
         }
         .onChange(of: player.queueItems.map(\.id)) { _, _ in displayOrder = nil }
         .sheet(isPresented: $showGroupSettings) {
-            GroupSettingsView(store: store, playerId: player.id)
+            GroupSettingsView(player: player, store: store)
                 .presentationDetents([.medium, .large])
         }
     }

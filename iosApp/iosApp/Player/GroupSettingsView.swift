@@ -4,9 +4,14 @@ import SwiftUI
 /// at commit `e2514156`) — group/ungroup players, per-member volume/mute, and group volume,
 /// presented as a sheet from the expanded player's header.
 ///
-/// Looks the player up from `store.players` by id on every render rather than holding a copy,
-/// so server echoes (a member joining/leaving, volume moved from another client) update the
-/// open sheet live.
+/// Takes the player **value**, re-supplied by `ExpandedPlayerRow`'s own body on every store
+/// update, rather than looking it up from `store.players` by id. That lookup version didn't
+/// repaint on a join/leave: this view's only stored inputs would be the store reference and an
+/// id string, neither of which ever changes, so SwiftUI had nothing to diff and kept the
+/// already-rendered body. Passing the value is how every other live surface here works
+/// (`MiniPlayerRow`, `ExpandedPlayerRow` — both fed from `ForEach(store.players)`), and it's
+/// why `PlayerBarItemView` must not carry an id-only `Equatable` (see `PlayerBarStore.swift`).
+/// The store stays for dispatching actions only.
 ///
 /// Dispatch fidelity notes (mirrors the Compose original exactly):
 /// - Add/remove always target the *parent* player's id (`GroupManage`); volume/mute rows target
@@ -18,38 +23,25 @@ import SwiftUI
 ///   feature is product-hidden right now.
 struct GroupSettingsView: View {
 
+    let player: PlayerBarItemView
     var store: PlayerBarStore
-    let playerId: String
 
     @Environment(\.dismiss) private var dismiss
 
-    private var player: PlayerBarItemView? {
-        store.players.first { $0.id == playerId }
-    }
-
     var body: some View {
         NavigationStack {
-            Group {
-                if let player {
-                    content(player)
-                } else {
-                    // Player vanished (disconnected) while the sheet was up — nothing to manage.
-                    ContentUnavailableView {
-                        Label(String(localized: "players_group_settings"), systemImage: "hifispeaker.2")
+            content
+                .navigationTitle(String(localized: "players_group_settings"))
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button(String(localized: "common_done")) { dismiss() }
                     }
                 }
-            }
-            .navigationTitle(String(localized: "players_group_settings"))
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(String(localized: "common_done")) { dismiss() }
-                }
-            }
         }
     }
 
-    private func content(_ player: PlayerBarItemView) -> some View {
+    private var content: some View {
         List {
             if player.isGrouped {
                 Section {
