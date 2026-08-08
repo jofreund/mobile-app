@@ -76,6 +76,7 @@ struct AppTabView: View {
 
     @State private var playerExpanded = false
     @State private var deepLinkSubscription: Cancellable?
+    @State private var playerBarStore = PlayerBarStore()
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -103,6 +104,7 @@ struct AppTabView: View {
             })
             .ignoresSafeArea()
         }
+        .task { playerBarStore.start() }
         .task {
             guard deepLinkSubscription == nil else { return }
             deepLinkSubscription = KmpHelper.shared.deepLinks.subscribe { [self] dest in
@@ -135,9 +137,7 @@ struct AppTabView: View {
                     ItemDetailsView(route: route)
                 }
         }
-        .floatingPlayerBar(playerExpanded: $playerExpanded) { itemId, mediaType, providerId in
-            homePath.append(ItemDetailsRoute(itemId: itemId, mediaType: mediaType, providerId: providerId))
-        }
+        .floatingPlayerBar(store: playerBarStore, playerExpanded: $playerExpanded)
     }
 
     private var libraryTab: some View {
@@ -160,9 +160,7 @@ struct AppTabView: View {
                 BrowseView(route: route)
             }
         }
-        .floatingPlayerBar(playerExpanded: $playerExpanded) { itemId, mediaType, providerId in
-            libraryPath.append(ItemDetailsRoute(itemId: itemId, mediaType: mediaType, providerId: providerId))
-        }
+        .floatingPlayerBar(store: playerBarStore, playerExpanded: $playerExpanded)
     }
 
     private var searchTab: some View {
@@ -172,27 +170,28 @@ struct AppTabView: View {
                     ItemDetailsView(route: route)
                 }
         }
-        .floatingPlayerBar(playerExpanded: $playerExpanded) { itemId, mediaType, providerId in
-            searchPath.append(ItemDetailsRoute(itemId: itemId, mediaType: mediaType, providerId: providerId))
-        }
+        .floatingPlayerBar(store: playerBarStore, playerExpanded: $playerExpanded)
     }
 }
 
 private extension View {
-    /// Reserves space for, and hosts, this tab's own instance of the collapsed floating
-    /// player bar — see `AppTabView`'s doc for why this is per-tab rather than shared.
-    func floatingPlayerBar(
-        playerExpanded: Binding<Bool>,
-        onNavigateToItemDetails: @escaping (String, MediaType, String) -> Void
-    ) -> some View {
+    /// Reserves space for, and hosts, this tab's own instance of the collapsed player bar —
+    /// see `AppTabView`'s doc for why per-tab rather than shared. The native `MiniPlayerView`
+    /// is the visible/interactive layer (`.safeAreaInset`); `FloatingBarSideEffectsController`
+    /// is a fixed-height, non-hit-testable `.overlay` behind it, purely for the toast/
+    /// volume-hint/deep-link side effects that have no other home (see `ComposeScreenHosts.kt`).
+    func floatingPlayerBar(store: PlayerBarStore, playerExpanded: Binding<Bool>) -> some View {
         safeAreaInset(edge: .bottom) {
+            MiniPlayerView(store: store) { playerExpanded.wrappedValue = true }
+        }
+        .overlay(alignment: .bottom) {
             ComposeHostView(makeController: {
-                ComposeScreenHostsKt.FloatingBarCollapsedController(
-                    onExpand: { playerExpanded.wrappedValue = true },
-                    onNavigateToItemDetails: onNavigateToItemDetails
+                ComposeScreenHostsKt.FloatingBarSideEffectsController(
+                    onExpand: { playerExpanded.wrappedValue = true }
                 )
             })
             .frame(height: 100)
+            .allowsHitTesting(false)
         }
     }
 }

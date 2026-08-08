@@ -1,0 +1,78 @@
+import SwiftUI
+import ComposeApp
+
+/// Drives the native mini player (`MiniPlayerView.swift`) — subscribes to
+/// `KmpHelper.playerBarState` and turns transport taps into `KmpHelper` calls. All real state
+/// (which players are connected, which is selected, local-vs-remote command routing/optimistic
+/// dispatch) stays in `MainDataSource`; this is a thin Kotlin-to-SwiftUI projection, same shape
+/// as `ConnectionSetupStore`.
+///
+/// One shared instance, owned by `AppTabView` and passed to all three tabs — unlike the Compose
+/// original, which re-subscribed and re-derived pager state once per tab (three competing
+/// `HomeScreenViewModel`/`rememberPagerState` instances). The player list and selection are
+/// identical across tabs, so one native subscription replaces three redundant Kotlin ones.
+@Observable
+@MainActor
+final class PlayerBarStore {
+
+    private(set) var players: [PlayerBarItemView] = []
+    private(set) var selectedIndex: Int = 0
+
+    private var stateSub: Cancellable?
+
+    func start() {
+        guard stateSub == nil else { return }
+        stateSub = KmpHelper.shared.playerBarState.subscribe { [weak self] state in
+            self?.handle(state)
+        }
+    }
+
+    func stop() {
+        stateSub?.cancel()
+        stateSub = nil
+    }
+
+    func selectPlayer(id: String) {
+        KmpHelper.shared.selectPlayerBarPlayer(playerId: id)
+    }
+
+    func togglePlayPause(id: String) {
+        KmpHelper.shared.togglePlayerBarPlayPause(playerId: id)
+    }
+
+    func skipNext(id: String) {
+        KmpHelper.shared.skipPlayerBarNext(playerId: id)
+    }
+
+    private func handle(_ state: PlayerBarState?) {
+        guard let data = state as? PlayerBarState.Data else {
+            players = []
+            selectedIndex = 0
+            return
+        }
+        players = data.players.map(PlayerBarItemView.init)
+        selectedIndex = Int(data.selectedIndex)
+    }
+}
+
+/// SwiftUI-shaped projection of the Kotlin `PlayerBarItem` — same "flatten at the bridge
+/// boundary" pattern `SpikeMediaItem` uses over `AppMediaItem`.
+struct PlayerBarItemView: Identifiable, Equatable {
+    let id: String
+    let name: String
+    let isPlaying: Bool
+    let isPoweredOff: Bool
+    let title: String?
+    let subtitle: String?
+    let artworkURL: URL?
+
+    init(_ item: PlayerBarItem) {
+        self.id = item.playerId
+        self.name = item.name
+        self.isPlaying = item.isPlaying
+        self.isPoweredOff = item.isPoweredOff
+        self.title = item.title
+        self.subtitle = item.subtitle
+        self.artworkURL = item.artworkUrl.flatMap { URL(string: $0) }
+    }
+}

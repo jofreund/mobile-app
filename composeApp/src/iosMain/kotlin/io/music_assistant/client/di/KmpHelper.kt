@@ -23,6 +23,7 @@ import io.music_assistant.client.data.MainDataSource
 import io.music_assistant.client.data.NowPlayingModes
 import io.music_assistant.client.data.NowPlayingTrack
 import io.music_assistant.client.data.NowPlayingTransport
+import io.music_assistant.client.data.PlayerBarState
 import io.music_assistant.client.data.executeLocalPlayerDispatch
 import io.music_assistant.client.data.model.client.LibraryFilters
 import io.music_assistant.client.data.model.client.MediaType
@@ -69,6 +70,7 @@ import io.music_assistant.client.ui.AppRootDestination
 import io.music_assistant.client.ui.AppRootRouter
 import io.music_assistant.client.ui.SchemaVersionWarningViewModel
 import io.music_assistant.client.ui.SchemaWarning
+import io.music_assistant.client.ui.compose.common.action.PlayerAction
 import io.music_assistant.client.ui.compose.common.viewmodel.createPlaylistAwaitingConfirmation
 import io.music_assistant.client.ui.compose.item.ItemUseCases
 import io.music_assistant.client.ui.compose.library.LibraryCategory
@@ -1342,4 +1344,22 @@ object KmpHelper : KoinComponent {
             }
         }
     }
+
+    // MARK: - Player bar (native mini player)
+    //
+    // Thin wraps over MainDataSource — the real state (player list, selection resolution,
+    // local-vs-remote command routing/optimistic dispatch) all stays in Kotlin. Only
+    // toggle-play-pause and skip-next are exposed: this is the *collapsed* mini player only
+    // (Apple Music's mini player itself has no skip-back/volume/shuffle/repeat either); the
+    // full set of PlayerAction cases stays reachable only via the still-Compose-hosted
+    // expanded player for now.
+
+    val playerBarState: NativeStateFlow<PlayerBarState>
+        get() = NativeStateFlow(mainDataSource.playerBarState, mainScope)
+
+    fun selectPlayerBarPlayer(playerId: String) = mainDataSource.selectPlayer(playerId)
+
+    fun togglePlayerBarPlayPause(playerId: String) = mainDataSource.playerAction(playerId, PlayerAction.TogglePlayPause)
+
+    fun skipPlayerBarNext(playerId: String) = mainDataSource.playerAction(playerId, PlayerAction.Next)
 }

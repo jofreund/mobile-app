@@ -264,6 +264,11 @@ class MainDataSource(
             (_playersData.value as? DataState.Data)?.data?.getOrNull(selectedIndex)
         }
 
+    /** Native mini player's bridged view of the player list + selection — see [buildPlayerBarState]. */
+    val playerBarState: StateFlow<PlayerBarState> =
+        combine(playersData, selectedPlayerIndex, ::buildPlayerBarState)
+            .stateIn(this, SharingStarted.Eagerly, PlayerBarState.Loading)
+
     // --- Canonical media-session "now playing" source ---
     // Single source of truth for what the MediaSession / notification presents,
     // consumed by the Android SharedMediaSessionManager (the sole session writer)
@@ -921,6 +926,12 @@ class MainDataSource(
         // launch in [init] mirrors it into [SettingsRepository] for the next
         // app launch.
         _userSelectedPlayerId.update { player.id }
+    }
+
+    /** By-id overload for the native mini player's pager-settle callback — same effect as
+     * [selectPlayer], just without requiring a full [Player] the caller may not have handy. */
+    fun selectPlayer(playerId: String) {
+        _userSelectedPlayerId.update { playerId }
     }
 
     /** `null` if this event is older than what `_queueInfos` already holds for the same id. */

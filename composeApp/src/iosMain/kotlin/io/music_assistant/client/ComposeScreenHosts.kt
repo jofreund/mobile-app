@@ -112,16 +112,20 @@ fun SettingsAppController(): UIViewController = ComposeUIViewController(
 }
 
 /**
- * The always-mounted collapsed player bar, pinned to the bottom of every tab via
- * `AppTabView.swift`'s `.safeAreaInset`. Owns everything that must have exactly one
- * live instance for the app's lifetime — see this file's doc.
+ * The always-mounted, purely side-effecting companion to the native `MiniPlayerView` —
+ * pinned invisibly behind it at the bottom of every tab via `AppTabView.swift`'s
+ * `.overlay`/`allowsHitTesting(false)`. Owns everything that must have exactly one live
+ * instance for the app's lifetime but isn't itself UI: `ErrorMessageBus` → toast display,
+ * the volume-button remote-playback hint toast, and consuming `DeepLinkDestination.Players`
+ * to trigger expand. The collapsed player bar's own UI (`PlayersPager`/`FloatingBar`) moved
+ * to native SwiftUI (`MiniPlayerView.swift`) — this controller no longer renders it, and
+ * dropped the `onNavigateToItemDetails` param that only `ExpandedPlayerPage` ever used.
  */
 @Suppress(
     "FunctionNaming",
 ) // iOS factory function intentionally PascalCase; called from Swift as if it were a constructor
-fun FloatingBarCollapsedController(
+fun FloatingBarSideEffectsController(
     onExpand: () -> Unit,
-    onNavigateToItemDetails: (itemId: String, mediaType: MediaType, providerId: String) -> Unit,
 ): UIViewController = ComposeUIViewController(
     configure = { bootstrapKmp() },
 ) {
@@ -165,14 +169,6 @@ fun FloatingBarCollapsedController(
         }
 
         Box(Modifier.fillMaxSize()) {
-            PlayerBarContent(
-                expanded = false,
-                onExpandedChange = { if (it) onExpand() },
-                onClose = {},
-                homeScreenViewModel = homeScreenViewModel,
-                playersState = playersState,
-                onNavigateToItemDetails = onNavigateToItemDetails,
-            )
             ToastHost(toastState = toastState)
         }
     }
