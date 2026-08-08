@@ -416,9 +416,7 @@ private struct ExpandedPlayerRow: View {
         guard case let .track(fromItem, fromQueueIndex) = rows[fromDisplayIndex] else { return }
         guard let currentIndex = currentQueueIndex, let queueId = player.queueId else { return }
 
-        let toQueueIndex = rows.prefix(to).reduce(0) { count, row in
-            if case .track = row { count + 1 } else { count }
-        }
+        let toQueueIndex = resolveTargetQueueIndex(rows: rows, to: to, currentIndex: currentIndex)
         guard toQueueIndex > currentIndex else { return }
 
         var order = displayOrder ?? orderedQueueItems.map(\.id)
@@ -426,6 +424,23 @@ private struct ExpandedPlayerRow: View {
         displayOrder = order
 
         store.moveQueueItem(queueId: queueId, queueItemId: fromItem.id, from: fromQueueIndex, to: toQueueIndex)
+    }
+
+    /// Maps a *display* drop position (an index into `rows`, which omits the current item's own
+    /// row — see `QueueDisplayRow.build`) to the absolute queue index `moveQueueItem` needs.
+    /// Deliberately reads the `queueIndex` already stored on the nearest surrounding `.track`
+    /// row rather than counting rows up to `to`: counting undercounts by exactly the number of
+    /// omitted current-item rows before `to`, which is what silently broke every reorder after
+    /// the current-item row was removed to fix the queue-duplication issue — this reads the
+    /// real index directly instead of re-deriving it.
+    private func resolveTargetQueueIndex(rows: [QueueDisplayRow], to: Int, currentIndex: Int) -> Int {
+        for row in rows[to...] {
+            if case let .track(_, queueIndex) = row { return queueIndex }
+        }
+        for row in rows[..<to].reversed() {
+            if case let .track(_, queueIndex) = row { return queueIndex + 1 }
+        }
+        return currentIndex + 1
     }
 
     private func scrollToCurrent(proxy: ScrollViewProxy, animated: Bool) {
