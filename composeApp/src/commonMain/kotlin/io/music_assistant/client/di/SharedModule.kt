@@ -24,25 +24,8 @@ import io.music_assistant.client.player.sendspin.SendspinClientFactory
 import io.music_assistant.client.settings.SettingsRepository
 import io.music_assistant.client.settings.provideSettings
 import io.music_assistant.client.ui.AppRootRouter
-import io.music_assistant.client.ui.BackgroundRestrictionViewModel
 import io.music_assistant.client.ui.SchemaVersionWarningViewModel
-import io.music_assistant.client.ui.compose.auth.AuthenticationViewModel
-import io.music_assistant.client.ui.compose.common.DominantColorViewModel
-import io.music_assistant.client.ui.compose.common.providers.MdiCodepoints
-import io.music_assistant.client.ui.compose.common.viewmodel.ActionsViewModel
 import io.music_assistant.client.ui.compose.home.HomeScreenViewModel
-import io.music_assistant.client.ui.compose.home.players.DspSettingsViewModel
-import io.music_assistant.client.ui.compose.item.ItemDetailsViewModel
-import io.music_assistant.client.ui.compose.item.ItemListViewModel
-import io.music_assistant.client.ui.compose.item.ViewModeViewModel
-import io.music_assistant.client.ui.compose.library.BrowseViewModel
-import io.music_assistant.client.ui.compose.library.LibraryCategoriesViewModel
-import io.music_assistant.client.ui.compose.library.LibraryListViewModel
-import io.music_assistant.client.ui.compose.search.SearchViewModel
-import io.music_assistant.client.ui.compose.settings.CarActionsViewModel
-import io.music_assistant.client.ui.compose.settings.CarDspViewModel
-import io.music_assistant.client.ui.compose.settings.DefaultClickActionsViewModel
-import io.music_assistant.client.ui.compose.settings.SettingsViewModel
 import io.music_assistant.client.ui.theme.ThemeViewModel
 import io.music_assistant.client.utils.NetworkMonitor
 import org.koin.core.module.dsl.bind
@@ -93,43 +76,11 @@ fun sharedModule(
         single(createdAtStart = true) {     // Eager - must observe car edges from launch
             CarDspApplier(get(), get(), get(), get())
         }
-        singleOf(::DominantColorViewModel)  // Singleton - app-wide art-color cache
-        singleOf(::MdiCodepoints)           // Singleton - MDI name->codepoint table (one-time load)
         viewModelOf(::ThemeViewModel)
-        factory { BackgroundRestrictionViewModel(get(), get(), get()) }
         single(createdAtStart = true) {  // Eager - schema warning must be observable before any host mounts
             SchemaVersionWarningViewModel(get())
         }
-        factory { ActionsViewModel(get(), get(), get()) }
-        factory { SettingsViewModel(get(), get(), get()) }
-        factory { DefaultClickActionsViewModel(get()) }
-        factory { CarActionsViewModel(get()) }
-        factory { CarDspViewModel(get(), get()) }
-        factory {
-            AuthenticationViewModel(
-                auth = get(),
-                sessionStateFlow = get<ServiceClient>().sessionState,
-            )
-        }
-        factory { LibraryCategoriesViewModel(get()) }
-        factory { params -> LibraryListViewModel(params[0], get(), get(), get(), get()) }
-        factory { params -> BrowseViewModel(params.getOrNull<String>(), get(), get(), get()) }
-        factory { params ->
-            ItemDetailsViewModel(
-                get(),
-                get(),
-                get(),
-                get(),
-                params[0],
-                params[1],
-                params[2],
-            )
-        }
-        factory { ViewModeViewModel(get()) }
-        factory { params -> ItemListViewModel(params[0], get()) }
-        factory { DspSettingsViewModel(get()) }
         factory { HomeScreenViewModel(get(), get(), get(), get()) }
-        factory { SearchViewModel(get(), get(), get()) }
     }
 
 /**

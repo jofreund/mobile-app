@@ -24,7 +24,6 @@ import io.music_assistant.client.ui.compose.AppLifecycleObserver
 import io.music_assistant.client.ui.compose.common.ToastDuration
 import io.music_assistant.client.ui.compose.common.ToastHost
 import io.music_assistant.client.ui.compose.common.dismissKeyboardOnTap
-import io.music_assistant.client.ui.compose.common.items.ProvideClickActionPrefs
 import io.music_assistant.client.ui.compose.common.rememberToastState
 import io.music_assistant.client.ui.compose.home.HomeScreenViewModel
 import io.music_assistant.client.ui.compose.home.selectedPlayer
@@ -169,7 +168,7 @@ private fun AppShellChrome(content: @Composable () -> Unit) {
                 .background(MaterialTheme.colorScheme.background)
                 .dismissKeyboardOnTap(),
         ) {
-            ProvideClickActionPrefs { content() }
+            content()
         }
     }
 }

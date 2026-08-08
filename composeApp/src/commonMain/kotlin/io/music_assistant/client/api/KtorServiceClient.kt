@@ -14,7 +14,6 @@ import io.music_assistant.client.data.model.server.AuthorizationResponse
 import io.music_assistant.client.data.model.server.LoginResponse
 import io.music_assistant.client.data.model.server.ServerInfo
 import io.music_assistant.client.data.model.server.events.Event
-import io.music_assistant.client.imageloader.ARTWORK_DECODE_SIZE
 import io.music_assistant.client.imageloader.ImageCacheInvalidator
 import io.music_assistant.client.settings.ConnectionHistoryEntry
 import io.music_assistant.client.settings.ConnectionType
@@ -1167,8 +1166,9 @@ class KtorServiceClient(
         // Server schema that introduced the opaque /imageproxy/{proxy_id} endpoint.
         private const val IMAGEPROXY_OPAQUE_SCHEMA = 31
 
-        // Bucketed proxy size we request; matches our fixed decode size so the server
-        // can downscale before sending without any visual change. 512 is an allowed bucket.
-        private const val IMAGEPROXY_SIZE = ARTWORK_DECODE_SIZE
+        // Bucketed proxy size we request, so the server can downscale before sending.
+        // 512 is an allowed bucket, and comfortably above every rendered artwork size
+        // (was ARTWORK_DECODE_SIZE while Compose/Coil still decoded artwork itself).
+        private const val IMAGEPROXY_SIZE = 512
     }
 }

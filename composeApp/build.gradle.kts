@@ -86,15 +86,11 @@ kotlin {
             implementation(libs.coil.network.ktor3)
             implementation(libs.coil.svg)
 
-            implementation(libs.kmpalette.core)
-            implementation(libs.kmpalette.extensions.network)
-
             implementation(libs.material.icons.core)
             implementation(libs.material.icons.extended)
             implementation(libs.icons.fontawesome)
             implementation(libs.icons.tabler)
             implementation(libs.settings.multiplatform)
-            implementation(libs.reorderable)
 
             implementation(libs.kermit)
 

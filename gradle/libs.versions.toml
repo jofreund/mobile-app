@@ -18,8 +18,6 @@ fontIconsVersion = "1.1.1"
 
 navigationComposeVersion = "2.9.2" # required by compose-multiplatform
 settingsMultiplatform = "1.3.0"
-reorderable = "3.1.0"
-kmpalette = "3.1.0"
 
 androidxNavigation3UI = "1.1.1"
 androidxNavigation3Material = "1.3.0-beta02"
@@ -68,9 +66,6 @@ icons-tabler = { module = "br.com.devsrsouza.compose.icons:tabler-icons", versio
 
 settings-multiplatform = { module = "com.russhwolf:multiplatform-settings-no-arg", version.ref = "settingsMultiplatform" }
 settings-multiplatform-test = { module = "com.russhwolf:multiplatform-settings-test", version.ref = "settingsMultiplatform" }
-reorderable = { module = "sh.calvin.reorderable:reorderable", version.ref = "reorderable" }
-kmpalette-core = { module = "com.kmpalette:kmpalette-core", version.ref = "kmpalette" }
-kmpalette-extensions-network = { module = "com.kmpalette:extensions-network", version.ref = "kmpalette" }
 
 androidx-navigation3-ui = { module = "org.jetbrains.androidx.navigation3:navigation3-ui", version.ref = "androidxNavigation3UI" }
 androidx-navigation3-material3-adaptive = { module = "org.jetbrains.compose.material3.adaptive:adaptive-navigation3", version.ref = "androidxNavigation3Material" }
