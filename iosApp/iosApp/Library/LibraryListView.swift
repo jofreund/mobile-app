@@ -18,11 +18,11 @@ struct LibraryCategoryRoute: Hashable {
 
 /// The native screen for one Library category (Artists, Albums, …) — the first slice
 /// of Phase E2. Deliberately narrower than Compose's `LibraryListScreen` (472 LOC
-/// `LibraryListViewModel`): search, sort, and offset+limit pagination are ported;
-/// not yet: the list/grid view-mode toggle, favorite/provider/genre filters, and
-/// optimistic playlist creation. `BROWSE` isn't a `MediaType` and never reaches this
-/// screen — it stays on `BrowseView`, a separately-scoped path-based tree rather than
-/// a flat list.
+/// `LibraryListViewModel`): search, sort, offset+limit pagination, and
+/// favorite/provider/genre filters are ported; not yet: the list/grid view-mode
+/// toggle and optimistic playlist creation. `BROWSE` isn't a `MediaType` and never
+/// reaches this screen — it stays on `BrowseView`, a separately-scoped path-based
+/// tree rather than a flat list.
 struct LibraryListView: View {
 
     let route: LibraryCategoryRoute
@@ -31,6 +31,8 @@ struct LibraryListView: View {
     @State private var loadFailed = false
     @State private var searchQuery = ""
     @State private var sortOption: SortOption
+    @State private var filters: LibraryFilters
+    @State private var showFilterSheet = false
     @State private var hasMore = true
     @State private var isLoadingMore = false
 
@@ -43,18 +45,20 @@ struct LibraryListView: View {
         self.route = route
         self.availableSortFields = SortConfig.shared.fieldsFor(mediaType: route.mediaType)
         _sortOption = State(initialValue: SortConfig.shared.defaultFor(mediaType: route.mediaType))
+        _filters = State(initialValue: KmpHelper.shared.libraryFilters(mediaType: route.mediaType).value ?? LibraryFilters.companion.DEFAULT)
     }
 
     /// Debounces `searchQuery` edits without hand-rolled Task bookkeeping: `.task(id:)`
     /// cancels and restarts on every keystroke, so only the sleep following the last
-    /// keystroke in a burst ever reaches `load()`. Also carries `route` and `sortOption`,
-    /// so switching categories or sort reloads too — all three funnel through the same
-    /// debounce delay (imperceptible on a fresh navigation or sort tap, correct for a
-    /// query edit).
+    /// keystroke in a burst ever reaches `load()`. Also carries `route`, `sortOption`,
+    /// and `filters`, so switching categories, sort, or filters reloads too — all four
+    /// funnel through the same debounce delay (imperceptible on a fresh navigation,
+    /// sort tap, or filter Apply; correct for a query edit).
     private struct LoadKey: Equatable {
         let route: LibraryCategoryRoute
         let query: String
         let sortOption: SortOption
+        let filters: LibraryFilters
     }
 
     var body: some View {
@@ -101,15 +105,31 @@ struct LibraryListView: View {
             prompt: String(localized: "library_quick_search")
         )
         .toolbar {
+            ToolbarItem(placement: .primaryAction) { filterButton }
             if availableSortFields.count > 1 {
                 ToolbarItem(placement: .primaryAction) { sortMenu }
             }
         }
-        .task(id: LoadKey(route: route, query: searchQuery, sortOption: sortOption)) {
+        .sheet(isPresented: $showFilterSheet) {
+            LibraryFilterSheet(mediaType: route.mediaType, initialFilters: filters) { applied in
+                filters = applied
+                KmpHelper.shared.setLibraryFilters(mediaType: route.mediaType, filters: applied)
+            }
+        }
+        .task(id: LoadKey(route: route, query: searchQuery, sortOption: sortOption, filters: filters)) {
             try? await Task.sleep(for: .milliseconds(500))
             guard !Task.isCancelled else { return }
             await load()
         }
+    }
+
+    private var filterButton: some View {
+        Button {
+            showFilterSheet = true
+        } label: {
+            Image(systemName: filters.hasActive ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
+        }
+        .accessibilityLabel(String(localized: "cd_filter"))
     }
 
     private var sortMenu: some View {
@@ -170,7 +190,8 @@ struct LibraryListView: View {
                 mediaType: route.mediaType,
                 search: query.isEmpty ? nil : query,
                 offset: 0,
-                sortOption: sortOption
+                sortOption: sortOption,
+                filters: filters
             ) { continuation.resume(returning: $0) }
         }
         guard !Task.isCancelled else { return }
@@ -194,7 +215,8 @@ struct LibraryListView: View {
                 mediaType: route.mediaType,
                 search: query.isEmpty ? nil : query,
                 offset: Int32(currentItems.count),
-                sortOption: sortOption
+                sortOption: sortOption,
+                filters: filters
             ) { continuation.resume(returning: $0) }
         }
         guard !Task.isCancelled else { return }

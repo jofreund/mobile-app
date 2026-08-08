@@ -20,6 +20,7 @@ import io.music_assistant.client.data.NowPlayingModes
 import io.music_assistant.client.data.NowPlayingTrack
 import io.music_assistant.client.data.NowPlayingTransport
 import io.music_assistant.client.data.executeLocalPlayerDispatch
+import io.music_assistant.client.data.model.client.LibraryFilters
 import io.music_assistant.client.data.model.client.MediaType
 import io.music_assistant.client.data.model.client.QueueOption
 import io.music_assistant.client.data.model.client.SortConfig
@@ -36,6 +37,7 @@ import io.music_assistant.client.data.model.client.items.PodcastEpisode
 import io.music_assistant.client.data.model.client.items.RecommendationFolder
 import io.music_assistant.client.data.model.client.items.Track
 import io.music_assistant.client.data.model.client.toItemKind
+import io.music_assistant.client.data.model.server.ServerProviderInstance
 import io.music_assistant.client.data.planLocalPlayerDispatch
 import io.music_assistant.client.data.repository.MediaItemRepository
 import io.music_assistant.client.input.VolumeButtonService
@@ -55,6 +57,7 @@ import io.music_assistant.client.ui.compose.library.LibraryCategory
 import io.music_assistant.client.ui.compose.library.carTabCategories
 import io.music_assistant.client.utils.HasConnectionData
 import io.music_assistant.client.utils.currentTimeMillis
+import io.music_assistant.client.utils.resultAs
 import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.addressOf
@@ -81,6 +84,12 @@ private const val TRACKS_FETCH_LIMIT = 500
 
 /** See [fetchLibraryItems]. Matches LibraryListViewModel.PAGE_SIZE. */
 private const val LIBRARY_PAGE_SIZE = 50
+
+/** A provider entry for the library filter sheet's provider picker. See [KmpHelper.fetchLibraryProviderOptions]. */
+data class LibraryProviderOption(val instanceId: String, val label: String)
+
+/** A genre entry for the library filter sheet's genre picker. See [KmpHelper.fetchLibraryGenreOptions]. */
+data class LibraryGenreOption(val genreId: Int, val label: String)
 
 /**
  * KmpHelper - Bridge for accessing Koin dependencies from Swift
@@ -391,15 +400,15 @@ object KmpHelper : KoinComponent {
 
     /**
      * LibraryListView.swift's single entry point, in place of the eight fetchX above:
-     * one method covering every category, with the `search`/`offset`/`sortOption` params
-     * those don't take. Mirrors LibraryListViewModel.getRequest's per-type dispatch, minus
-     * the favorite-and-provider/genre filters — LibraryListView doesn't have those yet.
+     * one method covering every category, with the `search`/`offset`/`sortOption`/
+     * `filters` params those don't take. Mirrors LibraryListViewModel.getRequest's
+     * per-type dispatch exactly, [filters] included.
      *
      * [offset] + the fixed [LIBRARY_PAGE_SIZE] page is LibraryListViewModel's own
      * offset+limit paging, not a cursor: Swift passes `0` for a fresh load (a route,
-     * query, or sort change) and `items.count` to fetch the next page, and treats
-     * `result.count >= LIBRARY_PAGE_SIZE` as "there may be more" — same heuristic as
-     * `updateStateWithData`'s `hasMore`. `TRACK` no longer needs its own
+     * query, sort, or filter change) and `items.count` to fetch the next page, and
+     * treats `result.count >= LIBRARY_PAGE_SIZE` as "there may be more" — same
+     * heuristic as `updateStateWithData`'s `hasMore`. `TRACK` no longer needs its own
      * `TRACKS_FETCH_LIMIT`: real pagination caps every request at `LIBRARY_PAGE_SIZE`
      * regardless of type, so the unbounded-fetch problem that constant was working
      * around ([fetchTracks]'s doc) doesn't arise here.
@@ -409,39 +418,118 @@ object KmpHelper : KoinComponent {
         search: String?,
         offset: Int,
         sortOption: SortOption,
+        filters: LibraryFilters,
         completion: (List<AppMediaItem>?) -> Unit,
     ) {
         val orderBy = sortOption.toServerString()
+        val favorite = filters.favorite.takeIf { it }
+        val providers = filters.providers.takeIf { it.isNotEmpty() }
+        val genres = filters.genres.takeIf { it.isNotEmpty() }
         val request = when (mediaType) {
             MediaType.ARTIST -> Request.Artist.listLibrary(
                 search = search, limit = LIBRARY_PAGE_SIZE, offset = offset, orderBy = orderBy,
+                favorite = favorite, albumArtistsOnly = filters.albumArtistsOnly,
+                providers = providers, genres = genres,
             )
             MediaType.ALBUM -> Request.Album.listLibrary(
                 search = search, limit = LIBRARY_PAGE_SIZE, offset = offset, orderBy = orderBy,
+                favorite = favorite, albumTypes = filters.albumTypes.map { it.serverValue },
+                providers = providers, genres = genres,
             )
             MediaType.TRACK -> Request.Track.list(
                 search = search, limit = LIBRARY_PAGE_SIZE, offset = offset, orderBy = orderBy,
+                favorite = favorite, providers = providers, genres = genres,
             )
             MediaType.PLAYLIST -> Request.Playlist.listLibrary(
                 search = search, limit = LIBRARY_PAGE_SIZE, offset = offset, orderBy = orderBy,
+                favorite = favorite, providers = providers, genres = genres,
             )
             MediaType.AUDIOBOOK -> Request.Audiobook.listLibrary(
                 search = search, limit = LIBRARY_PAGE_SIZE, offset = offset, orderBy = orderBy,
+                favorite = favorite, providers = providers, genres = genres,
             )
             MediaType.PODCAST -> Request.Podcast.listLibrary(
                 search = search, limit = LIBRARY_PAGE_SIZE, offset = offset, orderBy = orderBy,
+                favorite = favorite, providers = providers, genres = genres,
             )
             MediaType.RADIO -> Request.RadioStation.listLibrary(
                 search = search, limit = LIBRARY_PAGE_SIZE, offset = offset, orderBy = orderBy,
+                favorite = favorite, providers = providers, genres = genres,
             )
             MediaType.GENRE -> Request.Genre.listLibrary(
                 search = search, limit = LIBRARY_PAGE_SIZE, offset = offset, orderBy = orderBy,
+                favorite = favorite, providers = providers,
+                hideEmpty = filters.hideEmpty.hideEmpty, mediaType = filters.genreMediaType?.serverValue,
             )
             else -> null
         } ?: return completion(emptyList())
 
-        launchFetch("libraryItems:$mediaType:${search.orEmpty()}:$offset:$orderBy", completion) {
+        launchFetch("libraryItems:$mediaType:${search.orEmpty()}:$offset:$orderBy:$filters", completion) {
             mediaItemRepository.fetchMediaItems(request).getOrNull() ?: emptyList()
+        }
+    }
+
+    /**
+     * The current persisted [LibraryFilters] for [mediaType], live — mirrors
+     * `LibraryListViewModel`'s fold of `settingsRepository.libraryFilters(mediaType)`
+     * into its own state. Drives both the filter sheet's initial working copy and the
+     * toolbar filter button's active tint (`LibraryFilters.hasActive`, callable
+     * directly from Swift as a Kotlin extension property).
+     */
+    fun libraryFilters(mediaType: MediaType): NativeStateFlow<LibraryFilters> =
+        NativeStateFlow(settingsRepository.libraryFilters(mediaType), mainScope)
+
+    /** Persists [filters] for [mediaType] — settings are the source of truth, same as Compose's `setFilters`. */
+    fun setLibraryFilters(mediaType: MediaType, filters: LibraryFilters) {
+        settingsRepository.setLibraryFilters(mediaType, filters)
+    }
+
+    /**
+     * Library capability a provider must declare to be offered as a provider-filter option
+     * on [mediaType]'s list. Null for types with no provider filter (GENRE). Mirrors
+     * LibraryListViewModel.providerFeatureFor exactly.
+     */
+    private fun providerFeatureFor(mediaType: MediaType): String? = when (mediaType) {
+        MediaType.ARTIST -> "library_artists"
+        MediaType.ALBUM -> "library_albums"
+        MediaType.TRACK -> "library_tracks"
+        MediaType.PLAYLIST -> "library_playlists"
+        MediaType.RADIO -> "library_radios"
+        MediaType.PODCAST -> "library_podcasts"
+        MediaType.AUDIOBOOK -> "library_audiobooks"
+        else -> null
+    }
+
+    /**
+     * Provider options for the filter sheet's provider picker — mirrors
+     * LibraryListViewModel.loadProviderOptions. Empty (not `null`) for GENRE, which has
+     * no provider filter, same as the Compose sheet skipping the load entirely there.
+     */
+    fun fetchLibraryProviderOptions(mediaType: MediaType, completion: (List<LibraryProviderOption>?) -> Unit) {
+        val feature = providerFeatureFor(mediaType) ?: return completion(emptyList())
+        launchFetch("libraryProviderOptions:$mediaType", completion) {
+            val providers = serviceClient.sendRequest(Request.Library.providers())
+                .resultAs<List<ServerProviderInstance>>()
+            providers
+                ?.filter { it.type == "music" && it.available && feature in it.supportedFeatures }
+                ?.map { LibraryProviderOption(it.instanceId, it.name ?: it.domain ?: it.instanceId) }
+                ?.sortedBy { it.label.lowercase() }
+                ?: emptyList()
+        }
+    }
+
+    /**
+     * Genre options for the filter sheet's genre picker, scoped to genres that actually
+     * contain items of [mediaType] — mirrors LibraryListViewModel.loadGenreOptions.
+     */
+    fun fetchLibraryGenreOptions(mediaType: MediaType, completion: (List<LibraryGenreOption>?) -> Unit) {
+        launchFetch("libraryGenreOptions:$mediaType", completion) {
+            mediaItemRepository.fetchMediaItems(
+                Request.Genre.listLibrary(limit = 1000, orderBy = "sort_name", mediaType = mediaType.serverValue),
+            ).getOrNull()
+                ?.filterIsInstance<Genre>()
+                ?.mapNotNull { g -> g.itemId.toIntOrNull()?.let { LibraryGenreOption(it, g.displayName) } }
+                ?: emptyList()
         }
     }
 
