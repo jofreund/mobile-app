@@ -437,17 +437,26 @@ private struct ExpandedPlayerRow: View {
     }
 
     private var emptyQueueState: some View {
-        VStack(spacing: 12) {
-            Text(String(localized: "queue_empty"))
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-            Button(String(localized: "queue_browse_library")) {
+        ContentUnavailableView {
+            Label(String(localized: "queue_empty"), systemImage: "music.note.list")
+        } actions: {
+            Button(browseLibraryLabel) {
                 onCollapse()
                 KmpHelper.shared.requestHome()
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(.borderedProminent)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    /// `queue_browse_library` is stored in the shared string catalog as literal all-caps
+    /// ("BROWSE LIBRARY"/"BIBLIOTHEK DURCHSUCHEN", matching Compose's own Material button there)
+    /// — nothing else in the native app renders any text in all caps, so this re-cases it
+    /// locally (first letter as-is, everything else lowercased) rather than touching the shared
+    /// string Compose still uses as-is.
+    private var browseLibraryLabel: String {
+        let raw = String(localized: "queue_browse_library")
+        guard let first = raw.first else { return raw }
+        return String(first) + raw.dropFirst().lowercased()
     }
 
     // MARK: - Seek
