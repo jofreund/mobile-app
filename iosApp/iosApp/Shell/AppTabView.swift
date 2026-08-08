@@ -38,9 +38,23 @@ enum AppTab: Hashable {
 /// *from inside* an already-showing screen; Search doesn't fit that shape — it's a tab root, and
 /// pushing it the same way would cover the tab bar along with everything else. This is Swift's
 /// first native `TabView`: each tab owns its own `NavigationStack` and (for Home/Library) its
-/// own Compose host — see `ComposeScreenHosts.kt`'s doc for the full picture, including why the
-/// floating player bar needed splitting into a collapsed/expanded pair rather than becoming a
-/// fifth per-tab host.
+/// own Compose host — see `ComposeScreenHosts.kt`'s doc for the full picture.
+///
+/// The collapsed floating player bar is mounted once **per tab** (`.safeAreaInset(edge: .bottom)`
+/// inside each of `homeTab`/`libraryTab`/`searchTab`), not once at the `TabView` level. Two things
+/// were tried and rejected first, both on-device: `.safeAreaInset` applied directly to the
+/// `TabView` hides the native tab bar entirely (confirmed empirically — not documented anywhere,
+/// just reproducible); `.tabViewBottomAccessory` (the API that looks purpose-built for exactly
+/// this — Apple Music's mini-player-above-the-tab-bar) keeps the tab bar visible but never
+/// renders the hosted Compose content inside it, on this iOS 26 beta — sizing fixes
+/// (`.frame`, a `sizeThatFits` override on `ComposeHostView`) didn't change that, so it's most
+/// likely a compositing issue with Metal-backed content in that specific container, not a layout
+/// bug we can fix from here. Per-tab mounting means `FloatingBarCollapsedController` runs three
+/// times over — its `ErrorMessageBus` collection (a single-consumer `Channel`) now has three
+/// collectors competing for each buffered item, so an error toast surfaces on whichever tab's
+/// instance happens to receive it, not necessarily the one on screen. Accepted: correct delivery
+/// everywhere would need a redesign (e.g. one dedicated always-mounted, always-visible-through
+/// overlay just for toasts), which is more machinery than this gap warrants right now.
 ///
 /// `ItemDetailsView` (ItemDetails/ItemDetailsView.swift) routes to a native screen for every
 /// item type this app pushes: Album/Playlist/Podcast/Audiobook share `ContainerItemDetailsView`,
@@ -69,20 +83,23 @@ struct AppTabView: View {
             Tab("nav_search", systemImage: "magnifyingglass", value: .search) { searchTab }
             Tab("nav_settings", systemImage: "gearshape", value: .settingsTrigger) { Color.clear }
         }
-        .safeAreaInset(edge: .bottom) {
-            ComposeHostView(makeController: {
-                ComposeScreenHostsKt.FloatingBarCollapsedController(
-                    onExpand: { playerExpanded = true },
-                    onNavigateToItemDetails: pushItemDetailsOnActiveTab
-                )
-            })
-            .frame(height: 100)
-        }
         .fullScreenCover(isPresented: $playerExpanded) {
             ComposeHostView(makeController: {
                 ComposeScreenHostsKt.FloatingBarExpandedController(
                     onCollapse: { playerExpanded = false },
-                    onNavigateToItemDetails: pushItemDetailsOnActiveTab
+                    onNavigateToItemDetails: { itemId, mediaType, providerId in
+                        // The expanded player is one shared, modally-presented instance
+                        // (not per-tab like the collapsed bar), so a queue-item tap here
+                        // pushes onto whichever tab is actually behind it.
+                        playerExpanded = false
+                        let route = ItemDetailsRoute(itemId: itemId, mediaType: mediaType, providerId: providerId)
+                        switch selectedTab {
+                        case .home: homePath.append(route)
+                        case .library: libraryPath.append(route)
+                        case .search: searchPath.append(route)
+                        case .settingsTrigger: break
+                        }
+                    }
                 )
             })
             .ignoresSafeArea()
@@ -128,11 +145,17 @@ struct AppTabView: View {
             // under the status bar. `ignoresSafeArea` applied outside a NavigationStack
             // does not flow through to its root content — the space NavigationStack
             // reserves for its (hidden) bar is a layout concern of what's *inside* it.
-            .ignoresSafeArea()
+            // Only the top edge — the bottom safe area here is what the enclosing
+            // TabView's tab bar contributes; ignoring it too made the tab bar disappear
+            // (the Compose host's UIKit view claimed that space instead of ceding it).
+            .ignoresSafeArea(edges: .top)
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: ItemDetailsRoute.self) { route in
                 ItemDetailsView(route: route)
             }
+        }
+        .floatingPlayerBar(playerExpanded: $playerExpanded) { itemId, mediaType, providerId in
+            homePath.append(ItemDetailsRoute(itemId: itemId, mediaType: mediaType, providerId: providerId))
         }
     }
 
@@ -148,7 +171,7 @@ struct AppTabView: View {
                     }
                 )
             })
-            .ignoresSafeArea()
+            .ignoresSafeArea(edges: .top)
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: ItemDetailsRoute.self) { route in
                 ItemDetailsView(route: route)
@@ -160,6 +183,9 @@ struct AppTabView: View {
                 BrowseView(route: route)
             }
         }
+        .floatingPlayerBar(playerExpanded: $playerExpanded) { itemId, mediaType, providerId in
+            libraryPath.append(ItemDetailsRoute(itemId: itemId, mediaType: mediaType, providerId: providerId))
+        }
     }
 
     private var searchTab: some View {
@@ -169,21 +195,27 @@ struct AppTabView: View {
                     ItemDetailsView(route: route)
                 }
         }
+        .floatingPlayerBar(playerExpanded: $playerExpanded) { itemId, mediaType, providerId in
+            searchPath.append(ItemDetailsRoute(itemId: itemId, mediaType: mediaType, providerId: providerId))
+        }
     }
+}
 
-    /// The floating bar's own "tap a queue item" navigation has no tab of its own — push
-    /// onto whichever tab the user is actually looking at, so backing out returns to it and
-    /// switching tabs away/back preserves the pushed detail. Home/Library push directly;
-    /// Search pushes onto its own stack too. `.settingsTrigger` never has meaningful content
-    /// to push onto, so it's a no-op there (unreachable in practice — the floating bar isn't
-    /// visible while Settings is open).
-    private func pushItemDetailsOnActiveTab(itemId: String, mediaType: MediaType, providerId: String) {
-        let route = ItemDetailsRoute(itemId: itemId, mediaType: mediaType, providerId: providerId)
-        switch selectedTab {
-        case .home: homePath.append(route)
-        case .library: libraryPath.append(route)
-        case .search: searchPath.append(route)
-        case .settingsTrigger: break
+private extension View {
+    /// Reserves space for, and hosts, this tab's own instance of the collapsed floating
+    /// player bar — see `AppTabView`'s doc for why this is per-tab rather than shared.
+    func floatingPlayerBar(
+        playerExpanded: Binding<Bool>,
+        onNavigateToItemDetails: @escaping (String, MediaType, String) -> Void
+    ) -> some View {
+        safeAreaInset(edge: .bottom) {
+            ComposeHostView(makeController: {
+                ComposeScreenHostsKt.FloatingBarCollapsedController(
+                    onExpand: { playerExpanded.wrappedValue = true },
+                    onNavigateToItemDetails: onNavigateToItemDetails
+                )
+            })
+            .frame(height: 100)
         }
     }
 }
