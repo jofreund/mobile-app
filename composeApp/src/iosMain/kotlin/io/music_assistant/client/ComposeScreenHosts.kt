@@ -19,7 +19,6 @@ import androidx.lifecycle.repeatOnLifecycle
 import io.music_assistant.client.api.DeepLinkBus
 import io.music_assistant.client.api.DeepLinkDestination
 import io.music_assistant.client.api.ErrorMessageBus
-import io.music_assistant.client.di.KmpHelper
 import io.music_assistant.client.input.VolumeButtonService
 import io.music_assistant.client.ui.compose.AppLifecycleObserver
 import io.music_assistant.client.ui.compose.common.ToastDuration
@@ -29,8 +28,6 @@ import io.music_assistant.client.ui.compose.common.items.ProvideClickActionPrefs
 import io.music_assistant.client.ui.compose.common.rememberToastState
 import io.music_assistant.client.ui.compose.home.HomeScreenViewModel
 import io.music_assistant.client.ui.compose.home.selectedPlayer
-import io.music_assistant.client.ui.compose.nav.exitApp
-import io.music_assistant.client.ui.compose.settings.SettingsScreen
 import io.music_assistant.client.ui.theme.AppTheme
 import io.music_assistant.client.ui.theme.SystemAppearance
 import io.music_assistant.client.ui.theme.ThemeSetting
@@ -44,8 +41,8 @@ import org.koin.compose.viewmodel.koinViewModel
 import platform.UIKit.UIViewController
 
 /**
- * Per-tab Compose hosts — one `UIViewController` factory per native `TabView` tab, plus the
- * floating player bar's own two hosts. Supersedes the single `MainAppController()` this file
+ * What's left of the Compose hosting layer — a single `UIViewController` factory,
+ * `FloatingBarSideEffectsController` below. Supersedes the single `MainAppController()` this file
  * used to export, which hosted all four tabs, `MultiBackStack`, and the floating bar as one
  * Compose tree wrapped by one Swift `NavigationStack` (`MainTabHostView.swift`, now
  * `AppTabView.swift`). That worked for Phase E1/E2 because every native push (ItemDetails,
@@ -54,7 +51,9 @@ import platform.UIKit.UIViewController
  * cover the tab bar along with everything else, since the tab bar was part of the same Compose
  * subtree being pushed over. Phase E3 (see `SearchView.swift`) needed real per-tab navigation,
  * so `AppTabView.swift` now owns tab switching and each tab's own `NavigationStack` — this file
- * stopped composing them all together.
+ * stopped composing them all together. Settings went the same way in Phase E4:
+ * `SettingsAppController` hosted `SettingsScreen.kt` here until `SettingsView.swift` took over
+ * the whole screen natively, at which point it was removed like the other dead hosts.
  *
  * Home and Library both lost their Compose hosts entirely now (`HomeAppController`/
  * `LibraryAppController` are gone, along with the `ScreenState`/`rememberPublishedScreenState`
@@ -84,24 +83,11 @@ import platform.UIKit.UIViewController
  * state itself (which player, the queue) lives in the `MainDataSource` singleton underneath
  * every host, not in any Compose `remember`, so it was never at risk from any of this.
  */
-@Suppress(
-    "FunctionNaming",
-) // iOS factory function intentionally PascalCase; called from Swift as if it were a constructor
-fun SettingsAppController(): UIViewController = ComposeUIViewController(
-    configure = { bootstrapKmp() },
-) {
-    AppShellChrome {
-        SettingsScreen(
-            goHome = { KmpHelper.requestHome() },
-            exitApp = { exitApp() },
-        )
-    }
-}
 
 /**
  * The always-mounted, purely side-effecting companion to the native `MiniPlayerView` —
  * pinned invisibly behind it at the bottom of every tab via `AppTabView.swift`'s
- * `.overlay`/`allowsHitTesting(false)`. Owns everything that must have exactly one live
+ * `.background(alignment: .bottom)`/`allowsHitTesting(false)`. Owns everything that must have exactly one live
  * instance for the app's lifetime but isn't itself UI: `ErrorMessageBus` → toast display,
  * the volume-button remote-playback hint toast, and consuming `DeepLinkDestination.Players`
  * to trigger expand. The collapsed player bar's own UI (`PlayersPager`/`FloatingBar`) moved

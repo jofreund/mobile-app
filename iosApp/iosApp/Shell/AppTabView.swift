@@ -1,5 +1,16 @@
 import SwiftUI
+import UIKit
 import ComposeApp
+
+/// Wraps a Kotlin `UIViewController` factory for SwiftUI. Down to a single user —
+/// `FloatingBarSideEffectsController` below — now that every visible screen is native;
+/// lived in `AppShellRootView.swift` while the Main/Settings switch still hosted Compose.
+private struct ComposeHostView: UIViewControllerRepresentable {
+    let makeController: () -> UIViewController
+
+    func makeUIViewController(context: Context) -> UIViewController { makeController() }
+    func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}
+}
 
 /// Where a tap on any browsable/playable item — from a Home row, Library,
 /// Browse, Search, or the floating player bar's queue — asks to go. Carries
@@ -50,7 +61,7 @@ enum AppTab: Hashable {
 /// renders the hosted Compose content inside it, on this iOS 26 beta — sizing fixes
 /// (`.frame`, a `sizeThatFits` override on `ComposeHostView`) didn't change that, so it's most
 /// likely a compositing issue with Metal-backed content in that specific container, not a layout
-/// bug we can fix from here. Per-tab mounting means `FloatingBarCollapsedController` runs three
+/// bug we can fix from here. Per-tab mounting means `FloatingBarSideEffectsController` runs three
 /// times over — its `ErrorMessageBus` collection (a single-consumer `Channel`) now has three
 /// collectors competing for each buffered item, so an error toast surfaces on whichever tab's
 /// instance happens to receive it, not necessarily the one on screen. Accepted: correct delivery
@@ -92,10 +103,10 @@ struct AppTabView: View {
         .task {
             guard deepLinkSubscription == nil else { return }
             deepLinkSubscription = KmpHelper.shared.deepLinks.subscribe { [self] dest in
-                // .players isn't handled here — FloatingBarCollapsedController's own
-                // Kotlin-side LaunchedEffect owns that case, since only Compose can flip
-                // the floating bar's local expand state. Both sides read the same
-                // retained value safely; each only consumes the cases it owns.
+                // .players isn't handled here — FloatingBarSideEffectsController's own
+                // Kotlin-side LaunchedEffect owns that case, flipping `playerExpanded`
+                // through the `onExpand` closure it's constructed with below. Both sides
+                // read the same retained value safely; each only consumes the cases it owns.
                 guard let dest else { return }
                 if dest is DeepLinkDestinationHome {
                     selectedTab = .home

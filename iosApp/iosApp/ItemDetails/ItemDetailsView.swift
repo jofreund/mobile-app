@@ -361,8 +361,3 @@ private struct ChapterRow: View {
         .buttonStyle(.plain)
     }
 }
-
-private func formattedDuration(_ seconds: Double) -> String {
-    let total = Int(seconds)
-    return String(format: "%d:%02d", total / 60, total % 60)
-}

@@ -643,15 +643,9 @@ object KmpHelper : KoinComponent {
         }
     }
 
-    fun fetchGenres(completion: (List<AppMediaItem>?) -> Unit) {
-        launchFetch("genres", completion) {
-            mediaItemRepository.fetchMediaItems(Request.Genre.listLibrary()).getOrNull()
-                ?: emptyList()
-        }
-    }
-
     /**
-     * LibraryListView.swift's single entry point, in place of the eight fetchX above:
+     * LibraryListView.swift's single entry point, in place of the fetchX above (which
+     * CarPlay still calls directly):
      * one method covering every category, with the `search`/`offset`/`sortOption`/
      * `filters` params those don't take. Mirrors LibraryListViewModel.getRequest's
      * per-type dispatch exactly, [filters] included.

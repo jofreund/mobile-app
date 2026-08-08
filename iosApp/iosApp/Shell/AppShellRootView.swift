@@ -2,21 +2,6 @@ import SwiftUI
 import UIKit
 import ComposeApp
 
-/// Wraps a Kotlin `UIViewController` factory (`SettingsAppController`,
-/// `AppTabView`'s `HomeAppController`/`LibraryAppController`/floating-bar controllers, …)
-/// for SwiftUI. A fresh controller — and fresh Compose composition/ViewModels — is created
-/// each time SwiftUI recreates this view (e.g. `router.destination` flipping),
-/// matching what the old `TopLevelNavRoot`'s `backStack.clear();
-/// backStack.add(...)` already did: switching between Main and Settings has
-/// always discarded each side's state, so this isn't a new loss. Internal
-/// rather than private — `AppTabView.swift` reuses it too.
-struct ComposeHostView: UIViewControllerRepresentable {
-    let makeController: () -> UIViewController
-
-    func makeUIViewController(context: Context) -> UIViewController { makeController() }
-    func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}
-}
-
 /// Replaces `ContentView`'s old direct Compose host. Owns exactly what
 /// `TopLevelNavRoot.kt` used to own — the Main/Settings switch, the
 /// auto-login splash, the reconnection banner, and the schema-compatibility
@@ -120,15 +105,9 @@ struct AppShellRootView: View {
 
     @ViewBuilder
     private var content: some View {
-        // Both switch cases produce the same ComposeHostView struct type, so
-        // without an explicit identity SwiftUI treats a destination change as
-        // an update to the existing view (calling the representable's empty
-        // updateUIViewController) rather than a replacement — the old
-        // controller would just stay mounted. .id() forces recreation.
         switch router.destination {
         case .main:
             AppTabView()
-                .id("main")
                 // Compose has its own keyboard handler and owns full-screen chrome on this
                 // side — SettingsView() below is now substantially native (Phase E4 part 2's
                 // real TextFields) and must NOT get this: it was found to suppress the
@@ -139,7 +118,6 @@ struct AppShellRootView: View {
             // Kotlin-exported enums aren't a closed set to Swift's exhaustiveness
             // checker, so this covers .settings (and anything added later).
             SettingsView()
-                .id("settings")
         }
     }
 }

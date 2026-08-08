@@ -632,11 +632,6 @@ private struct ExpandedPlayerRow: View {
     }
 }
 
-private func formattedDuration(_ seconds: Double) -> String {
-    let total = Int(seconds)
-    return String(format: "%d:%02d", total / 60, total % 60)
-}
-
 /// Flattened queue row — ported directly from `QueueDisplayRows.kt` (a small, pure,
 /// dependency-free transform, same "port it directly" precedent as `HomeView.swift`'s
 /// `reconciledRows`). Chapters only ever nest under the currently-playing item.
@@ -656,14 +651,12 @@ private enum QueueDisplayRow: Identifiable {
     static func build(items: [QueueBarItemView], currentId: String?, chapters: [Chapter]) -> [QueueDisplayRow] {
         var rows: [QueueDisplayRow] = []
         for (index, item) in items.enumerated() {
-            let isCurrent = item.id == currentId
-            if !isCurrent {
-                rows.append(.track(item, queueIndex: index))
-            }
-            if isCurrent {
+            if item.id == currentId {
                 for chapter in chapters {
                     rows.append(.chapter(chapter, parentId: item.id))
                 }
+            } else {
+                rows.append(.track(item, queueIndex: index))
             }
         }
         return rows

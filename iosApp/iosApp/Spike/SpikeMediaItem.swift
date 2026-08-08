@@ -95,3 +95,10 @@ struct SpikeMediaItem: Identifiable, Hashable {
 extension Array where Element == AppMediaItem {
     var asSpikeItems: [SpikeMediaItem] { map(SpikeMediaItem.init) }
 }
+
+/// m:ss track-time formatting, shared by every place that renders a media duration
+/// (`ItemDetailsView`'s chapter rows, `ExpandedPlayerView`'s seek labels and queue chapters).
+func formattedDuration(_ seconds: Double) -> String {
+    let total = Int(seconds)
+    return String(format: "%d:%02d", total / 60, total % 60)
+}
