@@ -23,6 +23,7 @@ import io.music_assistant.client.data.executeLocalPlayerDispatch
 import io.music_assistant.client.data.model.client.MediaType
 import io.music_assistant.client.data.model.client.QueueOption
 import io.music_assistant.client.data.model.client.SortConfig
+import io.music_assistant.client.data.model.client.SortOption
 import io.music_assistant.client.data.model.client.SubItemContext
 import io.music_assistant.client.data.model.client.clientSorted
 import io.music_assistant.client.data.model.client.items.Album
@@ -77,6 +78,9 @@ private const val FETCH_TIMEOUT_MS = 5_000L
 
 /** See [fetchTracks]. */
 private const val TRACKS_FETCH_LIMIT = 500
+
+/** See [fetchLibraryItems]. Matches LibraryListViewModel.PAGE_SIZE. */
+private const val LIBRARY_PAGE_SIZE = 50
 
 /**
  * KmpHelper - Bridge for accessing Koin dependencies from Swift
@@ -387,30 +391,56 @@ object KmpHelper : KoinComponent {
 
     /**
      * LibraryListView.swift's single entry point, in place of the eight fetchX above:
-     * one method covering every category, with the `search` parameter those don't take.
-     * Mirrors LibraryListViewModel.getRequest's per-type dispatch, minus pagination/sort/
-     * favorite-and-provider/genre filters — LibraryListView doesn't have those yet either.
-     * `null` search matches the unfiltered fetchX behavior exactly (every listLibrary/list
-     * call defaults `search` to null).
+     * one method covering every category, with the `search`/`offset`/`sortOption` params
+     * those don't take. Mirrors LibraryListViewModel.getRequest's per-type dispatch, minus
+     * the favorite-and-provider/genre filters — LibraryListView doesn't have those yet.
+     *
+     * [offset] + the fixed [LIBRARY_PAGE_SIZE] page is LibraryListViewModel's own
+     * offset+limit paging, not a cursor: Swift passes `0` for a fresh load (a route,
+     * query, or sort change) and `items.count` to fetch the next page, and treats
+     * `result.count >= LIBRARY_PAGE_SIZE` as "there may be more" — same heuristic as
+     * `updateStateWithData`'s `hasMore`. `TRACK` no longer needs its own
+     * `TRACKS_FETCH_LIMIT`: real pagination caps every request at `LIBRARY_PAGE_SIZE`
+     * regardless of type, so the unbounded-fetch problem that constant was working
+     * around ([fetchTracks]'s doc) doesn't arise here.
      */
     fun fetchLibraryItems(
         mediaType: MediaType,
         search: String?,
+        offset: Int,
+        sortOption: SortOption,
         completion: (List<AppMediaItem>?) -> Unit,
     ) {
+        val orderBy = sortOption.toServerString()
         val request = when (mediaType) {
-            MediaType.ARTIST -> Request.Artist.listLibrary(search = search)
-            MediaType.ALBUM -> Request.Album.listLibrary(search = search)
-            MediaType.TRACK -> Request.Track.list(search = search, limit = TRACKS_FETCH_LIMIT)
-            MediaType.PLAYLIST -> Request.Playlist.listLibrary(search = search)
-            MediaType.AUDIOBOOK -> Request.Audiobook.listLibrary(search = search)
-            MediaType.PODCAST -> Request.Podcast.listLibrary(search = search)
-            MediaType.RADIO -> Request.RadioStation.listLibrary(search = search)
-            MediaType.GENRE -> Request.Genre.listLibrary(search = search)
+            MediaType.ARTIST -> Request.Artist.listLibrary(
+                search = search, limit = LIBRARY_PAGE_SIZE, offset = offset, orderBy = orderBy,
+            )
+            MediaType.ALBUM -> Request.Album.listLibrary(
+                search = search, limit = LIBRARY_PAGE_SIZE, offset = offset, orderBy = orderBy,
+            )
+            MediaType.TRACK -> Request.Track.list(
+                search = search, limit = LIBRARY_PAGE_SIZE, offset = offset, orderBy = orderBy,
+            )
+            MediaType.PLAYLIST -> Request.Playlist.listLibrary(
+                search = search, limit = LIBRARY_PAGE_SIZE, offset = offset, orderBy = orderBy,
+            )
+            MediaType.AUDIOBOOK -> Request.Audiobook.listLibrary(
+                search = search, limit = LIBRARY_PAGE_SIZE, offset = offset, orderBy = orderBy,
+            )
+            MediaType.PODCAST -> Request.Podcast.listLibrary(
+                search = search, limit = LIBRARY_PAGE_SIZE, offset = offset, orderBy = orderBy,
+            )
+            MediaType.RADIO -> Request.RadioStation.listLibrary(
+                search = search, limit = LIBRARY_PAGE_SIZE, offset = offset, orderBy = orderBy,
+            )
+            MediaType.GENRE -> Request.Genre.listLibrary(
+                search = search, limit = LIBRARY_PAGE_SIZE, offset = offset, orderBy = orderBy,
+            )
             else -> null
         } ?: return completion(emptyList())
 
-        launchFetch("libraryItems:$mediaType:${search.orEmpty()}", completion) {
+        launchFetch("libraryItems:$mediaType:${search.orEmpty()}:$offset:$orderBy", completion) {
             mediaItemRepository.fetchMediaItems(request).getOrNull() ?: emptyList()
         }
     }
