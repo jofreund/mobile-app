@@ -221,7 +221,12 @@ struct HomeRow: Identifiable, Equatable {
     let title: String
     let items: [SpikeMediaItem]
 
-    static func == (lhs: HomeRow, rhs: HomeRow) -> Bool { lhs.id == rhs.id }
+    /// Includes `items` deliberately: a carousel keeps its row id across refreshes, so an
+    /// id-only `==` told SwiftUI a row whose contents had just changed was unchanged, and the
+    /// carousel kept rendering the old items (same defect as `SpikeMediaItem`'s own `==`).
+    static func == (lhs: HomeRow, rhs: HomeRow) -> Bool {
+        lhs.id == rhs.id && lhs.title == rhs.title && lhs.items == rhs.items
+    }
 }
 
 private let shortcutsRowId = "shortcuts"

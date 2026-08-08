@@ -88,7 +88,24 @@ struct SpikeMediaItem: Identifiable, Hashable {
         }
     }
 
-    static func == (lhs: SpikeMediaItem, rhs: SpikeMediaItem) -> Bool { lhs.id == rhs.id }
+    /// Compares the rendered content, not just identity. SwiftUI decides whether it can skip
+    /// re-running a view's body by comparing that view's stored properties through their
+    /// `Equatable` conformance, and cells here store a `SpikeMediaItem` (plus, at most, an
+    /// equatable view-mode) — so an id-only `==` claimed "unchanged" for a reloaded item whose
+    /// favorite, title or artwork had actually changed, and the cell kept its stale render.
+    /// `kotlin` is excluded: it's a bridged Kotlin class Swift can't compare, and every field
+    /// this projection draws from it is already mirrored above.
+    static func == (lhs: SpikeMediaItem, rhs: SpikeMediaItem) -> Bool {
+        lhs.id == rhs.id
+            && lhs.isFavorite == rhs.isFavorite
+            && lhs.title == rhs.title
+            && lhs.subtitle == rhs.subtitle
+            && lhs.artworkURL == rhs.artworkURL
+            && lhs.kind == rhs.kind
+    }
+
+    /// Identity only, which the `Hashable` contract allows (equal values share an id, so they
+    /// share a hash) and which keeps hashing cheap for the id-keyed lookups callers do.
     func hash(into hasher: inout Hasher) { hasher.combine(id) }
 }
 
