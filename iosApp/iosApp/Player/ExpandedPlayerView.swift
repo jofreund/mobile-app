@@ -292,7 +292,10 @@ private struct ExpandedPlayerRow: View {
                             get: { volumeDragValue ?? volume },
                             set: { volumeDragValue = $0 }
                         ),
-                        in: 0...1,
+                        // Player.currentVolume is already 0...100 (Compose's own inline volume
+                        // slider uses valueRange = 0f..100f directly, no /100 or *100 anywhere)
+                        // — not a 0...1 fraction.
+                        in: 0...100,
                         onEditingChanged: { editing in
                             guard !editing, let level = volumeDragValue else { return }
                             store.setVolume(id: player.id, level: level)
@@ -300,7 +303,7 @@ private struct ExpandedPlayerRow: View {
                         }
                     )
 
-                    Text("\(Int((volumeDragValue ?? volume) * 100))%")
+                    Text("\(Int(volumeDragValue ?? volume))%")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .frame(width: 36, alignment: .trailing)
