@@ -1,7 +1,7 @@
 import SwiftUI
 import ComposeApp
 
-/// Routes `MainTabHostView`'s `ItemDetailsRoute` push to the right native screen. Album,
+/// Routes `AppTabView`'s `ItemDetailsRoute` push to the right native screen. Album,
 /// Playlist, Podcast, and Audiobook share `ContainerItemDetailsView` below (each has
 /// exactly one sub-list, so no tab bar is needed); Artist and Genre get their own screens
 /// (`ArtistDetailsView.swift`, `GenreDetailsView.swift`) since their data shape — several

@@ -240,7 +240,7 @@ enum SectionLoadState {
 }
 
 /// One tile in a horizontal section row. Albums push via the same implicit
-/// `NavigationLink(value:)` mechanism `MainTabHostView` registers `ItemDetailsRoute` for;
+/// `NavigationLink(value:)` mechanism `AppTabView` registers `ItemDetailsRoute` for;
 /// tracks (`isPlayable`) dispatch "play now" instead, since tracks have no detail screen
 /// anywhere in this app.
 private struct ArtistSectionTile: View {
