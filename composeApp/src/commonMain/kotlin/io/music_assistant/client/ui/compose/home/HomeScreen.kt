@@ -20,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -79,6 +80,7 @@ import musicassistantclient.composeapp.generated.resources.home_save_rows
 import musicassistantclient.composeapp.generated.resources.home_shortcuts
 import musicassistantclient.composeapp.generated.resources.library_error
 import musicassistantclient.composeapp.generated.resources.nav_home
+import musicassistantclient.composeapp.generated.resources.nav_settings
 import musicassistantclient.composeapp.generated.resources.refresh
 import org.jetbrains.compose.resources.stringResource
 import sh.calvin.reorderable.ReorderableItem
@@ -92,6 +94,7 @@ fun HomeScreen(
     providerIconFetcher: (@Composable (Modifier, String) -> Unit),
     actionsViewModel: ActionsViewModel,
     state: HomeScreenState,
+    onSettingsClick: () -> Unit = {},
 ) {
     val homeScreenState by homeScreenViewModel.state.collectAsStateWithLifecycle()
 
@@ -126,6 +129,7 @@ fun HomeScreen(
             LandingPageTopBar(
                 editMode = editMode,
                 onRefresh = { homeScreenViewModel.loadData() },
+                onSettingsClick = onSettingsClick,
                 onToggleEditMode = {
                     if (editMode) {
                         homeScreenViewModel.saveHomeRows(
@@ -301,6 +305,7 @@ private const val SHORTCUTS_CATEGORY_ID = "shortcuts"
 private fun LandingPageTopBar(
     editMode: Boolean,
     onRefresh: () -> Unit,
+    onSettingsClick: () -> Unit,
     onToggleEditMode: () -> Unit,
 ) {
     TopAppBar(
@@ -320,6 +325,12 @@ private fun LandingPageTopBar(
                     Icon(
                         imageVector = Icons.Default.Refresh,
                         contentDescription = stringResource(Res.string.refresh),
+                    )
+                }
+                IconButton(onClick = onSettingsClick) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = stringResource(Res.string.nav_settings),
                     )
                 }
             }

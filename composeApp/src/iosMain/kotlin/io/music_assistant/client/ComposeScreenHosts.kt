@@ -130,6 +130,7 @@ fun HomeAppController(
             },
             actionsViewModel = actionsViewModel,
             state = state,
+            onSettingsClick = { KmpHelper.requestSettings() },
         )
     }
 }

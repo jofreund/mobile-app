@@ -25,12 +25,13 @@ struct ItemDetailsRoute: Hashable {
     }
 }
 
-/// Which bottom tab is selected. `.settingsTrigger` is never actually shown — see `body`'s
-/// `.onChange(of:)`, which reverts it immediately and asks `AppShellRootView` (via
-/// `KmpHelper.requestSettings()`) to swap the whole screen instead, matching Settings' existing
-/// behavior of replacing the tab shell entirely rather than being a peer tab with its own content.
+/// Which bottom tab is selected. Settings isn't one of these — it's reached via a settings
+/// icon in Home's own toolbar (`HomeScreen.kt`'s `LandingPageTopBar`), which calls
+/// `KmpHelper.requestSettings()` directly; `AppShellRootView` swaps the whole screen away when
+/// that fires, same as it always has, so Settings was never a good fit for a peer tab with its
+/// own content in the first place.
 enum AppTab: Hashable {
-    case home, library, search, settingsTrigger
+    case home, library, search
 }
 
 /// Replaces `MainTabHostView` (Phase E1/E2's single shared `NavigationStack` over one Compose
@@ -81,7 +82,6 @@ struct AppTabView: View {
             Tab("nav_home", systemImage: "house", value: .home) { homeTab }
             Tab("nav_library", systemImage: "square.stack", value: .library) { libraryTab }
             Tab("nav_search", systemImage: "magnifyingglass", value: .search) { searchTab }
-            Tab("nav_settings", systemImage: "gearshape", value: .settingsTrigger) { Color.clear }
         }
         .fullScreenCover(isPresented: $playerExpanded) {
             ComposeHostView(makeController: {
@@ -97,17 +97,11 @@ struct AppTabView: View {
                         case .home: homePath.append(route)
                         case .library: libraryPath.append(route)
                         case .search: searchPath.append(route)
-                        case .settingsTrigger: break
                         }
                     }
                 )
             })
             .ignoresSafeArea()
-        }
-        .onChange(of: selectedTab) { old, new in
-            guard new == .settingsTrigger else { return }
-            selectedTab = old
-            KmpHelper.shared.requestSettings()
         }
         .task {
             guard deepLinkSubscription == nil else { return }
