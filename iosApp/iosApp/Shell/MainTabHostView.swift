@@ -33,11 +33,12 @@ struct ItemDetailsRoute: Hashable {
 /// hosts; only a tap that used to push `MainNav.ItemDetails` now surfaces
 /// here instead.
 ///
-/// `ItemDetailsView` (ItemDetails/ItemDetailsView.swift) handles Album, Playlist,
-/// Podcast, and Audiobook natively. Artist and Genre still fall through to
-/// `ItemDetailsPlaceholderView` below — their real screens (artist's three async
-/// sections + similar-artists sheet; genre's two-tab overview) are further,
-/// separately-scoped work.
+/// `ItemDetailsView` (ItemDetails/ItemDetailsView.swift) routes to a native screen for
+/// every item type this app pushes: Album/Playlist/Podcast/Audiobook share
+/// `ContainerItemDetailsView`, Artist and Genre get their own screens
+/// (`ArtistDetailsView.swift`, `GenreDetailsView.swift`). `ItemDetailsPlaceholderView`
+/// below is now dead code for every reachable `MediaType` but stays as the fallback for
+/// whatever isn't.
 struct MainTabHostView: View {
 
     @State private var path: [ItemDetailsRoute] = []
@@ -69,7 +70,9 @@ struct MainTabHostView: View {
     }
 }
 
-/// Fallback for the item types `ItemDetailsView` doesn't build yet (Artist, Genre).
+/// Generic fallback, kept for whatever `MediaType` case isn't one `ItemDetailsView`
+/// routes explicitly — currently none of the ones this app can actually push, since
+/// Artist and Genre gained real screens too.
 struct ItemDetailsPlaceholderView: View {
 
     let route: ItemDetailsRoute

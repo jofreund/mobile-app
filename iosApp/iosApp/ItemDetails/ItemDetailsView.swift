@@ -1,23 +1,41 @@
 import SwiftUI
 import ComposeApp
 
-/// The real, native detail screen for `MainTabHostView`'s `ItemDetailsRoute` push —
-/// replaces `ItemDetailsPlaceholderView` for the item types it supports.
-///
-/// Scope is deliberately narrower than `ItemDetailsScreen.kt` (1,274 LOC): it covers
-/// Album, Playlist, Podcast, and Audiobook — each has exactly one sub-list (tracks,
-/// episodes, or chapters), so there is no tab bar to build. Artist (three async
-/// sections, a provider-mapping filter, the similar-artists sheet) and Genre (a
-/// two-tab albums/artists overview) still fall through to
-/// `ItemDetailsPlaceholderView` below — real screens for those are further,
-/// separately-scoped work, not rushed into this pass.
-///
-/// Also not here yet: sort options, the list/grid view-mode toggle, disc-number
-/// section headers, and the long-press context menu (add to playlist, play next,
-/// mark played/unplayed, remove from playlist/library). What *is* here is real:
-/// live server data, playback dispatched to whichever player is currently selected
-/// (not just this device — see `KmpHelper.playOnSelectedPlayer`), and favoriting.
+/// Routes `MainTabHostView`'s `ItemDetailsRoute` push to the right native screen. Album,
+/// Playlist, Podcast, and Audiobook share `ContainerItemDetailsView` below (each has
+/// exactly one sub-list, so no tab bar is needed); Artist and Genre get their own screens
+/// (`ArtistDetailsView.swift`, `GenreDetailsView.swift`) since their data shape — several
+/// independent sections, a two-tab overview — doesn't fit that single-list model. Anything
+/// else (there is nothing else left in `MediaType` this app pushes) falls through to
+/// `ItemDetailsPlaceholderView`.
 struct ItemDetailsView: View {
+
+    let route: ItemDetailsRoute
+
+    var body: some View {
+        switch route.mediaType {
+        case .artist:
+            ArtistDetailsView(route: route)
+        case .genre:
+            GenreDetailsView(route: route)
+        case .album, .playlist, .podcast, .audiobook:
+            ContainerItemDetailsView(route: route)
+        default:
+            ItemDetailsPlaceholderView(route: route)
+        }
+    }
+}
+
+/// The single-sub-list screen for Album/Playlist/Podcast/Audiobook: hero, play/radio
+/// buttons, favorite toggle, and the one sub-list each of those types has (tracks,
+/// episodes, or chapters).
+///
+/// Not here yet: sort options, the list/grid view-mode toggle, disc-number section
+/// headers, and the long-press context menu (add to playlist, play next, mark
+/// played/unplayed, remove from playlist/library). What *is* here is real: live server
+/// data, playback dispatched to whichever player is currently selected (not just this
+/// device — see `KmpHelper.playOnSelectedPlayer`), and favoriting.
+struct ContainerItemDetailsView: View {
 
     let route: ItemDetailsRoute
 
@@ -30,16 +48,9 @@ struct ItemDetailsView: View {
     @State private var subItemsLoading = false
     @State private var subItemsLoadFailed = false
 
-    private var isSupportedType: Bool {
-        route.mediaType == .album || route.mediaType == .playlist ||
-            route.mediaType == .podcast || route.mediaType == .audiobook
-    }
-
     var body: some View {
         Group {
-            if !isSupportedType {
-                ItemDetailsPlaceholderView(route: route)
-            } else if let item {
+            if let item {
                 DetailContent(
                     item: item,
                     isFavorite: $isFavorite,
@@ -58,10 +69,7 @@ struct ItemDetailsView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
-        .task(id: route) {
-            guard isSupportedType else { return }
-            await load()
-        }
+        .task(id: route) { await load() }
     }
 
     @MainActor

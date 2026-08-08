@@ -49,6 +49,7 @@ import io.music_assistant.client.ui.AppRootDestination
 import io.music_assistant.client.ui.AppRootRouter
 import io.music_assistant.client.ui.SchemaVersionWarningViewModel
 import io.music_assistant.client.ui.SchemaWarning
+import io.music_assistant.client.ui.compose.item.ItemUseCases
 import io.music_assistant.client.ui.compose.library.LibraryCategory
 import io.music_assistant.client.ui.compose.library.carTabCategories
 import io.music_assistant.client.utils.HasConnectionData
@@ -469,13 +470,76 @@ object KmpHelper : KoinComponent {
     }
 
     /**
-     * Fetches a single container item (Album/Playlist/Podcast/Audiobook) by identity, for
+     * The "Discography" section of the native artist screen — an album list assembled by
+     * trying the artist's provider mappings in order and keeping the first non-empty result,
+     * same as `ItemDetailsViewModel.loadArtistAlbumSections`'s `all` section. `null` on
+     * timeout or when the artist has no provider mappings at all.
+     */
+    fun fetchArtistAllAlbums(artist: Artist, completion: (List<AppMediaItem>?) -> Unit) {
+        mainScope.launch {
+            val result = withTimeoutOrNull(FETCH_TIMEOUT_MS) {
+                ItemUseCases.fetchArtistItemsAcrossProviders<Album>(mediaItemRepository, artist) {
+                        itemId, providerInstance ->
+                    Request.Artist.getAlbums(itemId, providerInstance)
+                }
+            }
+            completion(result?.items)
+        }
+    }
+
+    /** The "Top tracks" section of the native artist screen — same cross-provider contract
+     * as [fetchArtistAllAlbums]. */
+    fun fetchArtistTopTracks(artist: Artist, completion: (List<AppMediaItem>?) -> Unit) {
+        mainScope.launch {
+            val result = withTimeoutOrNull(FETCH_TIMEOUT_MS) {
+                ItemUseCases.fetchArtistItemsAcrossProviders<Track>(mediaItemRepository, artist) {
+                        itemId, providerInstance ->
+                    Request.Artist.getTopTracks(itemId, providerInstance)
+                }
+            }
+            completion(result?.items)
+        }
+    }
+
+    /** Lazily fetched from the artist screen's "Similar artists" sheet, mirroring
+     * `ItemDetailsViewModel.loadSimilarArtists`'s request shape. */
+    fun fetchSimilarArtists(artist: Artist, completion: (List<AppMediaItem>?) -> Unit) {
+        launchFetch("similarArtists:${artist.itemId}", completion) {
+            mediaItemRepository.fetchMediaItems(
+                Request.Artist.getSimilarArtists(
+                    itemId = artist.itemId,
+                    providerInstanceIdOrDomain = artist.provider,
+                ),
+            ).getOrNull()
+                ?.filterIsInstance<Artist>()
+                ?: emptyList()
+        }
+    }
+
+    /**
+     * The native genre screen's Albums/Artists overview — a mixed list Swift filters by type,
+     * mirroring `ItemDetailsViewModel.loadGenreOverview`'s flattening of the server's
+     * recommendation folders.
+     */
+    fun fetchGenreOverview(itemId: String, providerId: String, completion: (List<AppMediaItem>?) -> Unit) {
+        launchFetch("genreOverview:$itemId", completion) {
+            mediaItemRepository.fetchMediaItems(
+                Request.Genre.overview(
+                    itemId = itemId,
+                    providerInstanceIdOrDomain = providerId,
+                ),
+            ).getOrNull()
+                ?.filterIsInstance<RecommendationFolder>()
+                ?.flatMap { it.items.orEmpty() }
+                ?: emptyList()
+        }
+    }
+
+    /**
+     * Fetches a single item (Album/Playlist/Podcast/Audiobook/Artist/Genre) by identity, for
      * the native ItemDetailsView hero — mirrors ItemDetailsViewModel.getItemById's request
-     * shape for exactly the item types that screen supports today. Artist and Genre are
-     * deliberately excluded: their real detail screens (sections, similar artists, the
-     * two-tab overview) are still Compose-only, so a Swift caller for those media types
-     * would just be dead code. `null` on both an unsupported type and a timed-out/failed
-     * fetch — the caller can't tell those apart, but it only needs "show the error state".
+     * shape. `null` on both an unsupported type and a timed-out/failed fetch — the caller
+     * can't tell those apart, but it only needs "show the error state".
      */
     fun fetchItemDetails(
         itemId: String,
@@ -488,6 +552,8 @@ object KmpHelper : KoinComponent {
             MediaType.PLAYLIST -> Request.Playlist.get(itemId, providerId)
             MediaType.PODCAST -> Request.Podcast.get(itemId, providerId)
             MediaType.AUDIOBOOK -> Request.Audiobook.get(itemId, providerId)
+            MediaType.ARTIST -> Request.Artist.get(itemId, providerId)
+            MediaType.GENRE -> Request.Genre.get(itemId, providerId)
             else -> null
         } ?: return completion(null)
 
