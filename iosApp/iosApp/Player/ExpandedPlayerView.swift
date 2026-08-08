@@ -655,7 +655,7 @@ private struct ExpandedPlayerRow: View {
                         }
                     )
 
-                    Text("\(Int(volumeDragValue ?? volume))%")
+                    Text(verbatim: "\(Int(volumeDragValue ?? volume))%")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .frame(width: 36, alignment: .trailing)

@@ -188,7 +188,9 @@ private struct VolumeControlRow: View {
             )
             .disabled(!enabled)
 
-            Text("\(Int(displayValue))")
+            // `verbatim:` keeps Xcode from extracting the interpolation into the string
+            // catalog as a bogus "%@" key — a bare number has nothing to translate.
+            Text(verbatim: "\(Int(displayValue))")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .frame(width: 32, alignment: .trailing)

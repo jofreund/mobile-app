@@ -30,15 +30,14 @@
 		C8FS00032F5F000000000003 /* LibraryFilterSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8FS00132F5F000000000013 /* LibraryFilterSheet.swift */; };
 		C8GD00032F5C000000000003 /* GenreDetailsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8GD00132F5C000000000013 /* GenreDetailsView.swift */; };
 		C8HV00032F61000000000003 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8HV00132F61000000000013 /* HomeView.swift */; };
-		C8ST00032F63000000000003 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8ST00132F63000000000013 /* SettingsView.swift */; };
-		C8ST00042F63000000000004 /* ConnectionSetupStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8ST00142F63000000000014 /* ConnectionSetupStore.swift */; };
-		C8ST00052F63000000000005 /* ConnectionSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8ST00152F63000000000015 /* ConnectionSetupView.swift */; };
-		C8ST00072F63000000000007 /* QrScanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8ST00172F63000000000017 /* QrScanView.swift */; };
-		C8ST00082F63000000000008 /* ConnectionValidation.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8ST00182F63000000000018 /* ConnectionValidation.swift */; };
 		C8ID00032F5A000000000003 /* ItemDetailsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8ID00132F5A000000000013 /* ItemDetailsView.swift */; };
 		C8LC00012F4F000000000001 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = C8LC00112F4F000000000011 /* Localizable.xcstrings */; };
 		C8LL00032F5D000000000003 /* LibraryListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8LL00132F5D000000000013 /* LibraryListView.swift */; };
 		C8LV00032F62000000000003 /* LibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8LV00132F62000000000013 /* LibraryView.swift */; };
+		C8PL00032F70000000000003 /* PlayerBarStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8PL00132F70000000000013 /* PlayerBarStore.swift */; };
+		C8PL00042F70000000000004 /* MiniPlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8PL00142F70000000000014 /* MiniPlayerView.swift */; };
+		C8PL00052F70000000000005 /* ExpandedPlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8PL00152F70000000000015 /* ExpandedPlayerView.swift */; };
+		C8PL00072F70000000000007 /* GroupSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8PL00172F70000000000017 /* GroupSettingsView.swift */; };
 		C8SH00012F3E000000000001 /* AppRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SH00112F3E000000000011 /* AppRouter.swift */; };
 		C8SH00022F3E000000000002 /* AppShellRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SH00122F3E000000000012 /* AppShellRootView.swift */; };
 		C8SH00032F3E000000000003 /* AppTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SH00132F3E000000000013 /* AppTabView.swift */; };
@@ -47,11 +46,12 @@
 		C8SP00022F2D000000000002 /* SpikeMediaItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SP00122F2D000000000012 /* SpikeMediaItem.swift */; };
 		C8SP00032F2D000000000003 /* SpikeArtwork.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SP00132F2D000000000013 /* SpikeArtwork.swift */; };
 		C8SP00042F2D000000000004 /* ItemContextMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SP00142F2D000000000014 /* ItemContextMenu.swift */; };
+		C8ST00032F63000000000003 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8ST00132F63000000000013 /* SettingsView.swift */; };
+		C8ST00042F63000000000004 /* ConnectionSetupStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8ST00142F63000000000014 /* ConnectionSetupStore.swift */; };
+		C8ST00052F63000000000005 /* ConnectionSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8ST00152F63000000000015 /* ConnectionSetupView.swift */; };
+		C8ST00072F63000000000007 /* QrScanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8ST00172F63000000000017 /* QrScanView.swift */; };
+		C8ST00082F63000000000008 /* ConnectionValidation.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8ST00182F63000000000018 /* ConnectionValidation.swift */; };
 		C8SV00032F60000000000003 /* SearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SV00132F60000000000013 /* SearchView.swift */; };
-		C8PL00032F70000000000003 /* PlayerBarStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8PL00132F70000000000013 /* PlayerBarStore.swift */; };
-		C8PL00042F70000000000004 /* MiniPlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8PL00142F70000000000014 /* MiniPlayerView.swift */; };
-		C8PL00052F70000000000005 /* ExpandedPlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8PL00152F70000000000015 /* ExpandedPlayerView.swift */; };
-		C8PL00072F70000000000007 /* GroupSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8PL00172F70000000000017 /* GroupSettingsView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -76,15 +76,14 @@
 		C8FS00132F5F000000000013 /* LibraryFilterSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryFilterSheet.swift; sourceTree = "<group>"; };
 		C8GD00132F5C000000000013 /* GenreDetailsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GenreDetailsView.swift; sourceTree = "<group>"; };
 		C8HV00132F61000000000013 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
-		C8ST00132F63000000000013 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
-		C8ST00142F63000000000014 /* ConnectionSetupStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionSetupStore.swift; sourceTree = "<group>"; };
-		C8ST00152F63000000000015 /* ConnectionSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionSetupView.swift; sourceTree = "<group>"; };
-		C8ST00172F63000000000017 /* QrScanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QrScanView.swift; sourceTree = "<group>"; };
-		C8ST00182F63000000000018 /* ConnectionValidation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionValidation.swift; sourceTree = "<group>"; };
 		C8ID00132F5A000000000013 /* ItemDetailsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ItemDetailsView.swift; sourceTree = "<group>"; };
 		C8LC00112F4F000000000011 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		C8LL00132F5D000000000013 /* LibraryListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryListView.swift; sourceTree = "<group>"; };
 		C8LV00132F62000000000013 /* LibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryView.swift; sourceTree = "<group>"; };
+		C8PL00132F70000000000013 /* PlayerBarStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerBarStore.swift; sourceTree = "<group>"; };
+		C8PL00142F70000000000014 /* MiniPlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniPlayerView.swift; sourceTree = "<group>"; };
+		C8PL00152F70000000000015 /* ExpandedPlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExpandedPlayerView.swift; sourceTree = "<group>"; };
+		C8PL00172F70000000000017 /* GroupSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupSettingsView.swift; sourceTree = "<group>"; };
 		C8SH00112F3E000000000011 /* AppRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRouter.swift; sourceTree = "<group>"; };
 		C8SH00122F3E000000000012 /* AppShellRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppShellRootView.swift; sourceTree = "<group>"; };
 		C8SH00132F3E000000000013 /* AppTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTabView.swift; sourceTree = "<group>"; };
@@ -93,11 +92,12 @@
 		C8SP00122F2D000000000012 /* SpikeMediaItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpikeMediaItem.swift; sourceTree = "<group>"; };
 		C8SP00132F2D000000000013 /* SpikeArtwork.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpikeArtwork.swift; sourceTree = "<group>"; };
 		C8SP00142F2D000000000014 /* ItemContextMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ItemContextMenu.swift; sourceTree = "<group>"; };
+		C8ST00132F63000000000013 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		C8ST00142F63000000000014 /* ConnectionSetupStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionSetupStore.swift; sourceTree = "<group>"; };
+		C8ST00152F63000000000015 /* ConnectionSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionSetupView.swift; sourceTree = "<group>"; };
+		C8ST00172F63000000000017 /* QrScanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QrScanView.swift; sourceTree = "<group>"; };
+		C8ST00182F63000000000018 /* ConnectionValidation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionValidation.swift; sourceTree = "<group>"; };
 		C8SV00132F60000000000013 /* SearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchView.swift; sourceTree = "<group>"; };
-		C8PL00132F70000000000013 /* PlayerBarStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerBarStore.swift; sourceTree = "<group>"; };
-		C8PL00142F70000000000014 /* MiniPlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniPlayerView.swift; sourceTree = "<group>"; };
-		C8PL00152F70000000000015 /* ExpandedPlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExpandedPlayerView.swift; sourceTree = "<group>"; };
-		C8PL00172F70000000000017 /* GroupSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupSettingsView.swift; sourceTree = "<group>"; };
 		E184B96B79725950AACD5BE7 /* NowPlayingInfoStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NowPlayingInfoStore.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -229,18 +229,6 @@
 			path = Home;
 			sourceTree = "<group>";
 		};
-		C8ST00062F63000000000006 /* Settings */ = {
-			isa = PBXGroup;
-			children = (
-				C8ST00132F63000000000013 /* SettingsView.swift */,
-				C8ST00142F63000000000014 /* ConnectionSetupStore.swift */,
-				C8ST00152F63000000000015 /* ConnectionSetupView.swift */,
-				C8ST00172F63000000000017 /* QrScanView.swift */,
-				C8ST00182F63000000000018 /* ConnectionValidation.swift */,
-			);
-			path = Settings;
-			sourceTree = "<group>";
-		};
 		C8ID00062F5A000000000006 /* ItemDetails */ = {
 			isa = PBXGroup;
 			children = (
@@ -260,6 +248,17 @@
 				C8FS00132F5F000000000013 /* LibraryFilterSheet.swift */,
 			);
 			path = Library;
+			sourceTree = "<group>";
+		};
+		C8PL00062F70000000000006 /* Player */ = {
+			isa = PBXGroup;
+			children = (
+				C8PL00132F70000000000013 /* PlayerBarStore.swift */,
+				C8PL00142F70000000000014 /* MiniPlayerView.swift */,
+				C8PL00152F70000000000015 /* ExpandedPlayerView.swift */,
+				C8PL00172F70000000000017 /* GroupSettingsView.swift */,
+			);
+			path = Player;
 			sourceTree = "<group>";
 		};
 		C8SH00062F3E000000000006 /* Shell */ = {
@@ -283,23 +282,24 @@
 			path = Spike;
 			sourceTree = "<group>";
 		};
+		C8ST00062F63000000000006 /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				C8ST00132F63000000000013 /* SettingsView.swift */,
+				C8ST00142F63000000000014 /* ConnectionSetupStore.swift */,
+				C8ST00152F63000000000015 /* ConnectionSetupView.swift */,
+				C8ST00172F63000000000017 /* QrScanView.swift */,
+				C8ST00182F63000000000018 /* ConnectionValidation.swift */,
+			);
+			path = Settings;
+			sourceTree = "<group>";
+		};
 		C8SV00062F60000000000006 /* Search */ = {
 			isa = PBXGroup;
 			children = (
 				C8SV00132F60000000000013 /* SearchView.swift */,
 			);
 			path = Search;
-			sourceTree = "<group>";
-		};
-		C8PL00062F70000000000006 /* Player */ = {
-			isa = PBXGroup;
-			children = (
-				C8PL00132F70000000000013 /* PlayerBarStore.swift */,
-				C8PL00142F70000000000014 /* MiniPlayerView.swift */,
-				C8PL00152F70000000000015 /* ExpandedPlayerView.swift */,
-				C8PL00172F70000000000017 /* GroupSettingsView.swift */,
-			);
-			path = Player;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
