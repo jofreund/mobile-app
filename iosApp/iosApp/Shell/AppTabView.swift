@@ -95,6 +95,10 @@ struct AppTabView: View {
     @State private var deepLinkSubscription: Cancellable?
     @State private var playerBarStore = PlayerBarStore()
     @State private var isSearchFieldActive = false
+    /// The mini player's paging position, held here rather than inside `MiniPlayerView` — the
+    /// accessory's content is rebuilt as tabs change, and state inside it went back to nil each
+    /// time, snapping the pager to the first player before animating to the selected one.
+    @State private var miniPlayerScrollID: String?
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -106,7 +110,9 @@ struct AppTabView: View {
             // Hidden only while Search's field has focus, or it renders squeezed against the
             // keyboard — the one behaviour worth keeping from the hand-rolled version.
             if !(selectedTab == .search && isSearchFieldActive) {
-                MiniPlayerView(store: playerBarStore) { playerExpanded = true }
+                MiniPlayerView(store: playerBarStore, scrollID: $miniPlayerScrollID) {
+                    playerExpanded = true
+                }
             }
         }
         // Mounted once here rather than once per tab, which it had to be while it rode along
