@@ -11,10 +11,11 @@ import ComposeApp
 /// space scroll views leave for it. This view used to reserve that space itself, with a constant
 /// height and a hand-rolled `.safeAreaInset`; none of that is its job any more.
 ///
-/// It renders at two sizes, following `\.tabViewBottomAccessoryPlacement`: `.inline` alongside
-/// the tab bar, and the taller `.expanded` the system gives it when the tab bar minimises away
-/// on scroll. There is no way to ask for a specific height — the accessory API takes content and
-/// an enabled flag, nothing else — so `.expanded` is the only route to a roomier bar.
+/// There is no way to ask the accessory for a particular height — the API takes content and an
+/// enabled flag, nothing else. `.tabBarMinimizeBehavior(.onScrollDown)` looked like a way around
+/// that, but the `.expanded` placement it produces is *wider*, not taller: the accessory takes
+/// back the collapsed tab bar's width at the same height. So the layout below works within the
+/// height it's given and renders identically in both placements.
 ///
 /// This is the *collapsed* bar only, styled after Apple Music's mini player — no volume/
 /// shuffle/repeat/seek here; tapping it opens `ExpandedPlayerView.swift` via `onExpand`, which
@@ -67,8 +68,12 @@ struct MiniPlayerView: View {
         .scrollTargetBehavior(.paging)
         .scrollIndicators(.hidden)
         .scrollPosition(id: $scrollID)
-        .padding(.horizontal, 8)
-        .padding(.bottom, 4)
+        // No padding of its own. A bottom-only 4pt used to sit here, from when the bar was a
+        // floating card that needed clearance above the tab bar — inside the accessory it just
+        // pushed everything 4pt off centre. The horizontal inset went the same way: the
+        // accessory already insets its content, and stacking another 8pt on top of the row's
+        // own 12 held the artwork well clear of the pill's edge. Spacing now comes from one
+        // place, the row itself.
         .onAppear { syncScrollToSelection(animated: false) }
         .onChange(of: store.selectedIndex) { _, _ in syncScrollToSelection(animated: true) }
         .onChange(of: scrollID) { _, newID in
@@ -161,11 +166,13 @@ private struct MiniPlayerRow: View {
     private var card: some View {
         mainRow
             .padding(.horizontal, 12)
-            // Only a hair of vertical padding: the accessory is short, and the previous
-            // layout's 40pt artwork plus 12pt of padding overran it and clipped the second
-            // line of text. The artwork is what sets the row's height now.
+            // Only a hair of vertical padding: the accessory is short, and an earlier layout's
+            // 40pt artwork plus 12pt of padding overran it and clipped the second line of text.
             .padding(.vertical, 4)
-            .frame(maxWidth: .infinity)
+            // Filling the height is what actually centres the row: given a frame the size of
+            // the accessory, the content sits in the middle of it rather than wherever a
+            // smaller child happens to be placed.
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             // Fills the accessory, so a tap anywhere on the pill expands rather than only on
             // the content itself.
             .contentShape(.rect)
