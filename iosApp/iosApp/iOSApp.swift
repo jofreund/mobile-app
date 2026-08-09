@@ -1,17 +1,10 @@
 import SwiftUI
 import MusicAssistantKit
 import UIKit
-import CarPlay
-import Intents
 import AVFoundation
 import os
 import os.log
 import os.lock
-
-private let siriLog = OSLog(
-    subsystem: Bundle.main.bundleIdentifier ?? "io.music-assistant.client",
-    category: "Siri"
-)
 
 private final class SystemVolumeButtonObserver: NSObject {
     private let session = AVAudioSession.sharedInstance()
@@ -86,14 +79,14 @@ private final class SystemVolumeButtonObserver: NSObject {
     }
 }
 
-/// Single-bit flag indicating whether `bootstrapKmp()` has run and Koin is
-/// usable. Exists because SiriKit intent handlers can be invoked before any
-/// scene connects (cold "Hey Siri, play X"), so they need a way to bail
-/// rather than dereference an uninitialized Koin graph. Written once on the
-/// main thread from `iOSApp.init()`; read from intent-handler queues (which
-/// the system does not pin to main). Wrapped in `OSAllocatedUnfairLock` to
-/// make the cross-thread read formally data-race-free — uncontested reads,
-/// negligible cost.
+/// Single-bit flag indicating whether `bootstrapKmp()` has run and Koin is usable.
+///
+/// It existed for SiriKit, whose intent handlers could run before any scene connected and so
+/// needed a way to bail rather than dereference an uninitialized Koin graph. With Siri gone the
+/// only readers are the deep-link entry points below, which run after `iOSApp.init()` by
+/// construction — so this is now a guard against a situation that can't arise. Kept because it
+/// costs nothing and the alternative is asserting an ordering guarantee in a comment; worth
+/// revisiting alongside `PendingURL`, which has the same shape.
 enum KmpState {
     private static let _isReady = OSAllocatedUnfairLock(initialState: false)
     static var isReady: Bool {
@@ -129,36 +122,10 @@ func handleIncomingURL(_ url: URL) {
     KmpHelper.shared.handleDeepLink(urlString: url.absoluteString)
 }
 
+/// Kept only for the scene-configuration hook SwiftUI needs; the CarPlay branch that used to
+/// live here (returning `CarPlaySceneDelegate` for `CPTemplateApplicationSceneSessionRoleApplication`)
+/// and the SiriKit `handlerFor` both went with those integrations.
 class AppDelegate: NSObject, UIApplicationDelegate {
-    func application(
-        _ application: UIApplication,
-        configurationForConnecting connectingSceneSession: UISceneSession,
-        options: UIScene.ConnectionOptions
-    ) -> UISceneConfiguration {
-        if connectingSceneSession.role.rawValue == "CPTemplateApplicationSceneSessionRoleApplication" {
-            let config = UISceneConfiguration(name: "CarPlay", sessionRole: connectingSceneSession.role)
-            config.delegateClass = CarPlaySceneDelegate.self
-            return config
-        }
-        let config = UISceneConfiguration(name: "Default", sessionRole: connectingSceneSession.role)
-        return config
-    }
-
-    func application(_ application: UIApplication,
-                     handlerFor intent: INIntent) -> Any? {
-        os_log("AppDelegate.handlerFor: intent class=%{public}@",
-               log: siriLog, type: .info, String(describing: type(of: intent)))
-        // The same handler conforms to all three media-domain intents:
-        // play, affinity (like/dislike), and search. See SiriIntentHandler.swift.
-        if intent is INPlayMediaIntent
-            || intent is INUpdateMediaAffinityIntent
-            || intent is INSearchForMediaIntent {
-            os_log("AppDelegate.handlerFor: returning SiriIntentHandler", log: siriLog, type: .info)
-            return SiriIntentHandler()
-        }
-        os_log("AppDelegate.handlerFor: no handler for this intent — returning nil", log: siriLog, type: .error)
-        return nil
-    }
 }
 
 #if DEBUG
@@ -217,13 +184,11 @@ struct iOSApp: App {
         // and install remote-command targets (its Swift-only init phase).
         _ = NowPlayingCoordinator.shared
 
-        // KMP/Koin init MUST run here, not in any SwiftUI lifecycle callback.
-        // A CarPlay-only cold launch (head unit tap) connects only the
-        // `CPTemplateApplicationScene` — SwiftUI's `WindowGroup` never
-        // connects, so `ContentView.onAppear` never fires. Anything tied to
-        // SwiftUI for app-wide setup is therefore unreachable on that path.
-        // This is now the only caller — the Compose hosts that also called it
-        // from their `configure:` are gone — but it stays idempotent anyway.
+        // KMP/Koin init runs here rather than in a SwiftUI lifecycle callback. That was once
+        // load-bearing — a CarPlay-only cold launch connected no `WindowGroup`, so anything
+        // hung off `ContentView.onAppear` never ran — and with CarPlay gone there is only the
+        // one launch path left. Still the right place: `init()` is the earliest point, and
+        // everything below depends on Koin being up.
         MainViewControllerKt.bootstrapKmp()
         KmpState.isReady = true
 
@@ -242,30 +207,6 @@ struct iOSApp: App {
         // Required for apps to appear in Control Center
         // Must be called for remote control events to work
         UIApplication.shared.beginReceivingRemoteControlEvents()
-
-        // Surface the system "allow Siri" prompt on first launch so the
-        // user gets it as a tap-once dialog instead of a setting they
-        // have to find. iOS 18+ exposes the resulting state as the "Use
-        // with Siri Requests" toggle under Settings → Apple Intelligence
-        // & Siri → Apps → Music Assistant; on fresh installs the toggle
-        // defaults to off, and our intent handlers never run until it
-        // flips on (verified in real-world testing). Calling on every
-        // launch is safe: the system only presents the alert when status
-        // is .notDetermined; subsequent calls return the cached value
-        // immediately. Requires NSSiriUsageDescription in Info.plist
-        // (already present) — without it, this call would crash.
-        INPreferences.requestSiriAuthorization { status in
-            let statusString: String
-            switch status {
-            case .notDetermined: statusString = "notDetermined"
-            case .restricted:    statusString = "restricted"
-            case .denied:        statusString = "denied"
-            case .authorized:    statusString = "authorized"
-            @unknown default:    statusString = "unknown(\(status.rawValue))"
-            }
-            os_log("Siri authorization status: %{public}@",
-                   log: siriLog, type: .info, statusString)
-        }
     }
 
     var body: some Scene {
@@ -301,10 +242,6 @@ struct iOSApp: App {
                 }
         }
         .onChange(of: scenePhase) { _, phase in
-            // A CarPlay-only cold launch connects no WindowGroup scene, so this never fires
-            // there. That matches the behaviour it replaces — `AppLifecycleObserver` lived
-            // inside ContentView's Compose host and was equally absent on that path — and
-            // CarPlay reports its own liveness through `onExternalConsumerActive`.
             switch phase {
             case .active: KmpHelper.shared.onAppForeground()
             case .background: KmpHelper.shared.onAppBackground()

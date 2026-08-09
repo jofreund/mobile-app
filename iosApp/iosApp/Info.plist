@@ -60,14 +60,6 @@
 	<string>Music Assistant connects to your Music Assistant server on your local network to browse and play your music library.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Music Assistant does not access the microphone. This description is required because an included framework (WebRTC) references microphone APIs that this app does not use.</string>
-	<key>NSSiriUsageDescription</key>
-	<string>Music Assistant uses Siri to search your library, play music, and like or dislike songs hands-free, including from CarPlay.</string>
-	<key>NSUserActivityTypes</key>
-	<array>
-		<string>INPlayMediaIntent</string>
-		<string>INUpdateMediaAffinityIntent</string>
-		<string>INSearchForMediaIntent</string>
-	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
