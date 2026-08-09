@@ -681,6 +681,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.jofreund.music-assistant-client";
 				PRODUCT_NAME = "${APP_NAME}";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -710,6 +711,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.jofreund.music-assistant-client";
 				PRODUCT_NAME = "${APP_NAME}";
 				PROVISIONING_PROFILE_SPECIFIER = "Music Assistant App Store";
