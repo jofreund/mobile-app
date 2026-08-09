@@ -114,42 +114,13 @@ struct LibraryListView: View {
     var body: some View {
         Group {
             if let items {
-                ScrollView {
-                    if showsCreatePlaylistRow {
-                        createPlaylistRow
-                    }
-                    if items.isEmpty {
-                        ContentUnavailableView(
-                            String(localized: "library_empty"),
-                            systemImage: "tray"
-                        )
-                        .padding(.top, 40)
-                    } else {
-                        switch viewMode {
-                        case .grid:
-                            LazyVGrid(columns: columns, spacing: 20) {
-                                ForEach(items) { item in
-                                    LibraryItemCell(item: item, viewMode: viewMode)
-                                        .onAppear { loadMoreIfNeeded(current: item) }
-                                }
-                            }
-                            .padding(16)
-                        default:
-                            LazyVStack(spacing: 0) {
-                                ForEach(items) { item in
-                                    LibraryItemCell(item: item, viewMode: viewMode)
-                                        .onAppear { loadMoreIfNeeded(current: item) }
-                                    Divider().padding(.leading, 76)
-                                }
-                            }
-                            .padding(.vertical, 8)
-                        }
-                    }
-                    if isLoadingMore {
-                        ProgressView().padding(.vertical, 12)
-                    }
+                if items.isEmpty {
+                    emptyState
+                } else if viewMode == .list {
+                    listContent(items)
+                } else {
+                    gridContent(items)
                 }
-                .refreshable { await load() }
             } else if loadFailed {
                 ContentUnavailableView(
                     String(localized: "library_error"),
@@ -198,6 +169,70 @@ struct LibraryListView: View {
             guard !Task.isCancelled else { return }
             await load()
         }
+    }
+
+    /// List mode is a real `List`, which is what makes these rows read as Apple Music's do: the
+    /// disclosure indicator on rows that navigate, the press highlight, and separators inset to
+    /// the text rather than the artwork all come from `List` + `NavigationLink`. The previous
+    /// version was a `LazyVStack` inside a `ScrollView` with hand-drawn `Divider`s, which can
+    /// reproduce the lines but none of the behaviour — and got no chevron at all, since there
+    /// was no list to draw one.
+    ///
+    /// Grid mode stays a `ScrollView`; a `List` has nothing to offer a grid of tiles.
+    private func listContent(_ items: [SpikeMediaItem]) -> some View {
+        List {
+            if showsCreatePlaylistRow {
+                createPlaylistRow
+                    .listRowSeparator(.hidden)
+            }
+            ForEach(items) { item in
+                LibraryItemCell(item: item, viewMode: viewMode)
+                    .onAppear { loadMoreIfNeeded(current: item) }
+            }
+            if isLoadingMore {
+                ProgressView()
+                    .frame(maxWidth: .infinity)
+                    .listRowSeparator(.hidden)
+            }
+        }
+        .listStyle(.plain)
+        .refreshable { await load() }
+    }
+
+    private func gridContent(_ items: [SpikeMediaItem]) -> some View {
+        ScrollView {
+            if showsCreatePlaylistRow {
+                createPlaylistRow
+            }
+            LazyVGrid(columns: columns, spacing: 20) {
+                ForEach(items) { item in
+                    LibraryItemCell(item: item, viewMode: viewMode)
+                        .onAppear { loadMoreIfNeeded(current: item) }
+                }
+            }
+            .padding(16)
+            if isLoadingMore {
+                ProgressView().padding(.vertical, 12)
+            }
+        }
+        .refreshable { await load() }
+    }
+
+    /// Kept in a `ScrollView` so pull-to-refresh still works with nothing on screen — the one
+    /// state where a user is most likely to try it.
+    private var emptyState: some View {
+        ScrollView {
+            if showsCreatePlaylistRow {
+                createPlaylistRow
+            }
+            ContentUnavailableView(
+                String(localized: "library_empty"),
+                systemImage: "tray"
+            )
+            .padding(.top, 40)
+            .containerRelativeFrame(.vertical)
+        }
+        .refreshable { await load() }
     }
 
     private var showsCreatePlaylistRow: Bool { route.mediaType == .playlist }
@@ -445,24 +480,34 @@ private struct LibraryItemCell: View {
         .contentShape(.rect)
     }
 
+    /// Sized and spaced after Apple Music's library rows. No horizontal padding of its own any
+    /// more — the enclosing `List` supplies row insets, and adding to them pushed the artwork
+    /// further in than Apple Music's.
     private var listRow: some View {
-        HStack(spacing: 12) {
-            SpikeArtwork(url: item.artworkURL, kind: item.kind, sizing: .fixed(48))
+        HStack(spacing: Self.artworkGap) {
+            SpikeArtwork(url: item.artworkURL, kind: item.kind, sizing: .fixed(Self.artworkSize))
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.title)
+                    // One line, like Apple Music. Wrapping to two made rows in a long list
+                    // uneven, which is most of what made this look unlike it.
                     .font(.body)
-                    .lineLimit(2)
+                    .lineLimit(1)
                 if let subtitle = item.subtitle, !subtitle.isEmpty {
                     Text(subtitle)
-                        .font(.caption)
+                        .font(.subheadline)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
             }
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
+        .padding(.vertical, 4)
         .contentShape(.rect)
+        // Separators start at the text, not under the artwork — the detail that reads as
+        // "native list" versus "rows with lines between them".
+        .alignmentGuide(.listRowSeparatorLeading) { _ in Self.artworkSize + Self.artworkGap }
     }
+
+    private static let artworkSize: CGFloat = 48
+    private static let artworkGap: CGFloat = 12
 }
