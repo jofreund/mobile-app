@@ -52,6 +52,13 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>Music Assistant uses the camera to scan a QR code when setting up a WebRTC remote connection.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<!-- Browsed only to provoke the local-network permission prompt before the first
+		     connection attempt depends on it — see LocalNetworkPermission.swift. iOS refuses
+		     to browse a type that isn't declared here. -->
+		<string>_mass._tcp</string>
+	</array>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Music Assistant connects to your Music Assistant server on your local network to browse and play your music library.</string>
 	<key>NSMicrophoneUsageDescription</key>

@@ -56,13 +56,28 @@ final class ConnectionSetupStore {
     private var remoteIdSub: Cancellable?
     private var providersLoadHandle: Cancellable?
 
+    /// Resolves the local-network permission while the form is on screen, so tapping Connect
+    /// isn't what raises the prompt (which used to fail that first attempt). See
+    /// `LocalNetworkPermission.swift`.
+    private let localNetworkPrimer = LocalNetworkPermissionPrimer()
+
     func start() {
         guard authStateSub == nil else { return }
+
+        localNetworkPrimer.prime()
 
         if let saved = KmpHelper.shared.savedConnectionInfo() {
             host = saved.host
             port = String(saved.port)
             isTls = saved.isTls
+        } else {
+            // Fresh install: fill the form in rather than only hinting at these through
+            // placeholders (which is all Compose ever did), so the common case — a Music
+            // Assistant add-on on Home Assistant's default host and port — is one tap.
+            // Straight from the shared core's own Defaults, so these can't drift from
+            // whatever the Kotlin connection path considers standard.
+            host = Defaults.shared.URI
+            port = String(Defaults.shared.PORT)
         }
 
         authStateSub = KmpHelper.shared.authState.subscribe { [weak self] state in
@@ -85,6 +100,7 @@ final class ConnectionSetupStore {
     }
 
     func stop() {
+        localNetworkPrimer.cancel()
         authStateSub?.cancel()
         historySub?.cancel()
         preferredMethodSub?.cancel()

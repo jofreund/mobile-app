@@ -134,12 +134,14 @@ struct ConnectionSetupView: View {
     @ViewBuilder
     private var directSection: some View {
         Section {
-            TextField(String(localized: "settings_server_host"), text: $store.host, prompt: Text("homeassistant.local"))
+            // Prompts come from the same shared-core Defaults the fields are seeded with, so
+            // clearing a field hints at exactly what it started as.
+            TextField(String(localized: "settings_server_host"), text: $store.host, prompt: Text(Defaults.shared.URI))
                 .textContentType(.URL)
                 .keyboardType(.URL)
                 .autocorrectionDisabled()
                 .textInputAutocapitalization(.never)
-            TextField(String(localized: "settings_port"), text: $store.port, prompt: Text("8095"))
+            TextField(String(localized: "settings_port"), text: $store.port, prompt: Text(String(Defaults.shared.PORT)))
                 .keyboardType(.numberPad)
             Toggle(String(localized: "settings_use_tls"), isOn: $store.isTls)
             HStack {
