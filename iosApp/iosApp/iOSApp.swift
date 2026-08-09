@@ -187,6 +187,16 @@ final class OsLogSinkImpl: NSObject, OsLogSink {
 struct iOSApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
+    /// Drives `ServiceClient`'s foreground/background reporting, which decides when the
+    /// WebSocket may idle. This used to come from `App.kt`'s `AppLifecycleObserver`, reading
+    /// Compose's own `LifecycleOwner` — the last thing keeping a Compose host mounted.
+    ///
+    /// `.active` and `.background` stand in for that observer's `ON_START`/`ON_STOP`.
+    /// `.inactive` is deliberately ignored: it fires for the app switcher, Control Center and
+    /// notification-shade pulls, none of which mean the app stopped, and treating them as
+    /// background would tear the connection down every time someone glanced at a notification.
+    @Environment(\.scenePhase) private var scenePhase
+
     // Keep strong references to native integrations
     // Using NativeAudioController with swift-opus and libFLAC for decoding
     private let player = NativeAudioController()
@@ -212,8 +222,8 @@ struct iOSApp: App {
         // `CPTemplateApplicationScene` — SwiftUI's `WindowGroup` never
         // connects, so `ContentView.onAppear` never fires. Anything tied to
         // SwiftUI for app-wide setup is therefore unreachable on that path.
-        // `bootstrapKmp()` is idempotent, so the SwiftUI path's own call from
-        // each `ComposeScreenHosts.kt` factory's `configure:` is safe.
+        // This is now the only caller — the Compose hosts that also called it
+        // from their `configure:` are gone — but it stays idempotent anyway.
         MainViewControllerKt.bootstrapKmp()
         KmpState.isReady = true
 
@@ -289,6 +299,18 @@ struct iOSApp: App {
                         PendingURL.url = url
                     }
                 }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            // A CarPlay-only cold launch connects no WindowGroup scene, so this never fires
+            // there. That matches the behaviour it replaces — `AppLifecycleObserver` lived
+            // inside ContentView's Compose host and was equally absent on that path — and
+            // CarPlay reports its own liveness through `onExternalConsumerActive`.
+            switch phase {
+            case .active: KmpHelper.shared.onAppForeground()
+            case .background: KmpHelper.shared.onAppBackground()
+            case .inactive: break
+            @unknown default: break
+            }
         }
     }
 }

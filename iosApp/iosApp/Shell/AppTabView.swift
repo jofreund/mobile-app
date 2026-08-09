@@ -1,16 +1,5 @@
 import SwiftUI
-import UIKit
 import ComposeApp
-
-/// Wraps a Kotlin `UIViewController` factory for SwiftUI. Down to a single user —
-/// `FloatingBarSideEffectsController` below — now that every visible screen is native;
-/// lived in `AppShellRootView.swift` while the Main/Settings switch still hosted Compose.
-private struct ComposeHostView: UIViewControllerRepresentable {
-    let makeController: () -> UIViewController
-
-    func makeUIViewController(context: Context) -> UIViewController { makeController() }
-    func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}
-}
 
 /// Where a tap on any browsable/playable item — from a Home row, Library,
 /// Browse, Search, or the floating player bar's queue — asks to go. Carries
@@ -49,8 +38,9 @@ enum AppTab: Hashable {
 /// tree hosting all four tabs). That worked while every native push was a genuine drill-down
 /// *from inside* an already-showing screen; Search doesn't fit that shape — it's a tab root, and
 /// pushing it the same way would cover the tab bar along with everything else. This is Swift's
-/// first native `TabView`: each tab owns its own `NavigationStack` and (for Home/Library) its
-/// own Compose host — see `ComposeScreenHosts.kt`'s doc for the full picture.
+/// first native `TabView`, and every tab owns its own `NavigationStack`. Each also used to host
+/// a Compose tree; none do now — `ComposeScreenHosts.kt` is deleted and no Compose is mounted
+/// anywhere in the app.
 ///
 /// The collapsed player bar rides in `.tabViewBottomAccessory` — the iOS 26 API built for
 /// precisely this, Apple Music's mini-player-above-the-tab-bar — so the system owns where it
@@ -122,21 +112,6 @@ struct AppTabView: View {
                 playerExpanded = true
             }
         }
-        // Mounted once here rather than once per tab, which it had to be while it rode along
-        // with the mini player. `FloatingBarSideEffectsController` collects `ErrorMessageBus`,
-        // a single-consumer Channel, so three instances meant three collectors racing for each
-        // message and toasts surfacing on whichever tab won — a documented, accepted gap that
-        // just closed itself. Still `.background` and non-hit-testable: `AppShellChrome` fills
-        // its host with an opaque colour, so in front it would cover whatever it overlaps.
-        .background(alignment: .bottom) {
-            ComposeHostView(makeController: {
-                ComposeScreenHostsKt.FloatingBarSideEffectsController(
-                    onExpand: { playerExpanded = true }
-                )
-            })
-            .frame(height: MiniPlayerView.sideEffectsHostHeight)
-            .allowsHitTesting(false)
-        }
         .fullScreenCover(isPresented: $playerExpanded) {
             ExpandedPlayerView(store: playerBarStore) { playerExpanded = false }
         }
@@ -144,12 +119,16 @@ struct AppTabView: View {
         .task {
             guard deepLinkSubscription == nil else { return }
             deepLinkSubscription = KmpHelper.shared.deepLinks.subscribe { [self] dest in
-                // .players isn't handled here — FloatingBarSideEffectsController's own
-                // Kotlin-side LaunchedEffect owns that case, flipping `playerExpanded`
-                // through the `onExpand` closure it's constructed with below. Both sides
-                // read the same retained value safely; each only consumes the cases it owns.
+                // Every case is handled here now. `.players` used to be the exception, consumed
+                // by a Kotlin-side LaunchedEffect inside FloatingBarSideEffectsController which
+                // called back through an `onExpand` closure to flip this same flag — a detour
+                // that only existed because that controller was mounted and this wasn't the
+                // sole consumer.
                 guard let dest else { return }
-                if dest is DeepLinkDestinationHome {
+                if dest is DeepLinkDestinationPlayers {
+                    playerExpanded = true
+                    KmpHelper.shared.consumeDeepLink(destination: dest)
+                } else if dest is DeepLinkDestinationHome {
                     selectedTab = .home
                     KmpHelper.shared.consumeDeepLink(destination: dest)
                 } else if let library = dest as? DeepLinkDestinationLibrary {

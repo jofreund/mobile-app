@@ -9,10 +9,12 @@ import ComposeApp
 /// `SchemaVersionWarningViewModel` singletons. `TopLevelNavRoot.kt`,
 /// `ConnectionStatusBanner.kt`, and `AutoLoginSplash.kt` are gone (this
 /// superseded them entirely — Android is gone too, so nothing else rendered
-/// them); `App.kt` kept only `AppLifecycleObserver`, still shared with the
-/// hosted screens below. See `ComposeScreenHosts.kt` for what's still Compose
-/// underneath each side of the switch, and why (the floating player bar in
-/// particular isn't part of this slice).
+/// them).
+///
+/// Nothing under here is Compose any more. `App.kt`'s `AppLifecycleObserver` was the last
+/// straggler and now reports from `scenePhase` in `iOSApp.swift`; the toast host that
+/// `FloatingBarSideEffectsController` existed to mount is native and lives here
+/// (`ToastHost.swift`).
 struct AppShellRootView: View {
 
     @State private var router = AppRouter()
@@ -22,6 +24,10 @@ struct AppShellRootView: View {
     // never reads this — its alert has no dismiss action). Mirrors the
     // `hidden`/`LaunchedEffect(warning)` pair in App.kt's Compose dialog.
     @State private var dismissedSchemaWarning = false
+
+    /// The app's one toast host — see `ToastHost.swift` for why there must be exactly one. Held
+    /// here rather than in `AppTabView` so a message raised while Settings is up still lands.
+    @State private var toasts = ToastPresenter()
 
     var body: some View {
         ZStack {
@@ -42,6 +48,7 @@ struct AppShellRootView: View {
             }
         }
         .animation(.easeInOut(duration: 0.2), value: router.splashVisible)
+        .toastHost(toasts)
         .task { router.start() }
         .onChange(of: schemaWarningIdentity) { dismissedSchemaWarning = false }
         .alert(

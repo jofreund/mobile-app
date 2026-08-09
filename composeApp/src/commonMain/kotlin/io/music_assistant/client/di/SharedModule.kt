@@ -25,7 +25,6 @@ import io.music_assistant.client.settings.SettingsRepository
 import io.music_assistant.client.settings.provideSettings
 import io.music_assistant.client.ui.AppRootRouter
 import io.music_assistant.client.ui.SchemaVersionWarningViewModel
-import io.music_assistant.client.ui.compose.home.HomeScreenViewModel
 import io.music_assistant.client.ui.theme.ThemeViewModel
 import io.music_assistant.client.utils.NetworkMonitor
 import org.koin.core.module.dsl.bind
@@ -80,7 +79,6 @@ fun sharedModule(
         single(createdAtStart = true) {  // Eager - schema warning must be observable before any host mounts
             SchemaVersionWarningViewModel(get())
         }
-        factory { HomeScreenViewModel(get(), get(), get(), get()) }
     }
 
 /**

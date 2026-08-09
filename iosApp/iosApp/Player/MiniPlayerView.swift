@@ -4,8 +4,8 @@ import ComposeApp
 /// Native mini player — Apple-Music-style compact bar with horizontal paging across
 /// connected players. A completed swipe calls `PlayerBarStore.selectPlayer`, mirroring
 /// Compose's `HorizontalPager` + `snapshotFlow { pagerState.settledPage }.collect { selectPlayer(...) }`
-/// wiring it replaces (see `ComposeScreenHosts.kt`'s now-removed `PlayerBarContent` pager
-/// effect for the original).
+/// wiring it replaces (the original lived in `ComposeScreenHosts.kt`'s `PlayerBarContent`; that
+/// whole file is gone — recoverable at `e2514156`).
 ///
 /// Lives in `.tabViewBottomAccessory` (see `AppTabView`), so the system owns its height and the
 /// space scroll views leave for it. This view used to reserve that space itself, with a constant
@@ -32,12 +32,6 @@ struct MiniPlayerView: View {
 
     // Last, so callers can pass it as a trailing closure.
     let onExpand: () -> Void
-
-    /// Sizes `FloatingBarSideEffectsController`'s invisible `.background` in `AppTabView.swift`.
-    /// Nothing to do with this bar's own height any more — the accessory decides that — but the
-    /// host has to be given *some* size, and it fills itself with an opaque colour, so keeping
-    /// it small keeps it from painting over whatever is scrolling behind it.
-    static let sideEffectsHostHeight: CGFloat = 64
 
     /// A ceiling, never a height. The accessory proposes its own size and the content takes it,
     /// which is the whole point of letting the system own this. The cap exists only because the

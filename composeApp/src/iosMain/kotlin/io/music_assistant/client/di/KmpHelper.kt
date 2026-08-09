@@ -11,6 +11,7 @@ import io.music_assistant.client.api.APICommands
 import io.music_assistant.client.api.ConnectionInfo
 import io.music_assistant.client.api.DeepLinkBus
 import io.music_assistant.client.api.DeepLinkDestination
+import io.music_assistant.client.api.ErrorMessageBus
 import io.music_assistant.client.api.Request
 import io.music_assistant.client.api.ServiceClient
 import io.music_assistant.client.api.isAccepted
@@ -84,6 +85,7 @@ import io.music_assistant.client.ui.theme.ThemeSetting
 import io.music_assistant.client.utils.HasConnectionData
 import io.music_assistant.client.utils.SessionState
 import io.music_assistant.client.utils.currentTimeMillis
+import io.music_assistant.client.utils.localizedString
 import io.music_assistant.client.utils.resultAs
 import io.music_assistant.client.webrtc.model.RemoteId
 import kotlinx.cinterop.BetaInteropApi
@@ -94,6 +96,10 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
@@ -127,6 +133,23 @@ data class LibraryProviderOption(val instanceId: String, val label: String)
 data class LibraryGenreOption(val genreId: Int, val label: String)
 
 /**
+ * A transient message for the native toast host. See [KmpHelper.toasts].
+ *
+ * [isLong] rather than a duration in milliseconds: the two call sites only ever picked between
+ * Compose's `ToastDuration.SHORT`/`LONG`, and how long "long" is belongs to the presenter.
+ */
+data class ToastMessage(val text: String, val isLong: Boolean)
+
+/**
+ * Server error text can be arbitrarily long — a stack-trace-ish RPC error would otherwise fill
+ * the screen. Carried over from the Compose toast host verbatim.
+ */
+private const val MAX_TOAST_MESSAGE_LENGTH = 150
+
+private fun String.truncatedForToast(): String =
+    if (length > MAX_TOAST_MESSAGE_LENGTH) take(MAX_TOAST_MESSAGE_LENGTH) + "…" else this
+
+/**
  * KmpHelper - Bridge for accessing Koin dependencies from Swift
  */
 object KmpHelper : KoinComponent {
@@ -139,6 +162,7 @@ object KmpHelper : KoinComponent {
     private val mediaItemRepository: MediaItemRepository by inject()
     private val settingsRepository: SettingsRepository by inject()
     private val volumeButtonService: VolumeButtonService by inject()
+    private val errorBus: ErrorMessageBus by inject()
     private val logSharer: LogSharer by inject()
     private val artworkHttpClient: HttpClient by inject(named("webrtcHttpClient"))
 
@@ -209,6 +233,46 @@ object KmpHelper : KoinComponent {
     fun onPlatformVolumeButtonPressed() {
         volumeButtonService.onPlatformVolumeButtonPressed()
     }
+
+    // MARK: - Transient messages (toasts)
+    //
+    // Both sources used to be collected inside `FloatingBarSideEffectsController`, the last
+    // mounted Compose in the app, which existed largely to host them. Merging here keeps the
+    // policy — what warrants a toast, and for how long — in Kotlin, and leaves Swift with
+    // nothing to decide but how it looks (`ToastHost.swift`).
+
+    /**
+     * Everything the app wants to say in passing: RPC errors from the server, and the hint that
+     * the hardware volume buttons don't reach a remote player.
+     *
+     * Built once rather than per access. [ErrorMessageBus] is a `Channel`, so its flow is
+     * single-consumer by construction — a second subscriber would not duplicate messages, it
+     * would *steal* them. One host subscribes. (The Compose version was mounted once per tab and
+     * did exactly that, which is why an error could surface on a tab you weren't looking at.)
+     *
+     * The remote-volume check reads [MainDataSource.selectedPlayer] at press time instead of
+     * tracking a `viewingRemote` flag, which is both simpler and closes the window where the
+     * flag lagged the selection.
+     */
+    private val toastMessages: Flow<ToastMessage> by lazy {
+        merge(
+            errorBus.messages.map { ToastMessage(it.truncatedForToast(), isLong = true) },
+            volumeButtonService.buttonPresses
+                .filter { mainDataSource.selectedPlayer?.isLocal == false }
+                .map { ToastMessage(localizedString("players_remote_volume_hint"), isLong = false) },
+        )
+    }
+
+    val toasts: NativeFlow<ToastMessage>
+        get() = NativeFlow(toastMessages, mainScope)
+
+    // MARK: - App lifecycle
+    //
+    // Replaces `App.kt`'s `AppLifecycleObserver`, which reported Compose's own LifecycleOwner
+    // transitions. Swift drives these from `scenePhase` now — see `iOSApp.swift`.
+
+    fun onAppForeground() = serviceClient.onAppForeground()
+    fun onAppBackground() = serviceClient.onAppBackground()
 
     // MARK: - External Consumer Lifecycle (CarPlay)
 

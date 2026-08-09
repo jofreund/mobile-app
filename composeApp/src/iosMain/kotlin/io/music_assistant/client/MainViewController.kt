@@ -20,19 +20,16 @@ import platform.Foundation.writeToFile
 import kotlin.native.Platform
 
 /**
- * Idempotent KMP/Koin initialization. Called from two places:
+ * Idempotent KMP/Koin initialization, called from Swift `iOSApp.init()`. That runs before any
+ * scene connects, so a CarPlay-only cold launch (head unit tap, no SwiftUI scene) still gets
+ * Koin set up.
  *
- *   1. Swift `iOSApp.init()` — runs before any scene connects, so a
- *      CarPlay-only cold launch (head unit tap, no SwiftUI scene) still
- *      gets Koin set up.
- *   2. Each `ComposeUIViewController` factory in `ComposeScreenHosts.kt`
- *      (`configure = { bootstrapKmp() }`) — runs when its host is first
- *      mounted, which on a SwiftUI-only cold launch happens before the
- *      CarPlay scene exists.
- *
- * Idempotency is mandatory because both paths can run on a single launch
- * (CarPlay scene + SwiftUI scene both connecting). Backed by `Unit by lazy`
- * — `startKoin` throws on a second invocation otherwise.
+ * There used to be a second caller: every `ComposeUIViewController` factory in
+ * `ComposeScreenHosts.kt` passed `configure = { bootstrapKmp() }`, because a host could mount
+ * before the CarPlay scene existed. Those hosts are gone — the app is fully native — so this is
+ * now called exactly once per launch, and the idempotency is belt-and-braces rather than load
+ * bearing. It stays anyway: `startKoin` throws on a second invocation, `Unit by lazy` costs
+ * nothing, and a single entry point is easier to keep correct than a rule about call counts.
  */
 fun bootstrapKmp() {
     kmpBootstrap
