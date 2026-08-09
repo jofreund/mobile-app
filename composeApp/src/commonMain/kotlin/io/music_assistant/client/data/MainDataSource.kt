@@ -182,34 +182,6 @@ class MainDataSource(
             data?.let { applyFavoriteOverride(it, overrides) }
         }.stateIn(this, SharingStarted.Eagerly, null)
 
-    /** Track metadata for the local player's system-media presentation. */
-    val nowPlayingTrack: StateFlow<NowPlayingTrack?> =
-        localPlayer
-            .map(::buildNowPlayingTrack)
-            .distinctUntilChanged()
-            .stateIn(this, SharingStarted.Eagerly, null)
-
-    /**
-     * Transport anchors for the local player's system-media presentation.
-     * Each anchor carries its content identity: the dedup keys on it (a new
-     * track always emits a fresh anchor) and the Swift consumer uses it to
-     * correlate anchors with the track it is presenting, since the track and
-     * transport channels have no cross-channel ordering guarantee. No-track
-     * states remain explicit nulls.
-     */
-    val nowPlayingTransport: StateFlow<NowPlayingTransport?> =
-        localPlayer
-            .map { buildNowPlayingTransport(it, positionTracker) }
-            .distinctUntilChanged(NowPlayingChannelChangeDetection::sameTransport)
-            .stateIn(this, SharingStarted.Eagerly, null)
-
-    /** Queue modes and their shared availability gate for system-media controls. */
-    val nowPlayingModes: StateFlow<NowPlayingModes?> =
-        localPlayer
-            .map(::buildNowPlayingModes)
-            .distinctUntilChanged()
-            .stateIn(this, SharingStarted.Eagerly, null)
-
     val isAnythingPlaying =
         playersData
             .mapNotNull { it as? DataState.Data<List<PlayerData>> }
@@ -315,6 +287,61 @@ class MainDataSource(
                 ?: session.firstOrNull { it.player.isPlaying }
                 ?: session.firstOrNull()
         }.stateIn(this, SharingStarted.Eagerly, null)
+
+    // --- System-media presentation (lock screen / Control Center) ---
+    //
+    // Sourced from [nowPlayingPlayer], i.e. the *selected* remote player. These used to read
+    // `localPlayer` — the phone's own Sendspin output — which meant the lock screen showed
+    // nothing at all unless local playback was enabled, and it never reflected the speaker the
+    // user was actually controlling. [nowPlayingPlayer] already encoded the right answer for
+    // Android's media session ("the selected player when eligible, else the first playing one");
+    // iOS simply wasn't using it.
+    //
+    // Declared after [nowPlayingPlayer] on purpose: `stateIn(…, Eagerly, …)` launches its
+    // collector during construction, so reading a property declared further down would see it
+    // uninitialized.
+
+    /** Track metadata for the system-media presentation. */
+    val nowPlayingTrack: StateFlow<NowPlayingTrack?> =
+        nowPlayingPlayer
+            .map(::buildNowPlayingTrack)
+            .distinctUntilChanged()
+            .stateIn(this, SharingStarted.Eagerly, null)
+
+    /**
+     * Transport anchors for the system-media presentation. Each anchor carries its content
+     * identity: the dedup keys on it (a new track always emits a fresh anchor) and the Swift
+     * consumer uses it to correlate anchors with the track it is presenting, since the track and
+     * transport channels have no cross-channel ordering guarantee. No-track states remain
+     * explicit nulls.
+     */
+    val nowPlayingTransport: StateFlow<NowPlayingTransport?> =
+        nowPlayingPlayer
+            .map { buildNowPlayingTransport(it, positionTracker) }
+            .distinctUntilChanged(NowPlayingChannelChangeDetection::sameTransport)
+            .stateIn(this, SharingStarted.Eagerly, null)
+
+    /** Queue modes and their shared availability gate for system-media controls. */
+    val nowPlayingModes: StateFlow<NowPlayingModes?> =
+        nowPlayingPlayer
+            .map(::buildNowPlayingModes)
+            .distinctUntilChanged()
+            .stateIn(this, SharingStarted.Eagerly, null)
+
+    /**
+     * Dispatch a lock-screen / Control Center command to whichever player the system-media
+     * surfaces are currently presenting. Parsing lives in [remoteCommandToPlayerAction], shared
+     * with (and tested independently of) this dispatch.
+     *
+     * Returns false when there is nothing to control or the command is unrecognized, so the
+     * caller can decline rather than report a success the user won't see.
+     */
+    fun handleSystemMediaCommand(command: String): Boolean {
+        val target = nowPlayingPlayer.value ?: return false
+        val action = remoteCommandToPlayerAction(command, target.queueInfo) ?: return false
+        playerAction(target, action)
+        return true
+    }
 
     /** Cycle the session to the next eligible player (notification "switch player" action). */
     fun switchSessionPlayer() {

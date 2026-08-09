@@ -200,6 +200,20 @@ struct iOSApp: App {
         // Second coordinator init phase: the now-playing channel observers
         // need the Kotlin graph, which exists only after bootstrapKmp().
         NowPlayingCoordinator.shared.startObserving()
+
+        // Lock screen / Control Center transport. Kotlin owns both halves of the decision —
+        // which player is being presented, and what each command string means — so this just
+        // forwards. Previously installed by `NativeAudioController`, which pointed these at the
+        // phone's own audio engine; they drive the selected remote player now.
+        NowPlayingCoordinator.shared.setCommandHandler { command in
+            let handled = KmpHelper.shared.handleSystemMediaCommand(command: command)
+            if !handled {
+                NativeLog.shared.warn(
+                    tag: "SystemMedia",
+                    message: "command not handled (no presented player, or unrecognized): \(command)"
+                )
+            }
+        }
         if UIApplication.shared.applicationState == .active {
             volumeButtonObserver.start()
         }

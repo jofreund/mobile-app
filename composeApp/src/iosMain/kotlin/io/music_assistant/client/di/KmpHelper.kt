@@ -274,6 +274,19 @@ object KmpHelper : KoinComponent {
     fun onAppForeground() = serviceClient.onAppForeground()
     fun onAppBackground() = serviceClient.onAppBackground()
 
+    // MARK: - System media controls (lock screen / Control Center)
+
+    /**
+     * Route a remote-command string from `NowPlayingCoordinator` to whichever player the
+     * system-media surfaces are presenting. Returns false when there's nothing to control or the
+     * command isn't recognized, so Swift can report `.commandFailed` rather than a silent no-op.
+     *
+     * Which player that is, and how the string maps to an action, both stay in Kotlin — Swift
+     * only forwards the vocabulary `MPRemoteCommandCenter` gave it.
+     */
+    fun handleSystemMediaCommand(command: String): Boolean =
+        mainDataSource.handleSystemMediaCommand(command)
+
     // MARK: - External Consumer Lifecycle (CarPlay)
 
     /**
