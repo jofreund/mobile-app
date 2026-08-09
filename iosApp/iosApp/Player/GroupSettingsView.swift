@@ -45,10 +45,10 @@ struct GroupSettingsView: View {
         List {
             if player.isGrouped {
                 Section {
-                    VolumeControlRow(
+                    VolumeSlider(
                         volume: player.groupVolume,
                         isMuted: player.groupVolumeMuted,
-                        showMute: true,
+                        canMute: true,
                         enabled: player.groupVolume != nil,
                         onMuteToggle: { store.toggleGroupMute(id: player.id, isMutedNow: player.groupVolumeMuted) },
                         onVolumeSet: { store.setGroupVolume(id: player.id, level: $0) }
@@ -66,20 +66,20 @@ struct GroupSettingsView: View {
                     if player.isGroup {
                         // A GROUP-type player's own volume IS the group volume.
                         if player.groupVolume != nil {
-                            VolumeControlRow(
+                            VolumeSlider(
                                 volume: player.groupVolume,
                                 isMuted: player.groupVolumeMuted,
-                                showMute: player.canMute,
+                                canMute: player.canMute,
                                 enabled: player.volumeSliderAccessible,
                                 onMuteToggle: { store.toggleGroupMute(id: player.id, isMutedNow: player.groupVolumeMuted) },
                                 onVolumeSet: { store.setGroupVolume(id: player.id, level: $0) }
                             )
                         }
                     } else if player.ownVolume != nil {
-                        VolumeControlRow(
+                        VolumeSlider(
                             volume: player.ownVolume,
                             isMuted: player.ownVolumeMuted,
-                            showMute: player.canMute,
+                            canMute: player.canMute,
                             enabled: player.volumeSliderAccessible,
                             onMuteToggle: { store.toggleMemberMute(id: player.id, isMutedNow: player.ownVolumeMuted) },
                             onVolumeSet: { store.setMemberVolume(id: player.id, level: $0) }
@@ -134,67 +134,15 @@ private struct GroupMemberRow: View {
                     String(localized: member.isBound ? "cd_remove_from_group" : "cd_add_to_group")
                 )
             }
-            VolumeControlRow(
+            VolumeSlider(
                 volume: member.volume,
                 isMuted: member.isMuted,
-                showMute: member.canMute,
+                canMute: member.canMute,
                 enabled: member.isBound && member.volumeSliderAccessible && member.volume != nil,
                 onMuteToggle: { store.toggleMemberMute(id: member.id, isMutedNow: member.isMuted) },
                 onVolumeSet: { store.setMemberVolume(id: member.id, level: $0) }
             )
         }
         .padding(.vertical, 4)
-    }
-}
-
-/// Mute icon + slider + numeric value — the same optimistic-drag pattern as the expanded
-/// player's own volume row (local state while dragging, commit on release, server echo wins
-/// afterwards). `@State` is keyed per row identity by the enclosing `ForEach`.
-private struct VolumeControlRow: View {
-
-    let volume: Float?
-    let isMuted: Bool
-    let showMute: Bool
-    let enabled: Bool
-    let onMuteToggle: () -> Void
-    let onVolumeSet: (Float) -> Void
-
-    @State private var dragValue: Float?
-
-    private var displayValue: Float { dragValue ?? volume ?? 0 }
-
-    var body: some View {
-        HStack(spacing: 12) {
-            if showMute {
-                Button(action: onMuteToggle) {
-                    Image(systemName: isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
-                }
-                .buttonStyle(.borderless)
-                .disabled(!enabled)
-                .accessibilityLabel(String(localized: isMuted ? "cd_unmute" : "cd_mute"))
-            }
-            Slider(
-                value: Binding(
-                    get: { displayValue },
-                    set: { dragValue = $0 }
-                ),
-                // Same 0...100 scale as every other volume surface (no /100 fractions anywhere).
-                in: 0...100,
-                onEditingChanged: { editing in
-                    guard !editing, let level = dragValue else { return }
-                    onVolumeSet(level)
-                    dragValue = nil
-                }
-            )
-            .disabled(!enabled)
-
-            // `verbatim:` keeps Xcode from extracting the interpolation into the string
-            // catalog as a bogus "%@" key — a bare number has nothing to translate.
-            Text(verbatim: "\(Int(displayValue))")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .frame(width: 32, alignment: .trailing)
-        }
-        .opacity(enabled ? 1 : 0.4)
     }
 }

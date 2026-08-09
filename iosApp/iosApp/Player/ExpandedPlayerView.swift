@@ -133,7 +133,6 @@ private struct ExpandedPlayerRow: View {
     @State private var userDragPosition: Double?
     @State private var releasedSeekPosition: Double?
 
-    @State private var volumeDragValue: Float?
     @State private var showPlayerPicker = false
 
     @State private var showQueue = false
@@ -650,35 +649,14 @@ private struct ExpandedPlayerRow: View {
     private var volumeRow: some View {
         VStack(spacing: 16) {
             if let volume = player.volumeLevel {
-                HStack(spacing: 12) {
-                    Button {
-                        store.toggleMute(id: player.id)
-                    } label: {
-                        Image(systemName: player.isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
-                    }
-                    .disabled(!player.canMute)
-
-                    Slider(
-                        value: Binding(
-                            get: { volumeDragValue ?? volume },
-                            set: { volumeDragValue = $0 }
-                        ),
-                        // Player.currentVolume is already 0...100 (Compose's own inline volume
-                        // slider uses valueRange = 0f..100f directly, no /100 or *100 anywhere)
-                        // — not a 0...1 fraction.
-                        in: 0...100,
-                        onEditingChanged: { editing in
-                            guard !editing, let level = volumeDragValue else { return }
-                            store.setVolume(id: player.id, level: level)
-                            volumeDragValue = nil
-                        }
-                    )
-
-                    Text(verbatim: "\(Int(volumeDragValue ?? volume))%")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .frame(width: 36, alignment: .trailing)
-                }
+                VolumeSlider(
+                    volume: volume,
+                    isMuted: player.isMuted,
+                    canMute: player.canMute,
+                    enabled: true,
+                    onMuteToggle: { store.toggleMute(id: player.id) },
+                    onVolumeSet: { store.setVolume(id: player.id, level: $0) }
+                )
             }
         }
     }
