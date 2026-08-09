@@ -50,11 +50,20 @@ actor SpikeImageLoader {
 
         let task = Task<UIImage?, Never> {
             do {
-                let (data, _) = try await URLSession.shared.data(from: url)
+                let (data, response) = try await URLSession.shared.data(from: url)
                 guard let image = Self.downsample(data, maxPixel: maxPixel) else {
+                    // The content type and leading bytes are here because a decode failure is
+                    // otherwise indistinguishable from "no artwork" — the cell just shows its
+                    // placeholder. ImageIO handles no vector formats at all, so an SVG (which
+                    // this server does serve; the Compose client decoded them with Coil's
+                    // `SvgDecoder`) lands here and looks exactly like a missing image.
+                    let mime = (response as? HTTPURLResponse)?.value(forHTTPHeaderField: "Content-Type") ?? "?"
+                    let head = String(decoding: data.prefix(48), as: UTF8.self)
+                        .replacingOccurrences(of: "\n", with: " ")
                     NativeLog.shared.warn(
                         tag: Self.logTag,
-                        message: "decode failed (\(data.count) bytes) for \(url.absoluteString)"
+                        message: "decode failed (\(data.count) bytes, type=\(mime)) for "
+                            + "\(url.absoluteString) — starts: \(head)"
                     )
                     return nil
                 }
