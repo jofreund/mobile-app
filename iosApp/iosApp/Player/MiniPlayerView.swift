@@ -134,32 +134,12 @@ private struct MiniPlayerRow: View {
         // Only worth a long press when there's a choice to make. An unconditional
         // `.contextMenu` would still trigger on a single-player setup and open an empty menu.
         if store.players.count > 1 {
-            card.contextMenu { playerPicker }
+            // Long press *is* the context menu gesture on iOS, so this brings the press-and-hold
+            // haptic and the lifted preview with it, and needs no gesture of its own to fight
+            // the pager's horizontal drag. Same content as the expanded player's header menu.
+            card.contextMenu { PlayerPickerMenu(store: store, currentId: player.id) }
         } else {
             card
-        }
-    }
-
-    /// Switching players by long press, mirroring the picker the expanded player puts behind
-    /// its header. A `.contextMenu` rather than a popover because long press *is* the context
-    /// menu gesture on iOS — it brings the press-and-hold haptic and the lifted preview of the
-    /// card with it, and needs no gesture of its own to fight the pager's horizontal drag.
-    @ViewBuilder
-    private var playerPicker: some View {
-        Section(String(localized: "players_title")) {
-            ForEach(store.players) { candidate in
-                Button {
-                    store.selectPlayer(id: candidate.id)
-                } label: {
-                    // A checkmark marks the current one; menu buttons show a label's image
-                    // where a checkmark would go, so this is the idiomatic way to say "on".
-                    if candidate.id == player.id {
-                        Label(candidate.name, systemImage: "checkmark")
-                    } else {
-                        Text(candidate.name)
-                    }
-                }
-            }
         }
     }
 

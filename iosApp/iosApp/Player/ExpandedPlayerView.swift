@@ -88,35 +88,6 @@ struct ExpandedPlayerView: View {
     }
 }
 
-/// The popover shown from tapping the player name in the header — every connected player,
-/// tap to switch. Mirrors Compose's `SelectPlayerDialog` minus reordering (deferred; this is
-/// the "quick switch" affordance, not full player management).
-private struct PlayerPickerList: View {
-
-    let store: PlayerBarStore
-    let currentId: String
-    let onSelect: () -> Void
-
-    var body: some View {
-        List(store.players) { player in
-            Button {
-                store.selectPlayer(id: player.id)
-                onSelect()
-            } label: {
-                HStack {
-                    Text(player.name)
-                    Spacer()
-                    if player.id == currentId {
-                        Image(systemName: "checkmark")
-                    }
-                }
-            }
-            .foregroundStyle(.primary)
-        }
-        .listStyle(.plain)
-        .frame(minWidth: 260, idealHeight: 320)
-    }
-}
 
 private struct ExpandedPlayerRow: View {
 
@@ -133,7 +104,6 @@ private struct ExpandedPlayerRow: View {
     @State private var userDragPosition: Double?
     @State private var releasedSeekPosition: Double?
 
-    @State private var showPlayerPicker = false
 
     @State private var showQueue = false
     @State private var showGroupSettings = false
@@ -203,8 +173,8 @@ private struct ExpandedPlayerRow: View {
     }
 
     private var playerPicker: some View {
-        Button {
-            showPlayerPicker = true
+        Menu {
+            PlayerPickerMenu(store: store, currentId: player.id)
         } label: {
             HStack(spacing: 4) {
                 Text(player.name)
@@ -214,12 +184,6 @@ private struct ExpandedPlayerRow: View {
             }
             .font(.subheadline.weight(.semibold))
             .foregroundStyle(.secondary)
-        }
-        .popover(isPresented: $showPlayerPicker) {
-            PlayerPickerList(store: store, currentId: player.id) {
-                showPlayerPicker = false
-            }
-            .presentationCompactAdaptation(.popover)
         }
     }
 
