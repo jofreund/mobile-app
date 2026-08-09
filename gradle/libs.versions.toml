@@ -10,7 +10,6 @@ ktor = "3.5.1"
 
 koin = "4.2.2"
 
-coil = "3.5.0"
 
 
 settingsMultiplatform = "1.3.0"
@@ -43,9 +42,6 @@ ktor-client-webrtc = { module = "io.ktor:ktor-client-webrtc", version.ref = "kto
 koin-core = { module = "io.insert-koin:koin-core", version.ref = "koin" }
 
 
-coil-singleton = { module = "io.coil-kt.coil3:coil", version.ref = "coil" }
-coil-network-ktor3 = { module = "io.coil-kt.coil3:coil-network-ktor3", version.ref = "coil" }
-coil-svg = { module = "io.coil-kt.coil3:coil-svg", version.ref = "coil" }
 
 
 settings-multiplatform = { module = "com.russhwolf:multiplatform-settings-no-arg", version.ref = "settingsMultiplatform" }

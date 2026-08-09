@@ -67,18 +67,6 @@ kotlin {
 
             api(libs.koin.core)
 
-            // Coil stays, minus its Compose integration: nothing *renders* through it any more
-            // (Swift uses `AsyncImage` over `MAWebRTCURLProtocol`), but `KtorServiceClient`
-            // still drives `ImageCacheInvalidator` and `WebRTCImageFetcher` feeds the loader.
-            //
-            // `coil-singleton` is the `io.coil-kt.coil3:coil` artifact — the one that actually
-            // declares `SingletonImageLoader`, which `initKoin` and `ImageCacheInvalidator` both
-            // use. It had been arriving transitively through `coil-compose` and went missing
-            // with it; depending on it directly is what that dependency always meant.
-            implementation(libs.coil.singleton)
-            implementation(libs.coil.network.ktor3)
-            implementation(libs.coil.svg)
-
             implementation(libs.settings.multiplatform)
 
             implementation(libs.kermit)

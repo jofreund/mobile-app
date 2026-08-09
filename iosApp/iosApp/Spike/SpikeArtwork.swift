@@ -49,17 +49,28 @@ actor SpikeImageLoader {
         if let running = inFlight[key] { return await running.value }
 
         let task = Task<UIImage?, Never> {
+            // Disk before network. Entries are stored already downsampled, so a hit skips the
+            // resize as well as the round trip — and over WebRTC the round trip is the expensive
+            // part. See `ArtworkDiskCache`.
+            if let onDisk = ArtworkDiskCache.shared.image(forKey: key) {
+                return onDisk
+            }
             do {
                 let (data, response) = try await URLSession.shared.data(from: url)
                 let contentType = (response as? HTTPURLResponse)?.value(forHTTPHeaderField: "Content-Type")
 
-                if let image = Self.downsample(data, maxPixel: maxPixel) { return image }
+                if let image = Self.downsample(data, maxPixel: maxPixel) {
+                    Self.persist(image, forKey: key)
+                    return image
+                }
 
                 // ImageIO decodes no vector formats, and this server serves genre artwork as
                 // `image/svg+xml`. Tried only after ImageIO declines, so raster artwork never
                 // pays for the web view behind this. See `SVGRasterizer`.
                 if SVGRasterizer.looksLikeSVG(data, contentType: contentType) {
                     if let image = await SVGRasterizer.shared.image(from: data, maxPixel: maxPixel) {
+                        // Worth caching more than most: rasterizing one of these costs a web view.
+                        Self.persist(image, forKey: key)
                         return image
                     }
                     NativeLog.shared.warn(
@@ -95,6 +106,15 @@ actor SpikeImageLoader {
         inFlight[key] = nil
         if let image { artworkCache.setObject(image, forKey: key as NSString) }
         return image
+    }
+
+    /// Writes off the actor: file IO inside it would block every other artwork request for the
+    /// duration, and nothing waits on the result.
+    private nonisolated static func persist(_ image: UIImage, forKey key: String) {
+        Task.detached(priority: .utility) {
+            ArtworkDiskCache.shared.store(image, forKey: key)
+            ArtworkDiskCache.shared.trimIfNeeded()
+        }
     }
 
     private static let logTag = "SpikeImageLoader"
