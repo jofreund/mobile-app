@@ -7050,6 +7050,7 @@
       }
     },
     "search_prompt_types" : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
