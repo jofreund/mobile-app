@@ -103,28 +103,42 @@ struct AppShellRootView: View {
         }
     }
 
-    @ViewBuilder
+    /// Settings is presented *over* the app rather than swapped in for it, so it reads as a
+    /// modal task you close (with an ✕) rather than a place you navigate to and back from.
+    ///
+    /// `.fullScreenCover`, not `.sheet`, on purpose: the router starts here on a fresh install
+    /// (`computeInitialDestination` picks Settings when there's nothing to auto-login with), and
+    /// a sheet's swipe-to-dismiss would let someone flick past connection setup onto an app with
+    /// no server. There's no interactive dismissal to guard against here — only the ✕, which is
+    /// exactly the affordance the old back button had.
+    private var settingsPresented: Binding<Bool> {
+        Binding(
+            get: { router.destination != .main },
+            set: { presented in
+                // Only meaningful on dismissal; presentation is driven by the router.
+                if !presented { KmpHelper.shared.requestHome() }
+            }
+        )
+    }
+
     private var content: some View {
-        switch router.destination {
-        case .main:
-            AppTabView()
-                // Compose had its own keyboard handler on this side — SettingsView() below is
-                // now substantially native (Phase E4 part 2's real TextFields) and must NOT get
-                // this: it was found to suppress the keyboard from appearing for native fields
-                // entirely (iOS 26 beta).
-                .ignoresSafeArea(.keyboard)
-                // `.ignoresSafeArea(.container)` was here too, from when this side was a single
-                // full-screen Compose host drawing its own chrome. Nothing here is Compose now,
-                // and it suppressed the bottom container safe area for the whole tab subtree —
-                // including the region each tab reserves for the mini player via
-                // `.safeAreaInset`. That's why the last row of a scroll could never be brought
-                // clear of the bar, however far you scrolled: the reservation was being ignored
-                // rather than being too small.
-        default:
-            // Kotlin-exported enums aren't a closed set to Swift's exhaustiveness
-            // checker, so this covers .settings (and anything added later).
-            SettingsView()
-        }
+        // The tab view is now built once and stays alive behind Settings, where it used to be
+        // torn down and recreated on every visit. That's the point — but it also means Home no
+        // longer gets a free reload when Settings closes, which is what used to mask its
+        // one-shot load having failed while disconnected. `HomeView` reloads on becoming
+        // authenticated instead; see the subscription there.
+        AppTabView()
+            // Compose had its own keyboard handler on this side — SettingsView is now
+            // substantially native (Phase E4 part 2's real TextFields) and must NOT get this:
+            // it was found to suppress the keyboard from appearing for native fields entirely
+            // (iOS 26 beta).
+            .ignoresSafeArea(.keyboard)
+            // `.ignoresSafeArea(.container)` was here too, from when this side was a single
+            // full-screen Compose host drawing its own chrome. Nothing here is Compose now, and
+            // it suppressed the bottom container safe area for the whole tab subtree.
+            .fullScreenCover(isPresented: settingsPresented) {
+                SettingsView()
+            }
     }
 }
 

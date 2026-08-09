@@ -12,6 +12,7 @@ struct GenreDetailsView: View {
     @State private var genre: Genre?
     @State private var itemLoadFailed = false
     @State private var isFavorite = false
+    @State private var hasLoaded = false
     @State private var overview: SectionLoadState = .loading
 
     private enum Tab: String, CaseIterable {
@@ -32,7 +33,13 @@ struct GenreDetailsView: View {
                 ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
-        .task(id: route) { await load() }
+        .task(id: route) {
+            // See ArtistDetailsView: returning here re-runs `.task`, and a reload that blanks
+            // to a spinner reads as a flicker. Refetch on pull, not on every appearance.
+            guard !hasLoaded else { return }
+            await load()
+            hasLoaded = genre != nil
+        }
     }
 
     @ViewBuilder
@@ -129,13 +136,17 @@ struct GenreDetailsView: View {
                 .padding(16)
             }
         }
+        .refreshable { await load(keepingContent: true) }
     }
 
+    /// [keepingContent] holds the current screen while refetching, for pull to refresh.
     @MainActor
-    private func load() async {
-        genre = nil
-        itemLoadFailed = false
-        overview = .loading
+    private func load(keepingContent: Bool = false) async {
+        if !keepingContent {
+            genre = nil
+            itemLoadFailed = false
+            overview = .loading
+        }
 
         let loaded: AppMediaItem? = await withCheckedContinuation { continuation in
             KmpHelper.shared.fetchItemDetails(

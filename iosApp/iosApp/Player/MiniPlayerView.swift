@@ -149,6 +149,13 @@ private struct MiniPlayerRow: View {
         .padding(.vertical, 8)
         .frame(maxWidth: .infinity)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        // Hairline edge, as Apple Music's mini player has: over busy artwork the material alone
+        // leaves the card's boundary indistinct. `strokeBorder` insets the line so it sits
+        // inside the shape instead of straddling it and reading as double-width.
+        .overlay {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(Color(.separator), lineWidth: 0.5)
+        }
         .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .onTapGesture { onExpand() }
     }

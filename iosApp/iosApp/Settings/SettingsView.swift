@@ -36,11 +36,15 @@ struct SettingsView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
+                    // An ✕, not a back chevron: this is presented over the app as a modal now,
+                    // so there's nothing behind it to go "back" to. Still `requestHome()` —
+                    // the router owns the destination, and flipping it is what dismisses.
                     Button {
                         KmpHelper.shared.requestHome()
                     } label: {
-                        Image(systemName: "chevron.left")
+                        Image(systemName: "xmark")
                     }
+                    .accessibilityLabel(String(localized: "common_close"))
                 }
             }
         }

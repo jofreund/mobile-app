@@ -15,6 +15,7 @@ struct ArtistDetailsView: View {
     let route: ItemDetailsRoute
 
     @State private var artist: Artist?
+    @State private var hasLoaded = false
     @State private var itemLoadFailed = false
     @State private var isFavorite = false
 
@@ -35,7 +36,16 @@ struct ArtistDetailsView: View {
                 ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
-        .task(id: route) { await load() }
+        .task(id: route) {
+            // Returning to this screen re-runs `.task`, and `load()` clears everything back to
+            // a spinner before refetching — so a pop back read as a flicker. An artist's albums
+            // and top tracks barely change; pull to refresh is the deliberate way to refetch.
+            // Only a load that actually produced an artist counts, so a cancelled or failed
+            // one still retries on the next appearance.
+            guard !hasLoaded else { return }
+            await load()
+            hasLoaded = artist != nil
+        }
     }
 
     @ViewBuilder
@@ -60,6 +70,7 @@ struct ArtistDetailsView: View {
             .padding(.top, 12)
             .padding(.bottom, 24)
         }
+        .refreshable { await load(keepingContent: true) }
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -142,13 +153,18 @@ struct ArtistDetailsView: View {
         }
     }
 
+    /// [keepingContent] leaves what's on screen in place while refetching, for pull to refresh —
+    /// blanking to a spinner under the user's own finger is exactly the flicker being avoided
+    /// above. The first load has nothing to keep, so it clears and shows the spinner as before.
     @MainActor
-    private func load() async {
-        artist = nil
-        itemLoadFailed = false
-        libraryAlbums = .loading
-        allAlbums = .loading
-        topTracks = .loading
+    private func load(keepingContent: Bool = false) async {
+        if !keepingContent {
+            artist = nil
+            itemLoadFailed = false
+            libraryAlbums = .loading
+            allAlbums = .loading
+            topTracks = .loading
+        }
 
         let loaded: AppMediaItem? = await withCheckedContinuation { continuation in
             KmpHelper.shared.fetchItemDetails(

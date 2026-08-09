@@ -39,6 +39,7 @@ struct ContainerItemDetailsView: View {
     let route: ItemDetailsRoute
 
     @State private var item: AppMediaItem?
+    @State private var hasLoaded = false
     @State private var itemLoadFailed = false
     @State private var isFavorite = false
 
@@ -57,7 +58,8 @@ struct ContainerItemDetailsView: View {
                     chapters: chapters,
                     subItemsLoading: subItemsLoading,
                     subItemsLoadFailed: subItemsLoadFailed,
-                    onPlaylistTrackRemoved: { Task { await load() } }
+                    onPlaylistTrackRemoved: { Task { await load(keepingContent: true) } },
+                    onRefresh: { await load(keepingContent: true) }
                 )
             } else if itemLoadFailed {
                 ContentUnavailableView(
@@ -69,17 +71,26 @@ struct ContainerItemDetailsView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
-        .task(id: route) { await load() }
+        .task(id: route) {
+            // See ArtistDetailsView: `load()` blanks the screen before refetching, so re-running
+            // it on every reappearance made a pop back flicker. Pull to refresh instead.
+            guard !hasLoaded else { return }
+            await load()
+            hasLoaded = item != nil
+        }
     }
 
+    /// [keepingContent] holds the current screen while refetching, for pull to refresh.
     @MainActor
-    private func load() async {
-        item = nil
-        itemLoadFailed = false
-        playableItems = []
-        chapters = []
-        subItemsLoadFailed = false
-        subItemsLoading = false
+    private func load(keepingContent: Bool = false) async {
+        if !keepingContent {
+            item = nil
+            itemLoadFailed = false
+            playableItems = []
+            chapters = []
+            subItemsLoadFailed = false
+            subItemsLoading = false
+        }
 
         let loaded: AppMediaItem? = await withCheckedContinuation { continuation in
             KmpHelper.shared.fetchItemDetails(
@@ -140,6 +151,7 @@ private struct DetailContent: View {
     let subItemsLoading: Bool
     let subItemsLoadFailed: Bool
     let onPlaylistTrackRemoved: () -> Void
+    let onRefresh: () async -> Void
 
     var body: some View {
         ScrollView {
@@ -151,6 +163,7 @@ private struct DetailContent: View {
             .padding(.top, 12)
             .padding(.bottom, 24)
         }
+        .refreshable { await onRefresh() }
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

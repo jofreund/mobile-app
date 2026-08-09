@@ -22,6 +22,7 @@ struct HomeView: View {
     @State private var shortcuts: [AppMediaItem]?
     @State private var loadFailed = false
     @State private var reloadTrigger = UUID()
+    @State private var sessionSubscription: Cancellable?
 
     @State private var homeRowsConfig: [SettingsRepository.HomeRowPref] = []
     @State private var isEditing = false
@@ -47,6 +48,22 @@ struct HomeView: View {
                 }
             }
             .task(id: reloadTrigger) { await load() }
+            .task {
+                // This screen loads once and then stays put, which is what makes returning to
+                // it cheap. That was fine while the shell tore the whole tab view down on every
+                // Settings visit — the reload came for free on the way back. Settings is now
+                // presented *over* the app and this view outlives it, so the one case that used
+                // to be covered by accident needs handling: a first load that ran (and failed)
+                // before there was a server to talk to. Retry when a connection actually
+                // arrives; a load that already succeeded is left alone.
+                guard sessionSubscription == nil else { return }
+                sessionSubscription = KmpHelper.shared.sessionState.subscribe { state in
+                    guard loadFailed || recommendations == nil else { return }
+                    let connected = state as? SessionState.Connected
+                    guard connected?.dataConnectionState is DataConnectionStateAuthenticated else { return }
+                    reloadTrigger = UUID()
+                }
+            }
     }
 
     @ViewBuilder
@@ -56,7 +73,7 @@ struct HomeView: View {
         } else if let rows {
             let visible = rows.filter(\.enabled).map(\.row)
             if visible.isEmpty {
-                ContentUnavailableView(String(localized: "library_empty"), systemImage: "house")
+                refreshable(ContentUnavailableView(String(localized: "library_empty"), systemImage: "house"))
             } else {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 24) {
@@ -69,10 +86,22 @@ struct HomeView: View {
                 .refreshable { await load() }
             }
         } else if loadFailed {
-            ContentUnavailableView(String(localized: "library_error"), systemImage: "wifi.exclamationmark")
+            refreshable(ContentUnavailableView(String(localized: "library_error"), systemImage: "wifi.exclamationmark"))
         } else {
             ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+    }
+
+    /// Makes a "nothing to show" state pull-to-refreshable. `.refreshable` only responds inside
+    /// a scrollable, and a bare `ContentUnavailableView` isn't one — so the empty and failed
+    /// states offered no way back other than leaving the tab and returning. The container frame
+    /// keeps the message centred and gives the gesture something to pull against even though
+    /// the content is shorter than the screen.
+    private func refreshable(_ view: some View) -> some View {
+        ScrollView {
+            view.containerRelativeFrame([.horizontal, .vertical])
+        }
+        .refreshable { await load() }
     }
 
     private func carouselRow(_ row: HomeRow) -> some View {
