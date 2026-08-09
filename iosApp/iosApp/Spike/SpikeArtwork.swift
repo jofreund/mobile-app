@@ -16,23 +16,36 @@ import ComposeApp
 /// this provides — hasn't been revisited since, so this is still it. Every
 /// request goes through `URLSession`, so `MAWebRTCURLProtocol` transparently
 /// handles `mawebrtc://` and this code never has to know the difference.
+/// Outside the actor deliberately. `NSCache` is thread-safe on its own, and holding it here is
+/// what lets `SpikeImageLoader.cachedImage` answer synchronously — an actor-isolated cache can
+/// only be read with `await`, which costs a frame even on a hit, and that frame is a placeholder.
+private let artworkCache: NSCache<NSString, UIImage> = {
+    let cache = NSCache<NSString, UIImage>()
+    cache.countLimit = 400
+    return cache
+}()
+
 actor SpikeImageLoader {
 
     static let shared = SpikeImageLoader()
 
-    private let cache: NSCache<NSString, UIImage> = {
-        let cache = NSCache<NSString, UIImage>()
-        cache.countLimit = 400
-        return cache
-    }()
+    /// A cached image, or nil — without suspending. Callers use this to render a hit on their
+    /// very first frame instead of flashing a placeholder and fading in behind an `await`.
+    nonisolated static func cachedImage(for url: URL, maxPixel: CGFloat) -> UIImage? {
+        artworkCache.object(forKey: cacheKey(url, maxPixel) as NSString)
+    }
+
+    private nonisolated static func cacheKey(_ url: URL, _ maxPixel: CGFloat) -> String {
+        "\(url.absoluteString)|\(Int(maxPixel))"
+    }
 
     /// In-flight loads, so a grid scrolling over the same URL twice does one fetch.
     private var inFlight: [String: Task<UIImage?, Never>] = [:]
 
     func image(for url: URL, maxPixel: CGFloat) async -> UIImage? {
-        let key = "\(url.absoluteString)|\(Int(maxPixel))"
+        let key = Self.cacheKey(url, maxPixel)
 
-        if let cached = cache.object(forKey: key as NSString) { return cached }
+        if let cached = artworkCache.object(forKey: key as NSString) { return cached }
         if let running = inFlight[key] { return await running.value }
 
         let task = Task<UIImage?, Never> {
@@ -58,7 +71,7 @@ actor SpikeImageLoader {
 
         let image = await task.value
         inFlight[key] = nil
-        if let image { cache.setObject(image, forKey: key as NSString) }
+        if let image { artworkCache.setObject(image, forKey: key as NSString) }
         return image
     }
 
@@ -116,6 +129,16 @@ struct SpikeArtwork: View {
         self.url = url
         self.kind = kind
         self.sizing = sizing
+        // Seeded from the cache so an image already in memory is on screen for the *first*
+        // frame. Starting at nil and awaiting the loader meant every re-appearance — coming
+        // back from a detail page, switching tabs — flashed the placeholder and cross-faded,
+        // even though the bytes were right there. On a screen of tiles that reads as the whole
+        // page flickering, and it is why this looked like a data reload.
+        _image = State(
+            initialValue: url.flatMap {
+                SpikeImageLoader.cachedImage(for: $0, maxPixel: sizing.referenceSize)
+            }
+        )
     }
 
     private var reference: CGFloat { sizing.referenceSize }
@@ -131,10 +154,18 @@ struct SpikeArtwork: View {
             .clipShape(shape)
             .animation(.easeOut(duration: 0.18), value: image != nil)
             .task(id: url) {
-                guard let url else { return }
-                // Re-entering with the same URL (cell reuse, scroll back) hits the
-                // loader's cache, so there is no need to guard on a prior attempt —
-                // and guarding would strand cells whose first attempt failed.
+                guard let url else {
+                    image = nil
+                    return
+                }
+                // Runs on a URL change too (cell reuse), where the seeded value above belongs
+                // to the previous URL — so take the synchronous hit again before suspending.
+                if let cached = SpikeImageLoader.cachedImage(for: url, maxPixel: reference) {
+                    image = cached
+                    return
+                }
+                // Deliberately not guarded on a prior attempt: that would strand a cell whose
+                // first attempt failed.
                 image = await SpikeImageLoader.shared.image(for: url, maxPixel: reference)
             }
     }
