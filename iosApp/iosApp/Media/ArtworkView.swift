@@ -39,12 +39,38 @@ actor ArtworkLoader {
     /// In-flight loads, so a grid scrolling over the same URL twice does one fetch.
     private var inFlight: [String: Task<UIImage?, Never>] = [:]
 
+    /// Resolved once, on the first decode, and kept — see `resolveDisplayScale`.
+    private var displayScale: CGFloat?
+
+    /// The scale to decode at, in pixels per point.
+    ///
+    /// `UIScreen.main` used to supply this, but it is deprecated *and* main-actor-isolated, while
+    /// the decode path is deliberately nonisolated — it runs off the main thread once per cell.
+    /// So the value is fetched through the window scene (the replacement Apple points at) on one
+    /// main-actor hop and cached on the actor. It doesn't change under this app: there is no
+    /// external-display or multi-window support to move a view to a screen of a different scale.
+    ///
+    /// Note this deliberately does not enter the cache key, which stays in points. Scale is a
+    /// property of the device, not of the request, so folding it in would only make the key
+    /// longer.
+    private func resolveDisplayScale() async -> CGFloat {
+        if let displayScale { return displayScale }
+        let resolved = await MainActor.run {
+            UIApplication.shared.connectedScenes
+                .compactMap { $0 as? UIWindowScene }
+                .first?.screen.scale ?? UITraitCollection.current.displayScale
+        }
+        displayScale = resolved
+        return resolved
+    }
+
     func image(for url: URL, maxPixel: CGFloat) async -> UIImage? {
         let key = Self.cacheKey(url, maxPixel)
 
         if let cached = artworkCache.object(forKey: key as NSString) { return cached }
         if let running = inFlight[key] { return await running.value }
 
+        let scale = await resolveDisplayScale()
         let task = Task<UIImage?, Never> {
             // Disk before network. Entries are stored already downsampled, so a hit skips the
             // resize as well as the round trip — and over WebRTC the round trip is the expensive
@@ -56,7 +82,7 @@ actor ArtworkLoader {
                 let (data, response) = try await URLSession.shared.data(from: url)
                 let contentType = (response as? HTTPURLResponse)?.value(forHTTPHeaderField: "Content-Type")
 
-                if let image = Self.downsample(data, maxPixel: maxPixel) {
+                if let image = Self.downsample(data, maxPixel: maxPixel, scale: scale) {
                     Self.persist(image, forKey: key)
                     return image
                 }
@@ -118,11 +144,14 @@ actor ArtworkLoader {
 
     /// Decode straight to the size we will draw at. This is the whole point —
     /// `UIImage(data:)` would keep the full-resolution bitmap resident per cell.
-    private nonisolated static func downsample(_ data: Data, maxPixel: CGFloat) -> UIImage? {
+    private nonisolated static func downsample(
+        _ data: Data,
+        maxPixel: CGFloat,
+        scale: CGFloat
+    ) -> UIImage? {
         let sourceOptions = [kCGImageSourceShouldCache: false] as CFDictionary
         guard let source = CGImageSourceCreateWithData(data as CFData, sourceOptions) else { return nil }
 
-        let scale = UIScreen.main.scale
         let thumbnailOptions = [
             kCGImageSourceCreateThumbnailFromImageAlways: true,
             kCGImageSourceCreateThumbnailWithTransform: true,

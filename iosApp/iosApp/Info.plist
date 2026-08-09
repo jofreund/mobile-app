@@ -33,19 +33,6 @@
 	</array>
 	<key>CFBundleVersion</key>
 	<string>45</string>
-	<key>INIntentsSupported</key>
-	<array>
-		<string>INPlayMediaIntent</string>
-		<string>INUpdateMediaAffinityIntent</string>
-		<string>INSearchForMediaIntent</string>
-	</array>
-	<key>INSupportedMediaCategories</key>
-	<array>
-		<string>INMediaCategoryMusic</string>
-		<string>INMediaCategoryAudiobooks</string>
-		<string>INMediaCategoryPodcasts</string>
-		<string>INMediaCategoryRadio</string>
-	</array>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>LSRequiresIPhoneOS</key>

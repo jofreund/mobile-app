@@ -121,9 +121,12 @@ struct ContainerItemDetailsView: View {
         }
     }
 
+    /// The completion is `@Sendable` because that is how Kotlin's lambdas arrive in Swift: the
+    /// `$0` each caller forwards to `KmpHelper` has to satisfy the bridged signature, and without
+    /// it here every call site warns about passing a non-Sendable closure.
     @MainActor
     private func loadPlayableItems(
-        _ fetch: @escaping (@escaping ([AppMediaItem]?) -> Void) -> Void
+        _ fetch: @escaping (@escaping @Sendable ([AppMediaItem]?) -> Void) -> Void
     ) async {
         subItemsLoading = true
         let result: [AppMediaItem]? = await withCheckedContinuation { continuation in

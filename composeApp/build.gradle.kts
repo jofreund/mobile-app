@@ -1,3 +1,4 @@
+import org.jetbrains.kotlin.gradle.plugin.mpp.NativeBuildType
 import org.jetbrains.kotlin.gradle.plugin.mpp.TestExecutable
 
 plugins {
@@ -29,7 +30,12 @@ kotlin {
             // Trades a touch of release-link optimization for ~28% faster
             // linkReleaseFrameworkIosArm64 and a smaller binary. Experimental
             // Kotlin/Native flag — revisit if release-build correctness regresses.
-            binaryOption("smallBinary", "true")
+            //
+            // Release-only: `framework { }` configures both build types, and Kotlin/Native
+            // ignores smallBinary in debug — warning about it on every single debug build.
+            if (buildType == NativeBuildType.RELEASE) {
+                binaryOption("smallBinary", "true")
+            }
         }
 
         val webRtcSlice = if (iosTarget.name == "iosSimulatorArm64") {

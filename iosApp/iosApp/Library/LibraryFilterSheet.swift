@@ -154,6 +154,10 @@ struct LibraryFilterSheet: View {
     private func loadOptions() async {
         guard mediaType != .genre else { return }
 
+        // Read out of `self` before the continuations: their closures are nonisolated, and a
+        // `View`'s stored properties are main-actor-isolated, so touching `mediaType` inside
+        // would cross isolation for no reason. It cannot change during the call.
+        let mediaType = mediaType
         async let providerResult: [LibraryProviderOption]? = withCheckedContinuation { continuation in
             KmpHelper.shared.fetchLibraryProviderOptions(mediaType: mediaType) { continuation.resume(returning: $0) }
         }

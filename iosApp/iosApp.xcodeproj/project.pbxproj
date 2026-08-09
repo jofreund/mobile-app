@@ -16,7 +16,6 @@
 		C29F123E61DAA17B671EC957 /* SVGRasterizerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FE624765BDE4DC4138CA712 /* SVGRasterizerTests.swift */; };
 		C29F123E61DAA17B671EC958 /* QueueMoveMathTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FE624765BDE4DC4138CA713 /* QueueMoveMathTests.swift */; };
 		C8AD00032F5B000000000003 /* ArtistDetailsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8AD00132F5B000000000013 /* ArtistDetailsView.swift */; };
-		C8AV00012F2C000000000001 /* AppIntentVocabulary.plist in Resources */ = {isa = PBXBuildFile; fileRef = C8AV00022F2C000000000002 /* AppIntentVocabulary.plist */; };
 		C8BR00032F5E000000000003 /* BrowseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8BR00132F5E000000000013 /* BrowseView.swift */; };
 		C8FS00032F5F000000000003 /* LibraryFilterSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8FS00132F5F000000000013 /* LibraryFilterSheet.swift */; };
 		C8GD00032F5C000000000003 /* GenreDetailsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8GD00132F5C000000000013 /* GenreDetailsView.swift */; };
@@ -70,7 +69,6 @@
 		AA991F8C8A0917FDD5510709 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		AB3632DC29227652001CCB65 /* Config.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = Config.xcconfig; sourceTree = "<group>"; };
 		C8AD00132F5B000000000013 /* ArtistDetailsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtistDetailsView.swift; sourceTree = "<group>"; };
-		C8AV00032F2C000000000003 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = en; path = en.lproj/AppIntentVocabulary.plist; sourceTree = "<group>"; };
 		C8BR00132F5E000000000013 /* BrowseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowseView.swift; sourceTree = "<group>"; };
 		C8FS00132F5F000000000013 /* LibraryFilterSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryFilterSheet.swift; sourceTree = "<group>"; };
 		C8GD00132F5C000000000013 /* GenreDetailsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GenreDetailsView.swift; sourceTree = "<group>"; };
@@ -189,7 +187,6 @@
 				C8HV00062F61000000000006 /* Home */,
 				C8ST00062F63000000000006 /* Settings */,
 				C8LC00112F4F000000000011 /* Localizable.xcstrings */,
-				C8AV00022F2C000000000002 /* AppIntentVocabulary.plist */,
 			);
 			path = iosApp;
 			sourceTree = "<group>";
@@ -384,7 +381,6 @@
 			files = (
 				058557D9273AAEEB004C7B11 /* Preview Assets.xcassets in Resources */,
 				058557BB273AAA24004C7B11 /* Assets.xcassets in Resources */,
-				C8AV00012F2C000000000001 /* AppIntentVocabulary.plist in Resources */,
 				C8LC00012F4F000000000001 /* Localizable.xcstrings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -478,17 +474,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
-
-/* Begin PBXVariantGroup section */
-		C8AV00022F2C000000000002 /* AppIntentVocabulary.plist */ = {
-			isa = PBXVariantGroup;
-			children = (
-				C8AV00032F2C000000000003 /* en */,
-			);
-			name = AppIntentVocabulary.plist;
-			sourceTree = "<group>";
-		};
-/* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
 		71BE7A433C230BFC4631BAEC /* Release */ = {
