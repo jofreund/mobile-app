@@ -20,7 +20,6 @@ import io.music_assistant.client.ui.compose.common.DataState
 data class PlayerBarItem(
     val playerId: String,
     val name: String,
-    val isLocal: Boolean,
     val isPlaying: Boolean,
     val isPoweredOff: Boolean,
     val title: String?,
@@ -225,7 +224,6 @@ internal fun buildPlayerBarState(
             PlayerBarItem(
                 playerId = data.playerId,
                 name = player.nameAndSuffix,
-                isLocal = data.isLocal,
                 isPlaying = player.isPlaying,
                 isPoweredOff = player.isPoweredOff,
                 title = player.currentMedia?.title,

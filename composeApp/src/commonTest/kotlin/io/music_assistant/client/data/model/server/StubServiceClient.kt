@@ -30,10 +30,12 @@ class StubServiceClient : ServiceClient {
 
     override val isReadyForCommands: StateFlow<Boolean>
         get() = TODO("Not yet implemented")
-    override val externalConsumerActive: StateFlow<Boolean>
-        get() = TODO("Not yet implemented")
-
-    override fun resolveImageUrl(path: String, provider: String, isRemotelyAccessible: Boolean, proxyId: String?): String? = null
+    override fun resolveImageUrl(
+        path: String,
+        provider: String,
+        isRemotelyAccessible: Boolean,
+        proxyId: String?,
+    ): String? = null
 
     override fun rebaseServerImageUrl(rawUrl: String): String? = null
 
@@ -64,13 +66,7 @@ class StubServiceClient : ServiceClient {
     override fun connectWebRTC(remoteId: RemoteId) {
     }
 
-    override fun onExternalConsumerActive() {
-    }
-
     override fun onPlaybackActive() {
-    }
-
-    override fun onExternalConsumerInactive() {
     }
 
     override fun onPlaybackInactive() {

@@ -2,7 +2,7 @@ package io.music_assistant.client.imageloader
 
 import co.touchlab.kermit.Logger
 import coil3.SingletonImageLoader
-import io.music_assistant.client.player.PlatformContext
+import io.music_assistant.client.platform.PlatformContext
 
 /**
  * Evicts `mawebrtc://` entries from the Coil memory cache after a WebRTC reconnect.

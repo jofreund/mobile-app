@@ -2,7 +2,7 @@
 
 package io.music_assistant.client.logging
 
-import io.music_assistant.client.player.PlatformContext
+import io.music_assistant.client.platform.PlatformContext
 
 /**
  * Split so the caller can run the heavy [prepareLogShareFile] /

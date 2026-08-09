@@ -141,7 +141,6 @@ class KtorServiceClient(
 
     // --- Lifecycle / background state ---
     private var isInBackground = false
-    private var hasActiveExternalConsumer = false
     private var hasActivePlayback = false
     private var backgroundedAt = 0L
 
@@ -167,9 +166,6 @@ class KtorServiceClient(
     override val isReadyForCommands: StateFlow<Boolean> = _sessionState
         .map { it is SessionState.Connected && it.dataConnectionState is DataConnectionState.Authenticated }
         .stateIn(this, SharingStarted.Eagerly, false)
-
-    private val _externalConsumerActive = MutableStateFlow(false)
-    override val externalConsumerActive = _externalConsumerActive.asStateFlow()
 
     private val _eventsFlow = MutableSharedFlow<Event<out Any>>(extraBufferCapacity = 10)
     override val events: Flow<Event<out Any>> = _eventsFlow.asSharedFlow()
@@ -317,33 +313,6 @@ class KtorServiceClient(
     }
 
     /**
-     * Called when an external consumer (Android Auto / CarPlay) becomes active.
-     */
-    override fun onExternalConsumerActive() {
-        hasActiveExternalConsumer = true
-        _externalConsumerActive.value = true
-        val state = _sessionState.value
-        logger.i { "External consumer active (state=${stateLabel(state)})" }
-
-        if (state is SessionState.Disconnected.Backgrounded) {
-            if (!reconnectFromCurrent("external consumer active (was Backgrounded)")) {
-                logger.i { "External consumer active: state=Backgrounded but no savedInfo, no reconnect" }
-            }
-            return
-        }
-
-        // AA hookup is functionally equivalent to phone foreground: cache may be
-        // empty, AA's first sendRequest assumes the gate handles staleness — but
-        // the gate trusts `isReadyForCommands`, which stays true for a half-open
-        // WS. Same probe as `onAppForeground` to catch that case.
-        val elapsed = currentTimeMillis() - backgroundedAt
-        if (elapsed > STALE_CONNECTION_THRESHOLD_MS && state is SessionState.Connected) {
-            logger.i { "External consumer active: probing connection after ${elapsed}ms in background" }
-            transport?.verifyConnection(probeReason = "external_consumer_active")
-        }
-    }
-
-    /**
      * Tears down the current transport and reconnects using either the saved
      * [backgroundedConnectionInfo] or, failing that, the connection identity of
      * the current [SessionState.Connected]. Returns false when neither source
@@ -369,15 +338,6 @@ class KtorServiceClient(
             is BackgroundedConnectionInfo.WebRTC -> forceConnectWebRTC(info.remoteId)
         }
         return true
-    }
-
-    /**
-     * Called when an external consumer (Android Auto / CarPlay) becomes inactive.
-     */
-    override fun onExternalConsumerInactive() {
-        hasActiveExternalConsumer = false
-        _externalConsumerActive.value = false
-        logger.i { "External consumer inactive (state=${stateLabel(_sessionState.value)})" }
     }
 
     /**
@@ -557,7 +517,7 @@ class KtorServiceClient(
                         }
 
                         is TransportState.Reconnecting -> {
-                            if (isInBackground && !hasActiveExternalConsumer && !hasActivePlayback) {
+                            if (isInBackground && !hasActivePlayback) {
                                 backgroundedConnectionInfo = backgroundInfo()
                                 transport.disconnect()
                                 _sessionState.update { SessionState.Disconnected.Backgrounded }
@@ -757,7 +717,7 @@ class KtorServiceClient(
     private fun disconnect(newState: SessionState.Disconnected) {
         launch {
             if (newState is SessionState.Disconnected.Backgrounded &&
-                (!isInBackground || hasActiveExternalConsumer || hasActivePlayback)
+                (!isInBackground || hasActivePlayback)
             ) {
                 logger.i { "Backgrounded disconnect aborted — app already foregrounded" }
                 return@launch

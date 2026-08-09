@@ -49,7 +49,6 @@ import io.music_assistant.client.data.model.server.ServerUser
 import io.music_assistant.client.data.repository.MediaItemChange
 import io.music_assistant.client.data.repository.MediaItemRepository
 import io.music_assistant.client.data.repository.SearchResultData
-import io.music_assistant.client.input.VolumeButtonService
 import io.music_assistant.client.logging.InMemoryLogWriter
 import io.music_assistant.client.logging.LogSharer
 import io.music_assistant.client.settings.ConnectionHistoryEntry
@@ -69,7 +68,6 @@ import io.music_assistant.client.ui.theme.ThemeSetting
 import io.music_assistant.client.utils.HasConnectionData
 import io.music_assistant.client.utils.SessionState
 import io.music_assistant.client.utils.currentTimeMillis
-import io.music_assistant.client.utils.localizedString
 import io.music_assistant.client.utils.resultAs
 import io.music_assistant.client.webrtc.model.RemoteId
 import kotlinx.cinterop.BetaInteropApi
@@ -83,7 +81,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
@@ -145,7 +142,6 @@ object KmpHelper : KoinComponent {
     private val deepLinkBus: DeepLinkBus by inject()
     private val mediaItemRepository: MediaItemRepository by inject()
     private val settingsRepository: SettingsRepository by inject()
-    private val volumeButtonService: VolumeButtonService by inject()
     private val errorBus: ErrorMessageBus by inject()
     private val logSharer: LogSharer by inject()
     private val artworkHttpClient: HttpClient by inject(named("webrtcHttpClient"))
@@ -214,10 +210,6 @@ object KmpHelper : KoinComponent {
      */
     fun handleDeepLink(urlString: String) = deepLinkBus.handle(urlString)
 
-    fun onPlatformVolumeButtonPressed() {
-        volumeButtonService.onPlatformVolumeButtonPressed()
-    }
-
     // MARK: - Transient messages (toasts)
     //
     // Both sources used to be collected inside `FloatingBarSideEffectsController`, the last
@@ -239,12 +231,7 @@ object KmpHelper : KoinComponent {
      * flag lagged the selection.
      */
     private val toastMessages: Flow<ToastMessage> by lazy {
-        merge(
-            errorBus.messages.map { ToastMessage(it.truncatedForToast(), isLong = true) },
-            volumeButtonService.buttonPresses
-                .filter { mainDataSource.selectedPlayer?.isLocal == false }
-                .map { ToastMessage(localizedString("players_remote_volume_hint"), isLong = false) },
-        )
+        errorBus.messages.map { ToastMessage(it.truncatedForToast(), isLong = true) }
     }
 
     val toasts: NativeFlow<ToastMessage>

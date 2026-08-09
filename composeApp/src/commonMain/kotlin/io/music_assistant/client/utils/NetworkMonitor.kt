@@ -2,7 +2,7 @@
 
 package io.music_assistant.client.utils
 
-import io.music_assistant.client.player.PlatformContext
+import io.music_assistant.client.platform.PlatformContext
 import kotlinx.coroutines.flow.StateFlow
 
 expect class NetworkMonitor(platformContext: PlatformContext) {

@@ -12,7 +12,6 @@
 		0B4C257E50350DDBF95D87D5 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA991F8C8A0917FDD5510709 /* Foundation.framework */; };
 		2152FB042600AC8F00CF470E /* iOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2152FB032600AC8F00CF470E /* iOSApp.swift */; };
 		7555FF83242A565900829871 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7555FF82242A565900829871 /* ContentView.swift */; };
-		C29F123E61DAA17B671EC956 /* KotlinLocalizationKeyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FE624765BDE4DC4138CA711 /* KotlinLocalizationKeyTests.swift */; };
 		C29F123E61DAA17B671EC957 /* SVGRasterizerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FE624765BDE4DC4138CA712 /* SVGRasterizerTests.swift */; };
 		C29F123E61DAA17B671EC958 /* QueueMoveMathTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FE624765BDE4DC4138CA713 /* QueueMoveMathTests.swift */; };
 		C8AD00032F5B000000000003 /* ArtistDetailsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8AD00132F5B000000000013 /* ArtistDetailsView.swift */; };
@@ -58,7 +57,6 @@
 		058557BA273AAA24004C7B11 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		058557D8273AAEEB004C7B11 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		2152FB032600AC8F00CF470E /* iOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iOSApp.swift; sourceTree = "<group>"; };
-		2FE624765BDE4DC4138CA711 /* KotlinLocalizationKeyTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KotlinLocalizationKeyTests.swift; sourceTree = "<group>"; };
 		2FE624765BDE4DC4138CA712 /* SVGRasterizerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SVGRasterizerTests.swift; sourceTree = "<group>"; };
 		2FE624765BDE4DC4138CA713 /* QueueMoveMathTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = QueueMoveMathTests.swift; sourceTree = "<group>"; };
 		59B7DA191C857DA4E4F3A44A /* iosAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = iosAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -142,7 +140,6 @@
 		6697875A889242950A65544F /* iosAppTests */ = {
 			isa = PBXGroup;
 			children = (
-				2FE624765BDE4DC4138CA711 /* KotlinLocalizationKeyTests.swift */,
 				2FE624765BDE4DC4138CA712 /* SVGRasterizerTests.swift */,
 				2FE624765BDE4DC4138CA713 /* QueueMoveMathTests.swift */,
 			);
@@ -421,7 +418,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				C29F123E61DAA17B671EC956 /* KotlinLocalizationKeyTests.swift in Sources */,
 				C29F123E61DAA17B671EC957 /* SVGRasterizerTests.swift in Sources */,
 				C29F123E61DAA17B671EC958 /* QueueMoveMathTests.swift in Sources */,
 				C8SP00A62F2D0000000000A6 /* SVGRasterizer.swift in Sources */,

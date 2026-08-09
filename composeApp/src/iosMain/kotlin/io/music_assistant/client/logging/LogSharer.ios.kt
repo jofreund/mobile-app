@@ -2,7 +2,7 @@
 
 package io.music_assistant.client.logging
 
-import io.music_assistant.client.player.PlatformContext
+import io.music_assistant.client.platform.PlatformContext
 import kotlinx.cinterop.useContents
 import platform.CoreGraphics.CGRectMake
 import platform.Foundation.NSFileManager

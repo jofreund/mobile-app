@@ -131,6 +131,5 @@ class PlayerRequestFactoryTest {
         ),
         parentBind = null,
         childrenBinds = emptyList(),
-        isLocal = true,
     )
 }

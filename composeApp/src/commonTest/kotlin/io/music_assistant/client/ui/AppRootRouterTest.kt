@@ -321,7 +321,6 @@ private class StubServiceClient(
 ) : ServiceClient {
     override val sessionState = MutableStateFlow(initial)
     override val isReadyForCommands = MutableStateFlow(false)
-    override val externalConsumerActive = MutableStateFlow(false)
     override val webRTCHttpProxy: WebRTCHttpProxy? = null
     override val events: Flow<Event<out Any>> = emptyFlow()
     override val webrtcSendspinChannel: DataChannelWrapper? = null
@@ -349,9 +348,7 @@ private class StubServiceClient(
     }
     override fun connect(connection: ConnectionInfo) = Unit
     override fun connectWebRTC(remoteId: RemoteId) = Unit
-    override fun onExternalConsumerActive() = Unit
     override fun onPlaybackActive() = Unit
-    override fun onExternalConsumerInactive() = Unit
     override fun onPlaybackInactive() = Unit
     override fun forceDisconnect(reason: Exception) = Unit
     override fun noServer() = Unit
