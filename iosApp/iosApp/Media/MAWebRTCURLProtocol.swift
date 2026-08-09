@@ -17,7 +17,9 @@ import MusicAssistantKit
 /// Register once, before any load, via ``registerOnce()``.
 final class MAWebRTCURLProtocol: URLProtocol {
 
-    static let scheme = "mawebrtc"
+    /// One source of truth with `ArtworkCacheKey`, which has to recognise the same scheme to
+    /// know when a URL needs server scoping.
+    static let scheme = ArtworkCacheKey.webrtcScheme
 
     private static var registered = false
 

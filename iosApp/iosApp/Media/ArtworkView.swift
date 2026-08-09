@@ -8,9 +8,24 @@ import MusicAssistantKit
 /// only be read with `await`, which costs a frame even on a hit, and that frame is a placeholder.
 private let artworkCache: NSCache<NSString, UIImage> = {
     let cache = NSCache<NSString, UIImage>()
+    // Both limits, because neither alone is safe. A count limit says nothing about size: 400
+    // entries is a few megabytes of 36pt mini-player thumbnails but well over a gigabyte of
+    // 340pt player artwork at 3x, which is a jetsam, not a cache. A cost limit alone would
+    // happily hold tens of thousands of tiny entries. `NSCache` evicts under memory pressure on
+    // its own; these keep it from getting there in the first place.
     cache.countLimit = 400
+    cache.totalCostLimit = 96 * 1024 * 1024
     return cache
 }()
+
+private extension UIImage {
+    /// Resident bitmap size, for `NSCache` cost accounting. `UIImage` reports point dimensions;
+    /// what actually occupies memory is the backing bitmap.
+    var bitmapByteCost: Int {
+        guard let bitmap = cgImage else { return 0 }
+        return bitmap.bytesPerRow * bitmap.height
+    }
+}
 
 /// Downsampling image loader for every screen's artwork — ItemDetails, Artist, Genre, Library,
 /// Browse and the player all go through this.
@@ -33,7 +48,7 @@ actor ArtworkLoader {
     }
 
     private nonisolated static func cacheKey(_ url: URL, _ maxPixel: CGFloat) -> String {
-        "\(url.absoluteString)|\(Int(maxPixel))"
+        ArtworkCacheKey.memoryKey(url: url, maxPixel: maxPixel)
     }
 
     /// In-flight loads, so a grid scrolling over the same URL twice does one fetch.
@@ -71,64 +86,104 @@ actor ArtworkLoader {
         if let running = inFlight[key] { return await running.value }
 
         let scale = await resolveDisplayScale()
+        // Resolved here rather than in `cacheKey`: this is the actor, so it is off the main
+        // thread and runs once per real load, whereas the memory key is computed per cell in
+        // `ArtworkView.init`. `ArtworkCacheKey.diskKey` explains why the disk needs the scope
+        // and memory doesn't.
+        let diskKey = ArtworkCacheKey.diskKey(
+            url: url,
+            maxPixel: maxPixel,
+            serverScope: KmpHelper.shared.getServerId()
+        )
         let task = Task<UIImage?, Never> {
             // Disk before network. Entries are stored already downsampled, so a hit skips the
             // resize as well as the round trip — and over WebRTC the round trip is the expensive
             // part. See `ArtworkDiskCache`.
-            if let onDisk = ArtworkDiskCache.shared.image(forKey: key) {
+            if let onDisk = ArtworkDiskCache.shared.image(forKey: diskKey, scale: scale) {
                 return onDisk
             }
-            do {
-                let (data, response) = try await URLSession.shared.data(from: url)
-                let contentType = (response as? HTTPURLResponse)?.value(forHTTPHeaderField: "Content-Type")
 
-                if let image = Self.downsample(data, maxPixel: maxPixel, scale: scale) {
-                    Self.persist(image, forKey: key)
-                    return image
-                }
-
-                // ImageIO decodes no vector formats, and this server serves genre artwork as
-                // `image/svg+xml`. Tried only after ImageIO declines, so raster artwork never
-                // pays for the web view behind this. See `SVGRasterizer`.
-                if SVGRasterizer.looksLikeSVG(data, contentType: contentType) {
-                    if let image = await SVGRasterizer.shared.image(from: data, maxPixel: maxPixel) {
-                        // Worth caching more than most: rasterizing one of these costs a web view.
-                        Self.persist(image, forKey: key)
-                        return image
-                    }
-                    NativeLog.shared.warn(
-                        tag: Self.logTag,
-                        message: "SVG rasterization failed (\(data.count) bytes) for \(url.absoluteString)"
+            // Two attempts, because the usual failure here is not "no artwork" but a transport
+            // that went away mid-request: a WebRTC reconnect runs `WebRTCHttpProxy.cancelAll()`,
+            // which fails every in-flight fetch at once. Nothing would ask again — the cell keeps
+            // its placeholder until something happens to rebuild the view — so the retry is the
+            // only thing standing between a blip and a screen of grey squares. Bounded at two so
+            // a genuinely unreachable URL costs one extra request rather than a loop, and only
+            // for errors worth repeating (see `isWorthRetrying`); a decode failure returns nil
+            // from the first attempt and never comes back here.
+            for attempt in 0...1 {
+                do {
+                    return try await Self.fetchAndDecode(
+                        url: url, diskKey: diskKey, maxPixel: maxPixel, scale: scale
                     )
-                    return nil
+                } catch {
+                    guard attempt == 0, ArtworkRetryPolicy.isWorthRetrying(error) else {
+                        NativeLog.shared.warn(
+                            tag: Self.logTag,
+                            message: "fetch failed for \(url.absoluteString): "
+                                + "\(error.localizedDescription)"
+                        )
+                        return nil
+                    }
+                    try? await Task.sleep(for: .seconds(1))
                 }
-
-                // Neither a format ImageIO knows nor an SVG. The content type and leading bytes
-                // are logged because a decode failure is otherwise indistinguishable from "no
-                // artwork" — the cell just shows its placeholder either way. That silence is
-                // what hid the SVG case until the log said `type=image/svg+xml`.
-                let head = String(decoding: data.prefix(48), as: UTF8.self)
-                    .replacingOccurrences(of: "\n", with: " ")
-                NativeLog.shared.warn(
-                    tag: Self.logTag,
-                    message: "decode failed (\(data.count) bytes, type=\(contentType ?? "?")) for "
-                        + "\(url.absoluteString) — starts: \(head)"
-                )
-                return nil
-            } catch {
-                NativeLog.shared.warn(
-                    tag: Self.logTag,
-                    message: "fetch failed for \(url.absoluteString): \(error.localizedDescription)"
-                )
-                return nil
             }
+            return nil
         }
         inFlight[key] = task
 
         let image = await task.value
         inFlight[key] = nil
-        if let image { artworkCache.setObject(image, forKey: key as NSString) }
+        if let image {
+            artworkCache.setObject(image, forKey: key as NSString, cost: image.bitmapByteCost)
+        }
         return image
+    }
+
+    /// One attempt. Throws only for transport failures — a response that arrives but cannot be
+    /// turned into an image returns nil, which is a permanent answer for this URL.
+    private nonisolated static func fetchAndDecode(
+        url: URL,
+        diskKey: String,
+        maxPixel: CGFloat,
+        scale: CGFloat
+    ) async throws -> UIImage? {
+        let (data, response) = try await URLSession.shared.data(from: url)
+        let contentType = (response as? HTTPURLResponse)?.value(forHTTPHeaderField: "Content-Type")
+
+        if let image = downsample(data, maxPixel: maxPixel, scale: scale) {
+            persist(image, forKey: diskKey)
+            return image
+        }
+
+        // ImageIO decodes no vector formats, and this server serves genre artwork as
+        // `image/svg+xml`. Tried only after ImageIO declines, so raster artwork never
+        // pays for the web view behind this. See `SVGRasterizer`.
+        if SVGRasterizer.looksLikeSVG(data, contentType: contentType) {
+            if let image = await SVGRasterizer.shared.image(from: data, maxPixel: maxPixel) {
+                // Worth caching more than most: rasterizing one of these costs a web view.
+                persist(image, forKey: diskKey)
+                return image
+            }
+            NativeLog.shared.warn(
+                tag: logTag,
+                message: "SVG rasterization failed (\(data.count) bytes) for \(url.absoluteString)"
+            )
+            return nil
+        }
+
+        // Neither a format ImageIO knows nor an SVG. The content type and leading bytes
+        // are logged because a decode failure is otherwise indistinguishable from "no
+        // artwork" — the cell just shows its placeholder either way. That silence is
+        // what hid the SVG case until the log said `type=image/svg+xml`.
+        let head = String(decoding: data.prefix(48), as: UTF8.self)
+            .replacingOccurrences(of: "\n", with: " ")
+        NativeLog.shared.warn(
+            tag: logTag,
+            message: "decode failed (\(data.count) bytes, type=\(contentType ?? "?")) for "
+                + "\(url.absoluteString) — starts: \(head)"
+        )
+        return nil
     }
 
     /// Writes off the actor: file IO inside it would block every other artwork request for the
@@ -136,7 +191,6 @@ actor ArtworkLoader {
     private nonisolated static func persist(_ image: UIImage, forKey key: String) {
         Task.detached(priority: .utility) {
             ArtworkDiskCache.shared.store(image, forKey: key)
-            ArtworkDiskCache.shared.trimIfNeeded()
         }
     }
 

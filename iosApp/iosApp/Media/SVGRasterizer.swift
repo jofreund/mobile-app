@@ -21,7 +21,9 @@ import WebKit
 /// - Only reached when ImageIO has already refused the bytes, so raster artwork never touches it.
 /// - One shared web view, reused, rather than one per image.
 /// - Serialized through a gate: a screen of genres would otherwise start twenty of these at once.
-/// - Callers cache the result (`ArtworkLoader`'s `NSCache`), so each URL pays once.
+/// - Callers cache the result in memory *and* on disk (`ArtworkDiskCache`), so each URL pays
+///   once ever rather than once per launch.
+/// - The web view is released again after a spell of inactivity — see `scheduleTeardown`.
 @MainActor
 final class SVGRasterizer {
 
@@ -30,6 +32,7 @@ final class SVGRasterizer {
     private let gate = Gate()
     private var webView: WKWebView?
     private var loadDelegate: LoadDelegate?
+    private var idleTeardown: Task<Void, Never>?
 
     /// Cheap sniff for SVG. Checks the payload rather than trusting `Content-Type`, since the
     /// bytes are what actually has to parse — and a proxy is free to mislabel them.
@@ -48,7 +51,12 @@ final class SVGRasterizer {
         guard let svg = String(data: data, encoding: .utf8) else { return nil }
 
         await gate.acquire()
-        defer { gate.release() }
+        idleTeardown?.cancel()
+        idleTeardown = nil
+        defer {
+            gate.release()
+            scheduleTeardown()
+        }
 
         let side = max(maxPixel, 1)
         let web = webView ?? makeWebView(side: side)
@@ -77,6 +85,33 @@ final class SVGRasterizer {
                 continuation.resume(returning: image)
             }
         }
+    }
+
+    /// Releases the shared web view once it has gone quiet.
+    ///
+    /// A `WKWebView` keeps its own content process alive for as long as the view exists — tens of
+    /// megabytes retained for the rest of the session because the user once opened Genres. Now
+    /// that rasterized output is stored by `ArtworkDiskCache`, a given tile renders once ever, so
+    /// the view sits idle essentially all of the time. Rebuilding it costs a few milliseconds on
+    /// the rare cold render, which is the cheaper side of the trade by a wide margin.
+    ///
+    /// Safe against a render starting during the wait: every `image(from:maxPixel:)` cancels the
+    /// pending teardown while it holds the gate, and this class is main-actor isolated, so the
+    /// cancel and the teardown cannot interleave.
+    private func scheduleTeardown() {
+        idleTeardown?.cancel()
+        idleTeardown = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(30))
+            guard !Task.isCancelled else { return }
+            self?.discardWebView()
+        }
+    }
+
+    private func discardWebView() {
+        webView?.navigationDelegate = nil
+        webView = nil
+        loadDelegate = nil
+        idleTeardown = nil
     }
 
     private func makeWebView(side: CGFloat) -> WKWebView {

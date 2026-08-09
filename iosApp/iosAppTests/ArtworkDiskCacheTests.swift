@@ -147,11 +147,22 @@ final class ArtworkDiskCacheTests: XCTestCase {
     /// Writes `k0…k(count-1)`, oldest first, and returns their total allocated size. Timestamps
     /// are set explicitly because the filesystem's resolution is coarse enough that same-instant
     /// writes would leave the eviction order arbitrary.
+    ///
+    /// The age window is picked to sit between two thresholds in the cache, and both matter:
+    ///
+    /// - Older than `touchIfStale`'s one-day interval, so that reading an entry actually
+    ///   refreshes it. At an hour old a read is a no-op and "a read protects an entry" cannot be
+    ///   observed at all.
+    /// - Far short of `maxAge`, because APFS drags a file's **creation** date backwards to match
+    ///   any modification date set earlier than it, and expiry reads that creation date.
+    ///   Backdating to 1970 — which an earlier version of this helper did — made every entry look
+    ///   56 years old and silently expired them.
     @discardableResult
     private func writeAgedEntries(count: Int) throws -> UInt64 {
+        let base = Date(timeIntervalSinceNow: -3 * 24 * 60 * 60)
         for index in 0..<count {
             cache.store(image(size: 60, opaque: true, color: .blue), forKey: "k\(index)")
-            try setModified(key: "k\(index)", to: Date(timeIntervalSince1970: 1_000 + Double(index)))
+            try setModified(key: "k\(index)", to: base.addingTimeInterval(Double(index) * 60))
         }
         let files = try FileManager.default.contentsOfDirectory(
             at: directory,
@@ -164,16 +175,124 @@ final class ArtworkDiskCacheTests: XCTestCase {
         }
     }
 
-    func testClearRemovesEverythingAndLeavesTheCacheUsable() {
-        cache.store(image(size: 20, opaque: true), forKey: "a")
+    /// The trim used to run after every single write, which made a scroll through a large
+    /// library quadratic: one full directory enumeration, stat-per-file, per cached image. This
+    /// pins the throttle — many small writes under the threshold must not trigger a pass.
+    func testWritesUnderTheThresholdDoNotTriggerATrim() throws {
+        // Budget high enough that a trim, if one ran, would still be a no-op — so this measures
+        // the gate rather than the eviction. Instrumented by watching modification times: a trim
+        // pass never rewrites files, so what this really pins is that nothing is deleted while
+        // the total stays under budget.
+        let cache = ArtworkDiskCache(directory: directory, budgetBytes: 64 * 1024 * 1024)
+        for index in 0..<40 {
+            cache.store(image(size: 60, opaque: true, color: .blue), forKey: "k\(index)")
+        }
+        XCTAssertEqual(fileCount, 40)
+    }
 
-        cache.clear()
+    /// Once enough has been written, `store` trims on its own — callers no longer have to.
+    func testStoreEventuallyTrimsWithoutAnExplicitCall() throws {
+        // One eighth of this is the trim threshold, so a handful of 60pt images crosses it while
+        // also putting the directory over budget.
+        let tight = ArtworkDiskCache(directory: directory, budgetBytes: 16 * 1024)
 
-        XCTAssertNil(cache.image(forKey: "a"))
-        XCTAssertEqual(fileCount, 0)
+        for index in 0..<40 {
+            tight.store(image(size: 60, opaque: true, color: .blue), forKey: "k\(index)")
+        }
 
-        cache.store(image(size: 20, opaque: true), forKey: "b")
-        XCTAssertNotNil(cache.image(forKey: "b"), "clear must not leave the directory missing")
+        let total = try totalAllocatedSize()
+        XCTAssertLessThanOrEqual(
+            total, 16 * 1024 + 16 * 1024 / 8 + 4096,
+            "store should have trimmed on its own, leaving at most budget + one threshold"
+        )
+        XCTAssertGreaterThan(fileCount, 0, "it should trim, not empty itself")
+    }
+
+    // MARK: - Decode
+
+    /// Entries come back fully decoded. `UIImage(data:)` alone is lazy — it defers the decode to
+    /// the first draw, which lands on the main thread mid-scroll, which is the exact hitch the
+    /// whole downsampling path exists to avoid.
+    func testReadReturnsADecodedBitmap() throws {
+        cache.store(image(size: 40, opaque: true), forKey: "a")
+
+        let loaded = try XCTUnwrap(cache.image(forKey: "a"))
+
+        XCTAssertNotNil(loaded.cgImage, "should be bitmap-backed, not a lazy data-backed image")
+    }
+
+    /// PNG and JPEG store bare pixels, so the scale an image was decoded at cannot be recovered
+    /// from the file. Passing it back in keeps a disk hit and a network hit — which land in the
+    /// same memory cache under the same key — from disagreeing about their own point size.
+    func testScaleIsAppliedOnRead() throws {
+        cache.store(image(size: 60, opaque: true), forKey: "a")
+
+        let atOne = try XCTUnwrap(cache.image(forKey: "a", scale: 1))
+        let atThree = try XCTUnwrap(cache.image(forKey: "a", scale: 3))
+
+        XCTAssertEqual(atOne.size.width, 60)
+        XCTAssertEqual(atThree.size.width, 20, "same pixels, three per point")
+        XCTAssertEqual(atThree.scale, 3)
+    }
+
+    private func totalAllocatedSize() throws -> UInt64 {
+        let files = try FileManager.default.contentsOfDirectory(
+            at: directory,
+            includingPropertiesForKeys: [.totalFileAllocatedSizeKey]
+        )
+        return files.reduce(UInt64(0)) { sum, url in
+            let size = (try? url.resourceValues(forKeys: [.totalFileAllocatedSizeKey]))?
+                .totalFileAllocatedSize ?? 0
+            return sum + UInt64(size)
+        }
+    }
+
+    // MARK: - Expiry
+
+    /// Music Assistant's artwork URLs carry an empty `checksum=`, so the URL does not change when
+    /// the cover behind it does. Without an age cap a replaced cover would be masked for as long
+    /// as the entry survived eviction — which, before this cache existed, meant only until the
+    /// next launch.
+    func testEntriesOlderThanTheMaxAgeAreNotServed() throws {
+        let shortLived = ArtworkDiskCache(directory: directory, maxAge: 60)
+        shortLived.store(image(size: 20, opaque: true), forKey: "a")
+        XCTAssertNotNil(shortLived.image(forKey: "a"), "fresh entries should still be served")
+
+        try setCreated(to: Date(timeIntervalSinceNow: -120))
+
+        XCTAssertNil(shortLived.image(forKey: "a"))
+    }
+
+    /// Reading touches the modification date for LRU, so expiry has to key on creation instead —
+    /// otherwise an entry the user opens regularly would never age out.
+    func testReadingDoesNotPostponeExpiry() throws {
+        let shortLived = ArtworkDiskCache(directory: directory, maxAge: 60)
+        shortLived.store(image(size: 20, opaque: true), forKey: "a")
+        try setCreated(to: Date(timeIntervalSinceNow: -120))
+        try setModified(key: "a", to: Date())
+
+        XCTAssertNil(shortLived.image(forKey: "a"), "a recent read must not make it fresh again")
+    }
+
+    /// Refetching replaces the file, and a replaced entry is a new one.
+    func testRewritingResetsTheAge() throws {
+        let shortLived = ArtworkDiskCache(directory: directory, maxAge: 60)
+        shortLived.store(image(size: 20, opaque: true), forKey: "a")
+        try setCreated(to: Date(timeIntervalSinceNow: -120))
+
+        shortLived.store(image(size: 20, opaque: true), forKey: "a")
+
+        XCTAssertNotNil(shortLived.image(forKey: "a"))
+    }
+
+    /// Backdates the creation date of the single file in the directory.
+    private func setCreated(to date: Date) throws {
+        let files = try FileManager.default.contentsOfDirectory(atPath: directory.path)
+        let name = try XCTUnwrap(files.first)
+        try FileManager.default.setAttributes(
+            [.creationDate: date],
+            ofItemAtPath: directory.appendingPathComponent(name).path
+        )
     }
 
     /// Backdates the entry written immediately before the call. `fileURL(for:)` is private, so

@@ -19,18 +19,28 @@ struct ArtworkDiskCache {
     static let shared = ArtworkDiskCache()
 
     private let budgetBytes: UInt64
+    private let maxAge: TimeInterval
     private let directory: URL
+    private let trimGate: TrimGate
 
     /// - Parameters:
     ///   - directory: defaults to Caches — not Application Support, because this is all
     ///     re-derivable from the server, so it should be evictable under storage pressure and
     ///     excluded from backup. Both come free there. Tests pass a temporary directory.
     ///   - budgetBytes: defaults to the budget Coil was configured with.
-    init(directory: URL? = nil, budgetBytes: UInt64 = 256 * 1024 * 1024) {
+    ///   - maxAge: how long an entry may be served before it is refetched. See `isExpired`.
+    init(
+        directory: URL? = nil,
+        budgetBytes: UInt64 = 256 * 1024 * 1024,
+        maxAge: TimeInterval = 30 * 24 * 60 * 60
+    ) {
         self.budgetBytes = budgetBytes
+        self.maxAge = maxAge
         self.directory = directory ?? FileManager.default
             .urls(for: .cachesDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("artwork", isDirectory: true)
+        // An eighth of the budget between trims. See `TrimGate` for why there is a gate at all.
+        self.trimGate = TrimGate(threshold: max(budgetBytes / 8, 1))
         try? FileManager.default.createDirectory(
             at: self.directory,
             withIntermediateDirectories: true
@@ -39,18 +49,34 @@ struct ArtworkDiskCache {
 
     // MARK: - Read / write
 
-    func image(forKey key: String) -> UIImage? {
+    /// - Parameter scale: the scale to reconstruct the image at. Stored files are bare pixels —
+    ///   the scale an image was decoded with isn't recoverable from PNG or JPEG — so without this
+    ///   a 3x thumbnail would come back claiming to be three times its real point size. Nothing
+    ///   currently depends on that (every artwork view is `.resizable()` inside an explicit
+    ///   frame), but a disk hit and a network hit landing in the same memory cache under the same
+    ///   key should not disagree about what they are.
+    func image(forKey key: String, scale: CGFloat = 1) -> UIImage? {
         let url = fileURL(for: key)
+        guard !isExpired(url) else { return nil }
         guard let data = try? Data(contentsOf: url) else { return nil }
-        // Touch it so the trim pass treats recently-read entries as recently-used, not just
-        // recently-written — otherwise a long-lived favourite is evicted for being old.
-        try? FileManager.default.setAttributes([.modificationDate: Date()], ofItemAtPath: url.path)
-        return UIImage(data: data)
+        touchIfStale(url)
+
+        // Decoded here, on whatever background thread the caller is on. `UIImage(data:)` is lazy:
+        // left alone it defers the decode to the first draw, which happens on the main thread
+        // mid-scroll — precisely the hitch the downsampling path exists to avoid. The network
+        // path already forces this via `kCGImageSourceShouldCacheImmediately`.
+        guard let decoded = UIImage(data: data)?.preparingForDisplay(),
+              let bitmap = decoded.cgImage
+        else { return nil }
+        return UIImage(cgImage: bitmap, scale: scale, orientation: .up)
     }
 
     func store(_ image: UIImage, forKey key: String) {
         guard let data = encode(image) else { return }
-        try? data.write(to: fileURL(for: key), options: .atomic)
+        guard (try? data.write(to: fileURL(for: key), options: .atomic)) != nil else { return }
+        if trimGate.shouldTrim(afterWriting: data.count) {
+            trimIfNeeded()
+        }
     }
 
     /// PNG only when the image actually needs alpha. Artwork is overwhelmingly opaque album art,
@@ -81,11 +107,46 @@ struct ArtworkDiskCache {
         return hash
     }
 
+    /// Whether an entry is too old to serve.
+    ///
+    /// Music Assistant builds artwork URLs with an empty `checksum=` parameter, so the URL for an
+    /// album does not change when its cover does. That stability is what makes this cache worth
+    /// having — but it also means a replaced cover would otherwise be masked forever, where
+    /// before the disk cache existed the staleness ended at the next launch. An age cap puts a
+    /// ceiling back on it without needing any invalidation signal from the server.
+    ///
+    /// Deliberately keyed on *creation*, not modification: `touchIfStale` moves the modification
+    /// date to keep LRU honest, so an entry the user looks at often would never expire. Writing
+    /// an entry again replaces the file and resets its creation date, which is the right
+    /// behaviour — a refetched image is a new entry.
+    private func isExpired(_ url: URL) -> Bool {
+        guard let created = (try? url.resourceValues(forKeys: [.creationDateKey]))?.creationDate
+        else { return false }
+        return Date().timeIntervalSince(created) > maxAge
+    }
+
     // MARK: - Eviction
 
-    /// Drops least-recently-used entries until the directory is back under budget. Cheap when
-    /// there's nothing to do — one directory listing — so callers can run it opportunistically
-    /// rather than scheduling it.
+    /// Eviction is LRU by modification date, so a read has to count as a use — otherwise a
+    /// long-lived favourite is evicted for being old. But a write on every read is a syscall per
+    /// cell per scroll, so entries touched recently are left alone. Day granularity is far finer
+    /// than eviction needs and makes the common case free.
+    private func touchIfStale(_ url: URL) {
+        let modified = (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?
+            .contentModificationDate
+        guard let modified, Date().timeIntervalSince(modified) > Self.touchInterval else { return }
+        // Always `now`, never a backdate. APFS pulls a file's creation date backwards to match any
+        // modification date set earlier than it, and `isExpired` reads that creation date — so a
+        // backdating touch here would quietly age entries out.
+        try? FileManager.default.setAttributes([.modificationDate: Date()], ofItemAtPath: url.path)
+    }
+
+    private static let touchInterval: TimeInterval = 24 * 60 * 60
+
+    /// Drops least-recently-used entries until the directory is back under budget.
+    ///
+    /// Callers do not need to invoke this — `store` runs it on the schedule `TrimGate` sets. It
+    /// stays visible for tests and for anywhere that wants an unconditional pass.
     func trimIfNeeded() {
         let keys: [URLResourceKey] = [.contentModificationDateKey, .totalFileAllocatedSizeKey]
         guard let entries = try? FileManager.default.contentsOfDirectory(
@@ -114,11 +175,36 @@ struct ArtworkDiskCache {
             total -= entry.size
         }
     }
+}
 
-    /// Wipes everything. The server can reuse an artwork URL for changed bytes, so a cache that
-    /// can't be cleared eventually shows something stale with no way back.
-    func clear() {
-        try? FileManager.default.removeItem(at: directory)
-        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+/// Decides when a trim is worth running.
+///
+/// A trim enumerates the whole directory and stats every file. Running one after each write made
+/// a scroll through a large library quadratic — a thousand cached images meant a thousand
+/// enumerations of a directory holding up to a thousand files. Instead writes accumulate and only
+/// the one that crosses the threshold pays.
+///
+/// The cost is that the cache sits at up to `budget + threshold` rather than exactly `budget`.
+/// That is the right trade for a cache in the Caches directory: the budget is a target the system
+/// can already overrule by evicting the whole folder.
+private final class TrimGate: @unchecked Sendable {
+
+    private let threshold: UInt64
+    private let lock = NSLock()
+    private var pendingBytes: UInt64 = 0
+
+    init(threshold: UInt64) {
+        self.threshold = threshold
+    }
+
+    /// Records a write and reports whether the caller should trim now. Resets before returning
+    /// true, so concurrent writers produce one trim between them rather than one each.
+    func shouldTrim(afterWriting bytes: Int) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        pendingBytes += UInt64(max(bytes, 0))
+        guard pendingBytes >= threshold else { return false }
+        pendingBytes = 0
+        return true
     }
 }

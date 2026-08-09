@@ -12,6 +12,8 @@
 		0B4C257E50350DDBF95D87D5 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA991F8C8A0917FDD5510709 /* Foundation.framework */; };
 		2152FB042600AC8F00CF470E /* iOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2152FB032600AC8F00CF470E /* iOSApp.swift */; };
 		7555FF83242A565900829871 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7555FF82242A565900829871 /* ContentView.swift */; };
+		C29F123E61DAA17B671EC95B /* ArtworkCacheKeyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FE624765BDE4DC4138CA716 /* ArtworkCacheKeyTests.swift */; };
+		C29F123E61DAA17B671EC95A /* ArtworkRetryPolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FE624765BDE4DC4138CA715 /* ArtworkRetryPolicyTests.swift */; };
 		C29F123E61DAA17B671EC959 /* ArtworkDiskCacheTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FE624765BDE4DC4138CA714 /* ArtworkDiskCacheTests.swift */; };
 		C29F123E61DAA17B671EC957 /* SVGRasterizerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FE624765BDE4DC4138CA712 /* SVGRasterizerTests.swift */; };
 		C29F123E61DAA17B671EC958 /* QueueMoveMathTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FE624765BDE4DC4138CA713 /* QueueMoveMathTests.swift */; };
@@ -41,6 +43,10 @@
 		C8SP00012F2D000000000001 /* MAWebRTCURLProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SP00112F2D000000000011 /* MAWebRTCURLProtocol.swift */; };
 		C8SP00022F2D000000000002 /* MediaItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SP00122F2D000000000012 /* MediaItem.swift */; };
 		C8SP00032F2D000000000003 /* ArtworkView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SP00132F2D000000000013 /* ArtworkView.swift */; };
+		C8SP00B42F2D0000000000B4 /* ArtworkCacheKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SP00222F2D000000000022 /* ArtworkCacheKey.swift */; };
+		C8SP00B52F2D0000000000B5 /* ArtworkCacheKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SP00222F2D000000000022 /* ArtworkCacheKey.swift */; };
+		C8SP00B22F2D0000000000B2 /* ArtworkRetryPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SP00212F2D000000000021 /* ArtworkRetryPolicy.swift */; };
+		C8SP00B32F2D0000000000B3 /* ArtworkRetryPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SP00212F2D000000000021 /* ArtworkRetryPolicy.swift */; };
 		C8SP00B02F2D0000000000B0 /* ArtworkDiskCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SP00202F2D000000000020 /* ArtworkDiskCache.swift */; };
 		C8SP00B12F2D0000000000B1 /* ArtworkDiskCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SP00202F2D000000000020 /* ArtworkDiskCache.swift */; };
 		C8SP00A62F2D0000000000A6 /* SVGRasterizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SP00152F2D000000000015 /* SVGRasterizer.swift */; };
@@ -59,6 +65,8 @@
 		058557BA273AAA24004C7B11 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		058557D8273AAEEB004C7B11 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		2152FB032600AC8F00CF470E /* iOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iOSApp.swift; sourceTree = "<group>"; };
+		2FE624765BDE4DC4138CA716 /* ArtworkCacheKeyTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ArtworkCacheKeyTests.swift; sourceTree = "<group>"; };
+		2FE624765BDE4DC4138CA715 /* ArtworkRetryPolicyTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ArtworkRetryPolicyTests.swift; sourceTree = "<group>"; };
 		2FE624765BDE4DC4138CA714 /* ArtworkDiskCacheTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ArtworkDiskCacheTests.swift; sourceTree = "<group>"; };
 		2FE624765BDE4DC4138CA712 /* SVGRasterizerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SVGRasterizerTests.swift; sourceTree = "<group>"; };
 		2FE624765BDE4DC4138CA713 /* QueueMoveMathTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = QueueMoveMathTests.swift; sourceTree = "<group>"; };
@@ -93,6 +101,8 @@
 		C8SP00112F2D000000000011 /* MAWebRTCURLProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MAWebRTCURLProtocol.swift; sourceTree = "<group>"; };
 		C8SP00122F2D000000000012 /* MediaItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaItem.swift; sourceTree = "<group>"; };
 		C8SP00132F2D000000000013 /* ArtworkView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtworkView.swift; sourceTree = "<group>"; };
+		C8SP00222F2D000000000022 /* ArtworkCacheKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtworkCacheKey.swift; sourceTree = "<group>"; };
+		C8SP00212F2D000000000021 /* ArtworkRetryPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtworkRetryPolicy.swift; sourceTree = "<group>"; };
 		C8SP00202F2D000000000020 /* ArtworkDiskCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtworkDiskCache.swift; sourceTree = "<group>"; };
 		C8SP00152F2D000000000015 /* SVGRasterizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SVGRasterizer.swift; sourceTree = "<group>"; };
 		C8SP00142F2D000000000014 /* ItemContextMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ItemContextMenu.swift; sourceTree = "<group>"; };
@@ -143,6 +153,8 @@
 		6697875A889242950A65544F /* iosAppTests */ = {
 			isa = PBXGroup;
 			children = (
+				2FE624765BDE4DC4138CA716 /* ArtworkCacheKeyTests.swift */,
+				2FE624765BDE4DC4138CA715 /* ArtworkRetryPolicyTests.swift */,
 				2FE624765BDE4DC4138CA714 /* ArtworkDiskCacheTests.swift */,
 				2FE624765BDE4DC4138CA712 /* SVGRasterizerTests.swift */,
 				2FE624765BDE4DC4138CA713 /* QueueMoveMathTests.swift */,
@@ -269,6 +281,8 @@
 				C8SP00112F2D000000000011 /* MAWebRTCURLProtocol.swift */,
 				C8SP00122F2D000000000012 /* MediaItem.swift */,
 				C8SP00132F2D000000000013 /* ArtworkView.swift */,
+				C8SP00222F2D000000000022 /* ArtworkCacheKey.swift */,
+				C8SP00212F2D000000000021 /* ArtworkRetryPolicy.swift */,
 				C8SP00202F2D000000000020 /* ArtworkDiskCache.swift */,
 				C8SP00152F2D000000000015 /* SVGRasterizer.swift */,
 				C8SP00142F2D000000000014 /* ItemContextMenu.swift */,
@@ -421,9 +435,13 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C29F123E61DAA17B671EC95B /* ArtworkCacheKeyTests.swift in Sources */,
+				C29F123E61DAA17B671EC95A /* ArtworkRetryPolicyTests.swift in Sources */,
 				C29F123E61DAA17B671EC959 /* ArtworkDiskCacheTests.swift in Sources */,
 				C29F123E61DAA17B671EC957 /* SVGRasterizerTests.swift in Sources */,
 				C29F123E61DAA17B671EC958 /* QueueMoveMathTests.swift in Sources */,
+				C8SP00B42F2D0000000000B4 /* ArtworkCacheKey.swift in Sources */,
+				C8SP00B22F2D0000000000B2 /* ArtworkRetryPolicy.swift in Sources */,
 				C8SP00B02F2D0000000000B0 /* ArtworkDiskCache.swift in Sources */,
 				C8SP00A62F2D0000000000A6 /* SVGRasterizer.swift in Sources */,
 				C8PL000B2F7000000000000B /* QueueMoveMath.swift in Sources */,
@@ -439,6 +457,8 @@
 				C8SP00012F2D000000000001 /* MAWebRTCURLProtocol.swift in Sources */,
 				C8SP00022F2D000000000002 /* MediaItem.swift in Sources */,
 				C8SP00032F2D000000000003 /* ArtworkView.swift in Sources */,
+				C8SP00B52F2D0000000000B5 /* ArtworkCacheKey.swift in Sources */,
+				C8SP00B32F2D0000000000B3 /* ArtworkRetryPolicy.swift in Sources */,
 				C8SP00B12F2D0000000000B1 /* ArtworkDiskCache.swift in Sources */,
 				C8SP00052F2D000000000005 /* SVGRasterizer.swift in Sources */,
 				C8SP00042F2D000000000004 /* ItemContextMenu.swift in Sources */,
