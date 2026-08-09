@@ -9,25 +9,15 @@
 /* Begin PBXBuildFile section */
 		058557BB273AAA24004C7B11 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 058557BA273AAA24004C7B11 /* Assets.xcassets */; };
 		058557D9273AAEEB004C7B11 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 058557D8273AAEEB004C7B11 /* Preview Assets.xcassets */; };
-		06FCDF5F9AC6BE4A12AA70C9 /* NowPlayingInfoStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E184B96B79725950AACD5BE7 /* NowPlayingInfoStore.swift */; };
 		0B4C257E50350DDBF95D87D5 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA991F8C8A0917FDD5510709 /* Foundation.framework */; };
 		2152FB042600AC8F00CF470E /* iOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2152FB032600AC8F00CF470E /* iOSApp.swift */; };
-		6CF3E16270B477C8D3CDB192 /* NowPlayingInfoStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E184B96B79725950AACD5BE7 /* NowPlayingInfoStore.swift */; };
 		7555FF83242A565900829871 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7555FF82242A565900829871 /* ContentView.swift */; };
-		C29F123E61DAA17B671EC955 /* NowPlayingInfoStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FE624765BDE4DC4138CA710 /* NowPlayingInfoStoreTests.swift */; };
 		C29F123E61DAA17B671EC956 /* KotlinLocalizationKeyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FE624765BDE4DC4138CA711 /* KotlinLocalizationKeyTests.swift */; };
 		C29F123E61DAA17B671EC957 /* SVGRasterizerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FE624765BDE4DC4138CA712 /* SVGRasterizerTests.swift */; };
 		C29F123E61DAA17B671EC958 /* QueueMoveMathTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FE624765BDE4DC4138CA713 /* QueueMoveMathTests.swift */; };
-		C85119262F18C7A900185678 /* Copus in Frameworks */ = {isa = PBXBuildFile; productRef = C85119252F18C7A900185678 /* Copus */; };
-		C85119282F18C7A900185678 /* Opus in Frameworks */ = {isa = PBXBuildFile; productRef = C85119272F18C7A900185678 /* Opus */; };
-		C851192B2F18C88B00185678 /* FLAC in Frameworks */ = {isa = PBXBuildFile; productRef = C851192A2F18C88B00185678 /* FLAC */; };
-		C851192E2F18C8A200185678 /* ogg in Frameworks */ = {isa = PBXBuildFile; productRef = C851192D2F18C8A200185678 /* ogg */; };
 		C8AD00032F5B000000000003 /* ArtistDetailsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8AD00132F5B000000000013 /* ArtistDetailsView.swift */; };
 		C8AV00012F2C000000000001 /* AppIntentVocabulary.plist in Resources */ = {isa = PBXBuildFile; fileRef = C8AV00022F2C000000000002 /* AppIntentVocabulary.plist */; };
 		C8BR00032F5E000000000003 /* BrowseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8BR00132F5E000000000013 /* BrowseView.swift */; };
-		C8FCC1922F17C6A9005E8312 /* NowPlayingCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8FCC1912F17C6A9005E8312 /* NowPlayingCoordinator.swift */; };
-		C8FCC1952F17E001005E8312 /* NativeAudioController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8FCC1962F17E001005E8312 /* NativeAudioController.swift */; };
-		C8FCC1972F17E001005E8312 /* AudioDecoders.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8FCC1982F17E001005E8312 /* AudioDecoders.swift */; };
 		C8FS00032F5F000000000003 /* LibraryFilterSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8FS00132F5F000000000013 /* LibraryFilterSheet.swift */; };
 		C8GD00032F5C000000000003 /* GenreDetailsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8GD00132F5C000000000013 /* GenreDetailsView.swift */; };
 		C8HV00032F61000000000003 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8HV00132F61000000000013 /* HomeView.swift */; };
@@ -68,7 +58,6 @@
 		058557BA273AAA24004C7B11 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		058557D8273AAEEB004C7B11 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		2152FB032600AC8F00CF470E /* iOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iOSApp.swift; sourceTree = "<group>"; };
-		2FE624765BDE4DC4138CA710 /* NowPlayingInfoStoreTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NowPlayingInfoStoreTests.swift; sourceTree = "<group>"; };
 		2FE624765BDE4DC4138CA711 /* KotlinLocalizationKeyTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KotlinLocalizationKeyTests.swift; sourceTree = "<group>"; };
 		2FE624765BDE4DC4138CA712 /* SVGRasterizerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SVGRasterizerTests.swift; sourceTree = "<group>"; };
 		2FE624765BDE4DC4138CA713 /* QueueMoveMathTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = QueueMoveMathTests.swift; sourceTree = "<group>"; };
@@ -81,9 +70,6 @@
 		C8AD00132F5B000000000013 /* ArtistDetailsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtistDetailsView.swift; sourceTree = "<group>"; };
 		C8AV00032F2C000000000003 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = en; path = en.lproj/AppIntentVocabulary.plist; sourceTree = "<group>"; };
 		C8BR00132F5E000000000013 /* BrowseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowseView.swift; sourceTree = "<group>"; };
-		C8FCC1912F17C6A9005E8312 /* NowPlayingCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NowPlayingCoordinator.swift; sourceTree = "<group>"; };
-		C8FCC1962F17E001005E8312 /* NativeAudioController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeAudioController.swift; sourceTree = "<group>"; };
-		C8FCC1982F17E001005E8312 /* AudioDecoders.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioDecoders.swift; sourceTree = "<group>"; };
 		C8FS00132F5F000000000013 /* LibraryFilterSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryFilterSheet.swift; sourceTree = "<group>"; };
 		C8GD00132F5C000000000013 /* GenreDetailsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GenreDetailsView.swift; sourceTree = "<group>"; };
 		C8HV00132F61000000000013 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
@@ -116,7 +102,6 @@
 		C8ST00182F63000000000018 /* ConnectionValidation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionValidation.swift; sourceTree = "<group>"; };
 		C8ST00192F63000000000019 /* LocalNetworkPermission.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalNetworkPermission.swift; sourceTree = "<group>"; };
 		C8SV00132F60000000000013 /* SearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchView.swift; sourceTree = "<group>"; };
-		E184B96B79725950AACD5BE7 /* NowPlayingInfoStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NowPlayingInfoStore.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -132,10 +117,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				C851192E2F18C8A200185678 /* ogg in Frameworks */,
-				C85119262F18C7A900185678 /* Copus in Frameworks */,
-				C851192B2F18C88B00185678 /* FLAC in Frameworks */,
-				C85119282F18C7A900185678 /* Opus in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -161,7 +142,6 @@
 		6697875A889242950A65544F /* iosAppTests */ = {
 			isa = PBXGroup;
 			children = (
-				2FE624765BDE4DC4138CA710 /* NowPlayingInfoStoreTests.swift */,
 				2FE624765BDE4DC4138CA711 /* KotlinLocalizationKeyTests.swift */,
 				2FE624765BDE4DC4138CA712 /* SVGRasterizerTests.swift */,
 				2FE624765BDE4DC4138CA713 /* QueueMoveMathTests.swift */,
@@ -172,14 +152,10 @@
 		7555FF72242A565900829871 = {
 			isa = PBXGroup;
 			children = (
-				C8FCC1912F17C6A9005E8312 /* NowPlayingCoordinator.swift */,
-				C8FCC1962F17E001005E8312 /* NativeAudioController.swift */,
-				C8FCC1982F17E001005E8312 /* AudioDecoders.swift */,
 				AB1DB47929225F7C00F7AF9C /* Configuration */,
 				7555FF7D242A565900829871 /* iosApp */,
 				7555FF7C242A565900829871 /* Products */,
 				42799AB246E5F90AF97AA0EF /* Frameworks */,
-				E184B96B79725950AACD5BE7 /* NowPlayingInfoStore.swift */,
 				6697875A889242950A65544F /* iosAppTests */,
 			);
 			sourceTree = "<group>";
@@ -355,10 +331,6 @@
 			);
 			name = iosApp;
 			packageProductDependencies = (
-				C85119252F18C7A900185678 /* Copus */,
-				C85119272F18C7A900185678 /* Opus */,
-				C851192A2F18C88B00185678 /* FLAC */,
-				C851192D2F18C8A200185678 /* ogg */,
 			);
 			productName = iosApp;
 			productReference = 7555FF7B242A565900829871 /* MusicAssistantClient.app */;
@@ -390,9 +362,6 @@
 			);
 			mainGroup = 7555FF72242A565900829871;
 			packageReferences = (
-				C85119242F18C7A900185678 /* XCRemoteSwiftPackageReference "swift-opus" */,
-				C85119292F18C88B00185678 /* XCRemoteSwiftPackageReference "flac-binary-xcframework" */,
-				C851192C2F18C8A200185678 /* XCRemoteSwiftPackageReference "ogg-binary-xcframework" */,
 			);
 			productRefGroup = 7555FF7C242A565900829871 /* Products */;
 			projectDirPath = "";
@@ -452,13 +421,11 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				C29F123E61DAA17B671EC955 /* NowPlayingInfoStoreTests.swift in Sources */,
 				C29F123E61DAA17B671EC956 /* KotlinLocalizationKeyTests.swift in Sources */,
 				C29F123E61DAA17B671EC957 /* SVGRasterizerTests.swift in Sources */,
 				C29F123E61DAA17B671EC958 /* QueueMoveMathTests.swift in Sources */,
 				C8SP00A62F2D0000000000A6 /* SVGRasterizer.swift in Sources */,
 				C8PL000B2F7000000000000B /* QueueMoveMath.swift in Sources */,
-				6CF3E16270B477C8D3CDB192 /* NowPlayingInfoStore.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -468,10 +435,6 @@
 			files = (
 				2152FB042600AC8F00CF470E /* iOSApp.swift in Sources */,
 				7555FF83242A565900829871 /* ContentView.swift in Sources */,
-				C8FCC1922F17C6A9005E8312 /* NowPlayingCoordinator.swift in Sources */,
-				C8FCC1952F17E001005E8312 /* NativeAudioController.swift in Sources */,
-				C8FCC1972F17E001005E8312 /* AudioDecoders.swift in Sources */,
-				06FCDF5F9AC6BE4A12AA70C9 /* NowPlayingInfoStore.swift in Sources */,
 				C8SP00012F2D000000000001 /* MAWebRTCURLProtocol.swift in Sources */,
 				C8SP00022F2D000000000002 /* SpikeMediaItem.swift in Sources */,
 				C8SP00032F2D000000000003 /* SpikeArtwork.swift in Sources */,
@@ -773,56 +736,9 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		C85119242F18C7A900185678 /* XCRemoteSwiftPackageReference "swift-opus" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/alta/swift-opus";
-			requirement = {
-				kind = versionRange;
-				maximumVersion = 1.0.0;
-				minimumVersion = 0.0.2;
-			};
-		};
-		C85119292F18C88B00185678 /* XCRemoteSwiftPackageReference "flac-binary-xcframework" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/sbooth/flac-binary-xcframework.git";
-			requirement = {
-				kind = versionRange;
-				maximumVersion = 1.0.0;
-				minimumVersion = 0.1.0;
-			};
-		};
-		C851192C2F18C8A200185678 /* XCRemoteSwiftPackageReference "ogg-binary-xcframework" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/sbooth/ogg-binary-xcframework.git";
-			requirement = {
-				kind = versionRange;
-				maximumVersion = 1.0.0;
-				minimumVersion = 0.1.0;
-			};
-		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		C85119252F18C7A900185678 /* Copus */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = C85119242F18C7A900185678 /* XCRemoteSwiftPackageReference "swift-opus" */;
-			productName = Copus;
-		};
-		C85119272F18C7A900185678 /* Opus */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = C85119242F18C7A900185678 /* XCRemoteSwiftPackageReference "swift-opus" */;
-			productName = Opus;
-		};
-		C851192A2F18C88B00185678 /* FLAC */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = C85119292F18C88B00185678 /* XCRemoteSwiftPackageReference "flac-binary-xcframework" */;
-			productName = FLAC;
-		};
-		C851192D2F18C8A200185678 /* ogg */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = C851192C2F18C8A200185678 /* XCRemoteSwiftPackageReference "ogg-binary-xcframework" */;
-			productName = ogg;
-		};
 /* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 7555FF73242A565900829871 /* Project object */;

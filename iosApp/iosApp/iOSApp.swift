@@ -1,83 +1,10 @@
 import SwiftUI
 import MusicAssistantKit
 import UIKit
-import AVFoundation
 import os
 import os.log
 import os.lock
 
-private final class SystemVolumeButtonObserver: NSObject {
-    private let session = AVAudioSession.sharedInstance()
-    private let appActive = OSAllocatedUnfairLock(initialState: UIApplication.shared.applicationState == .active)
-    private var observation: NSKeyValueObservation?
-    private var lastVolume: Float = AVAudioSession.sharedInstance().outputVolume
-    private var isAppActive: Bool { appActive.withLock { $0 } }
-
-    /// Wired once at startup. Lets us check whether the local engine is actively
-    /// rendering before we touch the shared session's category.
-    weak var player: NativeAudioController?
-
-    override init() {
-        super.init()
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(appDidBecomeActive),
-            name: UIApplication.didBecomeActiveNotification,
-            object: nil
-        )
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(appWillResignActive),
-            name: UIApplication.willResignActiveNotification,
-            object: nil
-        )
-    }
-
-    deinit {
-        NotificationCenter.default.removeObserver(self)
-    }
-
-    @objc private func appDidBecomeActive() {
-        appActive.withLock { $0 = true }
-        start()
-    }
-
-    @objc private func appWillResignActive() {
-        appActive.withLock { $0 = false }
-        stop()
-    }
-
-    func start() {
-        guard observation == nil else { return }
-        do {
-            // KVO needs an active session; mix so remote volume capture doesn't steal focus.
-            if player?.isRenderingAudio != true {
-                try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
-                try session.setActive(true, options: [])
-            }
-            lastVolume = session.outputVolume
-            observation = session.observe(\.outputVolume, options: [.new]) { [weak self] audioSession, change in
-                guard let self else { return }
-                let volume = change.newValue ?? audioSession.outputVolume
-                guard volume != self.lastVolume else { return }
-                self.lastVolume = volume
-                guard self.isAppActive else { return }
-                DispatchQueue.main.async { [weak self] in
-                    guard self?.isAppActive == true else { return }
-                    KmpHelper.shared.onPlatformVolumeButtonPressed()
-                }
-            }
-        } catch {
-            NativeLog.shared.error(tag: "SystemVolumeButtonObserver", message: "Failed to activate audio session for volume observation: \(error)")
-        }
-    }
-
-    func stop() {
-        observation?.invalidate()
-        observation = nil
-        // Do not deactivate; this shared session may still belong to local playback.
-    }
-}
 
 /// Single-bit flag indicating whether `bootstrapKmp()` has run and Koin is usable.
 ///
@@ -164,25 +91,12 @@ struct iOSApp: App {
     /// background would tear the connection down every time someone glanced at a notification.
     @Environment(\.scenePhase) private var scenePhase
 
-    // Keep strong references to native integrations
-    // Using NativeAudioController with swift-opus and libFLAC for decoding
-    private let player = NativeAudioController()
-    private let volumeButtonObserver = SystemVolumeButtonObserver()
-
     init() {
-        // Register the Swift audio player with Kotlin before KMP services are created.
-        PlatformPlayerProvider.shared.player = player
-        volumeButtonObserver.player = player
-
         #if DEBUG
         // Route Kermit logs to the unified log un-redacted during development
         // Must run before bootstrapKmp() so init-time logs reach the sink.
         OsLogSinkProvider.shared.sink = OsLogSinkImpl()
         #endif
-
-        // Initialize NowPlayingCoordinator early to configure AudioSession
-        // and install remote-command targets (its Swift-only init phase).
-        _ = NowPlayingCoordinator.shared
 
         // KMP/Koin init runs here rather than in a SwiftUI lifecycle callback. That was once
         // load-bearing — a CarPlay-only cold launch connected no `WindowGroup`, so anything
@@ -196,31 +110,6 @@ struct iOSApp: App {
         // loading system (and therefore AsyncImage/URLSession). Must follow
         // bootstrapKmp() — loads dispatch into Koin-resolved Kotlin.
         MAWebRTCURLProtocol.registerOnce()
-
-        // Second coordinator init phase: the now-playing channel observers
-        // need the Kotlin graph, which exists only after bootstrapKmp().
-        NowPlayingCoordinator.shared.startObserving()
-
-        // Lock screen / Control Center transport. Kotlin owns both halves of the decision —
-        // which player is being presented, and what each command string means — so this just
-        // forwards. Previously installed by `NativeAudioController`, which pointed these at the
-        // phone's own audio engine; they drive the selected remote player now.
-        NowPlayingCoordinator.shared.setCommandHandler { command in
-            let handled = KmpHelper.shared.handleSystemMediaCommand(command: command)
-            if !handled {
-                NativeLog.shared.warn(
-                    tag: "SystemMedia",
-                    message: "command not handled (no presented player, or unrecognized): \(command)"
-                )
-            }
-        }
-        if UIApplication.shared.applicationState == .active {
-            volumeButtonObserver.start()
-        }
-
-        // Required for apps to appear in Control Center
-        // Must be called for remote control events to work
-        UIApplication.shared.beginReceivingRemoteControlEvents()
     }
 
     var body: some Scene {
