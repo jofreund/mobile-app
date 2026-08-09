@@ -263,9 +263,18 @@ class MainDataSource(
             (_playersData.value as? DataState.Data)?.data?.getOrNull(selectedIndex)
         }
 
-    /** Native mini player's bridged view of the player list + selection — see [buildPlayerBarState]. */
+    /**
+     * Native mini player's bridged view of the player list + selection — see
+     * [buildPlayerBarState].
+     *
+     * The `distinctUntilChanged` is load-bearing, not hygiene: without it a queue-time event
+     * roughly once a second pushes an otherwise-identical projection all the way through to
+     * SwiftUI. See [playerBarStatesEquivalentIgnoringElapsed] for why ignoring `elapsedTime`
+     * specifically is the safe way to do that.
+     */
     val playerBarState: StateFlow<PlayerBarState> =
         combine(playersData, selectedPlayerIndex, ::buildPlayerBarState)
+            .distinctUntilChanged(::playerBarStatesEquivalentIgnoringElapsed)
             .stateIn(this, SharingStarted.Eagerly, PlayerBarState.Loading)
 
     // --- Canonical media-session "now playing" source ---

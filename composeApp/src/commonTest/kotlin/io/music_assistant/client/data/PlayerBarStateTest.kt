@@ -135,4 +135,104 @@ class PlayerBarStateTest {
         assertTrue(item.currentItemChapters.isEmpty())
         assertEquals(data.queueOrPlayerId, item.queueId)
     }
+
+    // The `distinctUntilChanged` predicate behind `MainDataSource.playerBarState`. Most of these
+    // assert states are *not* equivalent, because over-suppression is the dangerous direction:
+    // a dropped emission is a UI that silently stops updating, which is far harder to notice
+    // than an extra one.
+
+    private fun projected() = stateOf(PlayerDataFixtures.playerData())
+
+    private fun PlayerBarState.Data.mutatingFirst(
+        transform: (PlayerBarItem) -> PlayerBarItem,
+    ) = copy(players = players.mapIndexed { index, item -> if (index == 0) transform(item) else item })
+
+    @Test
+    fun `a queue time tick alone is suppressed`() {
+        val base = projected()
+        val ticked = base.mutatingFirst { it.copy(elapsedTime = (it.elapsedTime ?: 0.0) + 1.0) }
+        assertTrue(playerBarStatesEquivalentIgnoringElapsed(base, ticked))
+    }
+
+    @Test
+    fun `an unchanged projection is suppressed`() {
+        val base = projected()
+        assertTrue(playerBarStatesEquivalentIgnoringElapsed(base, base))
+    }
+
+    @Test
+    fun `a track change is not suppressed even though elapsed resets with it`() {
+        // The case most at risk: advancing a track resets elapsedTime *and* changes the item.
+        // Keying only on elapsedTime would hide the part that matters.
+        val base = projected()
+        val advanced = base.mutatingFirst {
+            it.copy(currentQueueItemId = "next-item", title = "Next Track", elapsedTime = 0.0)
+        }
+        assertFalse(playerBarStatesEquivalentIgnoringElapsed(base, advanced))
+    }
+
+    @Test
+    fun `play pause is not suppressed`() {
+        val base = projected()
+        assertFalse(
+            playerBarStatesEquivalentIgnoringElapsed(base, base.mutatingFirst { it.copy(isPlaying = !it.isPlaying) }),
+        )
+    }
+
+    @Test
+    fun `volume and mute changes are not suppressed`() {
+        val base = projected()
+        assertFalse(
+            playerBarStatesEquivalentIgnoringElapsed(base, base.mutatingFirst { it.copy(volumeLevel = 0.42f) }),
+        )
+        assertFalse(
+            playerBarStatesEquivalentIgnoringElapsed(base, base.mutatingFirst { it.copy(isMuted = !it.isMuted) }),
+        )
+    }
+
+    @Test
+    fun `queue contents changing is not suppressed`() {
+        // Reordering and removal both have to get through, or the queue list freezes after a
+        // drag — the exact class of bug this projection has already produced twice.
+        val base = projected()
+        val withItems = base.mutatingFirst {
+            it.copy(
+                queueItems = listOf(
+                    QueueBarItem("a", "A", null, null, isPlayable = true, trackItem = null),
+                    QueueBarItem("b", "B", null, null, isPlayable = true, trackItem = null),
+                ),
+            )
+        }
+        val reordered = withItems.mutatingFirst { it.copy(queueItems = it.queueItems.reversed()) }
+        val removed = withItems.mutatingFirst { it.copy(queueItems = it.queueItems.drop(1)) }
+
+        assertFalse(playerBarStatesEquivalentIgnoringElapsed(base, withItems))
+        assertFalse(playerBarStatesEquivalentIgnoringElapsed(withItems, reordered))
+        assertFalse(playerBarStatesEquivalentIgnoringElapsed(withItems, removed))
+    }
+
+    @Test
+    fun `group membership changes are not suppressed`() {
+        val base = projected()
+        assertFalse(
+            playerBarStatesEquivalentIgnoringElapsed(base, base.mutatingFirst { it.copy(isGrouped = !it.isGrouped) }),
+        )
+    }
+
+    @Test
+    fun `selection and player list changes are not suppressed`() {
+        val two = stateOf(PlayerDataFixtures.playerData(), PlayerDataFixtures.playerData())
+        assertFalse(playerBarStatesEquivalentIgnoringElapsed(two, two.copy(selectedIndex = 1)))
+        assertFalse(playerBarStatesEquivalentIgnoringElapsed(two, two.copy(players = two.players.drop(1))))
+    }
+
+    @Test
+    fun `transitions in and out of loading are not suppressed`() {
+        val base = projected()
+        assertFalse(playerBarStatesEquivalentIgnoringElapsed(PlayerBarState.Loading, base))
+        assertFalse(playerBarStatesEquivalentIgnoringElapsed(base, PlayerBarState.Empty))
+        // Repeats of the same non-Data state still collapse, so a stuck connection doesn't
+        // re-notify Swift on every rebuild.
+        assertTrue(playerBarStatesEquivalentIgnoringElapsed(PlayerBarState.Loading, PlayerBarState.Loading))
+    }
 }

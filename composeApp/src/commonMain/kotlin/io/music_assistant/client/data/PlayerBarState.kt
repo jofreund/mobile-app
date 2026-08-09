@@ -105,6 +105,45 @@ sealed class PlayerBarState {
 }
 
 /**
+ * True when two states are the same except for [PlayerBarItem.elapsedTime] — the
+ * `distinctUntilChanged` predicate behind [MainDataSource.playerBarState].
+ *
+ * While something is playing, a queue-time event lands about once a second and re-emits this
+ * whole projection. Almost always the *only* difference is `elapsedTime`, and every downstream
+ * consumer pays for it: Swift rebuilds a `PlayerBarItemView` per player and a
+ * `QueueBarItemView` per queue item — each with a `URL(string:)` parse — and SwiftUI invalidates
+ * the mini player, the expanded player and the queue list. With a few hundred queue items that
+ * is thousands of allocations and URL parses a second, with the queue UI closed.
+ *
+ * Dropping those emissions is safe because `elapsedTime` is documented as a snapshot and is very
+ * nearly vestigial: the only Swift reader is `livePosition ?? player.elapsedTime ?? 0`, and
+ * `livePosition` comes from `PlayerPositionTracker.observe`, which is a `StateFlow` behind
+ * `flatMapLatest` and therefore emits immediately on subscribe. The fallback covers at most one
+ * frame.
+ *
+ * Note what this deliberately does *not* do: remove `elapsedTime` from the model. That is the
+ * obvious version of this fix and it's the one that can show a seek bar at 0:00. Keeping the
+ * field means a suppressed run leaves a stale value that nothing reads, rather than no value at
+ * all — and any real change re-emits it fresh alongside whatever else moved.
+ */
+internal fun playerBarStatesEquivalentIgnoringElapsed(
+    old: PlayerBarState,
+    new: PlayerBarState,
+): Boolean {
+    if (old !is PlayerBarState.Data || new !is PlayerBarState.Data) return old == new
+    if (old.selectedIndex != new.selectedIndex) return false
+    if (old.players.size != new.players.size) return false
+    // Copying the new elapsed onto the old item reduces "equal except elapsedTime" to a plain
+    // data-class comparison, so this can't drift out of sync as fields are added to
+    // PlayerBarItem — which a hand-written field-by-field check certainly would.
+    return old.players.indices.all { index ->
+        val oldItem = old.players[index]
+        val newItem = new.players[index]
+        oldItem.copy(elapsedTime = newItem.elapsedTime) == newItem
+    }
+}
+
+/**
  * Derives [PlayerBarState] from [MainDataSource.playersData]/[MainDataSource.selectedPlayerIndex] —
  * mirrors the same `DataState.Data`-only gating [MainDataSource.selectedPlayerIndex]/
  * [MainDataSource.isAnythingPlaying] already use: Loading/Error/NoData/Stale all collapse to
