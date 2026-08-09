@@ -7,8 +7,13 @@
 		<string>applinks:www.music-assistant.io</string>
 		<string>applinks:music-assistant.io</string>
 	</array>
-	<key>com.apple.developer.carplay-audio</key>
-	<true/>
+	<!-- com.apple.developer.carplay-audio is deliberately absent. It is a restricted
+	     entitlement Apple grants per-account on request; without that grant automatic
+	     signing cannot build a profile and device builds fail outright. CarPlay is
+	     product-hidden anyway (Info.plist's UISceneConfigurations is empty), so the
+	     entitlement bought nothing. To bring CarPlay back you need all three: the
+	     entitlement granted by Apple and re-added here, the CarPlay scene dict restored
+	     in Info.plist, and CarPlaySceneDelegate.swift (untouched, still compiled). -->
 	<key>com.apple.developer.siri</key>
 	<true/>
 </dict>
