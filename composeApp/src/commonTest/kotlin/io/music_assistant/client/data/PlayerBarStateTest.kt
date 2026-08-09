@@ -3,11 +3,15 @@ package io.music_assistant.client.data
 import io.music_assistant.client.data.model.client.PlayerData
 import io.music_assistant.client.data.model.client.PlayerDataFixtures
 import io.music_assistant.client.data.model.client.PlayerType
+import io.music_assistant.client.data.model.client.QueueTrack
+import io.music_assistant.client.data.model.client.testTrack
 import io.music_assistant.client.ui.compose.common.DataState
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotSame
 import kotlin.test.assertNull
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 /**
@@ -234,5 +238,115 @@ class PlayerBarStateTest {
         // Repeats of the same non-Data state still collapse, so a stuck connection doesn't
         // re-notify Swift on every rebuild.
         assertTrue(playerBarStatesEquivalentIgnoringElapsed(PlayerBarState.Loading, PlayerBarState.Loading))
+    }
+
+    // QueueProjectionCache. The failure that matters is a *stale hit* — returning last tick's
+    // items after the queue changed — so most of this checks the cache lets real changes through.
+
+    private fun queueTracks(vararg ids: String) = with(PlayerDataFixtures) {
+        ids.map { testTrack().toQueueTrack(id = it) }
+    }
+
+    /** [PlayerDataFixtures.playerData] with a loaded queue, reusing whatever info it built. */
+    private fun playerDataWithQueue(tracks: List<QueueTrack>): PlayerData {
+        val base = PlayerDataFixtures.playerData()
+        val queue = (base.queue as DataState.Data).data
+        return base.copy(queue = DataState.Data(queue.copy(items = DataState.Data(tracks))))
+    }
+
+    @Test
+    fun `an unchanged queue is projected once and reused by identity`() {
+        // The point of the cache: same source object, same result object. Reusing the instance
+        // also lets the distinctUntilChanged comparison short-circuit instead of walking items.
+        val cache = QueueProjectionCache()
+        val source = queueTracks("a", "b")
+
+        val first = cache.project("player-1", source)
+        val second = cache.project("player-1", source)
+
+        assertSame(first, second)
+    }
+
+    @Test
+    fun `a changed queue is re-projected`() {
+        val cache = QueueProjectionCache()
+        cache.project("player-1", queueTracks("a", "b"))
+
+        val afterChange = cache.project("player-1", queueTracks("a", "b", "c"))
+
+        assertEquals(listOf("a", "b", "c"), afterChange.map { it.id })
+    }
+
+    @Test
+    fun `a reordered queue of the same tracks is re-projected`() {
+        // Same size, same contents, different order — the case a sloppy size-only guard misses.
+        val cache = QueueProjectionCache()
+        cache.project("player-1", queueTracks("a", "b"))
+
+        val reordered = cache.project("player-1", queueTracks("b", "a"))
+
+        assertEquals(listOf("b", "a"), reordered.map { it.id })
+    }
+
+    @Test
+    fun `an equal but distinct source re-projects rather than reusing`() {
+        // Documents the identity-not-equality choice: a miss costs a re-map, never correctness.
+        // Comparing by equality here would cost exactly the walk the cache exists to avoid.
+        val cache = QueueProjectionCache()
+        val first = cache.project("player-1", queueTracks("a"))
+        val second = cache.project("player-1", queueTracks("a"))
+
+        assertNotSame(first, second)
+        assertEquals(first, second)
+    }
+
+    @Test
+    fun `players do not share cache entries`() {
+        val cache = QueueProjectionCache()
+        val oneSource = queueTracks("a")
+        val twoSource = queueTracks("b")
+
+        val one = cache.project("player-1", oneSource)
+        val two = cache.project("player-2", twoSource)
+
+        assertEquals(listOf("a"), one.map { it.id })
+        assertEquals(listOf("b"), two.map { it.id })
+        // And each still hits its own entry afterwards.
+        assertSame(one, cache.project("player-1", oneSource))
+        assertSame(two, cache.project("player-2", twoSource))
+    }
+
+    @Test
+    fun `an emptied queue drops its entry and projects empty`() {
+        val cache = QueueProjectionCache()
+        cache.project("player-1", queueTracks("a"))
+
+        assertTrue(cache.project("player-1", emptyList()).isEmpty())
+        assertTrue(cache.project("player-1", null).isEmpty())
+    }
+
+    @Test
+    fun `retainOnly evicts players that are gone`() {
+        val cache = QueueProjectionCache()
+        val source = queueTracks("a")
+        val before = cache.project("player-1", source)
+
+        cache.retainOnly(setOf("player-2"))
+
+        // Same source object, but the entry was evicted — so this re-projects rather than
+        // resurrecting a queue belonging to a player that no longer exists.
+        assertNotSame(before, cache.project("player-1", source))
+    }
+
+    @Test
+    fun `repeated projection through buildPlayerBarState reuses the queue items`() {
+        // End-to-end: what MainDataSource actually does on a queue-time tick.
+        val cache = QueueProjectionCache()
+        val state = DataState.Data(listOf(playerDataWithQueue(queueTracks("a", "b"))))
+
+        val first = buildPlayerBarState(state, 0, cache) as PlayerBarState.Data
+        val second = buildPlayerBarState(state, 0, cache) as PlayerBarState.Data
+
+        assertSame(first.players.single().queueItems, second.players.single().queueItems)
     }
 }

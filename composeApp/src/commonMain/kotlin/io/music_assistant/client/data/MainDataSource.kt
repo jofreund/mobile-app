@@ -272,8 +272,21 @@ class MainDataSource(
      * SwiftUI. See [playerBarStatesEquivalentIgnoringElapsed] for why ignoring `elapsedTime`
      * specifically is the safe way to do that.
      */
+    /**
+     * Reused across rebuilds so a queue-time tick doesn't re-map every queue item just for the
+     * comparison below to throw the result away — see [QueueProjectionCache]. Owned here because
+     * it must outlive a single projection; confined to the single collector below.
+     *
+     * Declared *before* [playerBarState] deliberately: `stateIn(…, Eagerly, …)` launches its
+     * collector during construction, so a cache declared after it could still be uninitialized
+     * when the first emission arrives.
+     */
+    private val queueProjectionCache = QueueProjectionCache()
+
     val playerBarState: StateFlow<PlayerBarState> =
-        combine(playersData, selectedPlayerIndex, ::buildPlayerBarState)
+        combine(playersData, selectedPlayerIndex) { data, index ->
+            buildPlayerBarState(data, index, queueProjectionCache)
+        }
             .distinctUntilChanged(::playerBarStatesEquivalentIgnoringElapsed)
             .stateIn(this, SharingStarted.Eagerly, PlayerBarState.Loading)
 
