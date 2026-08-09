@@ -1,5 +1,5 @@
 import SwiftUI
-import ComposeApp
+import MusicAssistantKit
 
 /// The native genre screen: hero + a segmented Albums/Artists toggle over the server's
 /// recommendation-folder overview, mirroring `ItemDetailsViewModel.loadGenreOverview`'s

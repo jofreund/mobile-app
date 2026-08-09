@@ -1,5 +1,5 @@
 import SwiftUI
-import ComposeApp
+import MusicAssistantKit
 
 /// Drives the top-level switch that used to live entirely in Compose
 /// (`TopLevelNavRoot.kt`): which screen is showing (the main tab shell vs.

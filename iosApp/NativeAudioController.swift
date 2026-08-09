@@ -1,7 +1,7 @@
 import Foundation
 import AVFoundation
 import AudioToolbox
-import ComposeApp
+import MusicAssistantKit
 
 /// Native iOS audio player using AudioQueue
 /// Replaces MPVController for better iOS integration

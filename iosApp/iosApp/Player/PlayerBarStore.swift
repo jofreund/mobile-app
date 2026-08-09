@@ -1,5 +1,5 @@
 import SwiftUI
-import ComposeApp
+import MusicAssistantKit
 
 /// Drives the native mini player (`MiniPlayerView.swift`) — subscribes to
 /// `KmpHelper.playerBarState` and turns transport taps into `KmpHelper` calls. All real state

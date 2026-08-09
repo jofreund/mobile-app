@@ -1,5 +1,5 @@
 import SwiftUI
-import ComposeApp
+import MusicAssistantKit
 
 /// Routes `AppTabView`'s `ItemDetailsRoute` push to the right native screen. Album,
 /// Playlist, Podcast, and Audiobook share `ContainerItemDetailsView` below (each has

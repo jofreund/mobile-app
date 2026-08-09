@@ -1,5 +1,5 @@
 import SwiftUI
-import ComposeApp
+import MusicAssistantKit
 
 /// SwiftUI-shaped projection of the Kotlin `AppMediaItem` sealed hierarchy.
 ///

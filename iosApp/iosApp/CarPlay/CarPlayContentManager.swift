@@ -1,6 +1,6 @@
 import Foundation
 import CarPlay
-import ComposeApp
+import MusicAssistantKit
 
 // MARK: - Image Loader
 

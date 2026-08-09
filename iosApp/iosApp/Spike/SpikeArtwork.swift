@@ -1,7 +1,7 @@
 import SwiftUI
 import ImageIO
 import UniformTypeIdentifiers
-import ComposeApp
+import MusicAssistantKit
 
 /// Downsampling image loader and cache — every native screen's artwork goes
 /// through this (ItemDetails, Artist, Genre, Library, Browse), not just the

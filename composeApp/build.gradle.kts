@@ -18,11 +18,12 @@ kotlin {
         iosSimulatorArm64()
     ).forEach { iosTarget ->
         iosTarget.binaries.framework {
-            // Named "ComposeApp" for historical reasons only — there is no Compose in this
-            // module any more. Renaming it (and the `:composeApp` module) would churn the
-            // pbxproj, the embed-and-sign script, and every Swift `import ComposeApp`, for a
-            // cosmetic gain; left alone deliberately.
-            baseName = "ComposeApp"
+            // Renamed off "ComposeApp" once the module stopped containing any Compose. The
+            // Gradle module is still `:composeApp`, and its directory still `composeApp/`, on
+            // purpose: upstream paths all start there, so renaming the directory would make
+            // every future `git cherry-pick` from music-assistant/mobile-app a path-rewriting
+            // exercise. The framework name costs nothing by comparison — no source path moves.
+            baseName = "MusicAssistantKit"
             isStatic = true
             binaryOption("bundleId", "io.music_assistant.client.composeapp")
             // Trades a touch of release-link optimization for ~28% faster

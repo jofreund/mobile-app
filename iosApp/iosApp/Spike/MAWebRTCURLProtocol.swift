@@ -1,5 +1,5 @@
 import Foundation
-import ComposeApp
+import MusicAssistantKit
 
 /// Makes the synthetic `mawebrtc://` artwork scheme resolvable by the standard
 /// URL loading system.
@@ -43,7 +43,7 @@ final class MAWebRTCURLProtocol: URLProtocol {
     }
 
     /// Live Kotlin subscription for the in-flight fetch, cancelled on `stopLoading()`.
-    private var artworkLoad: ComposeApp.Cancellable?
+    private var artworkLoad: MusicAssistantKit.Cancellable?
 
     override class func canInit(with request: URLRequest) -> Bool {
         request.url?.scheme == scheme

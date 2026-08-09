@@ -1,5 +1,5 @@
 import SwiftUI
-import ComposeApp
+import MusicAssistantKit
 
 /// The app's Dark / Light / Follow-System setting, as something SwiftUI can render.
 ///

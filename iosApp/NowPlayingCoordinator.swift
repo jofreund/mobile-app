@@ -1,7 +1,7 @@
 import Foundation
 import MediaPlayer
 import AVFoundation
-import ComposeApp
+import MusicAssistantKit
 
 /// Owns every write to Apple's system-media surfaces (Control Center, lock
 /// screen, CarPlay's now-playing state) by subscribing to the three Kotlin

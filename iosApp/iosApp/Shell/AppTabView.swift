@@ -1,5 +1,5 @@
 import SwiftUI
-import ComposeApp
+import MusicAssistantKit
 
 /// Where a tap on any browsable/playable item — from a Home row, Library,
 /// Browse, Search, or the floating player bar's queue — asks to go. Carries

@@ -1,5 +1,5 @@
 import SwiftUI
-import ComposeApp
+import MusicAssistantKit
 
 /// `LibraryListView`'s filter sheet — mirrors `LibraryFilterAction`/`SettingsSheet`'s
 /// working-copy-plus-explicit-Apply contract, but as a real `.sheet` with a

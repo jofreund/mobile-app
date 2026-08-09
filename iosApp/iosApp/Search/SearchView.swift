@@ -1,5 +1,5 @@
 import SwiftUI
-import ComposeApp
+import MusicAssistantKit
 
 /// The Search tab's root — Phase E3. Reimplements `SearchScreen.kt`/`SearchViewModel.kt`
 /// natively rather than wrapping the Kotlin ViewModel, the same approach E2 established for

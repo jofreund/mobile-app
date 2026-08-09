@@ -1,5 +1,5 @@
 import SwiftUI
-import ComposeApp
+import MusicAssistantKit
 
 /// Native mini player — Apple-Music-style compact bar with horizontal paging across
 /// connected players. A completed swipe calls `PlayerBarStore.selectPlayer`, mirroring

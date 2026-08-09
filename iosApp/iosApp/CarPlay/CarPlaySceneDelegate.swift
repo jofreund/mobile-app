@@ -1,6 +1,6 @@
 import Foundation
 import CarPlay
-import ComposeApp
+import MusicAssistantKit
 import os.log
 
 /// CarPlay lifecycle markers. Logged at `.default` so they survive a

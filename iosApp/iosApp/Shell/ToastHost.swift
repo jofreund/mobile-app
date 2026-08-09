@@ -1,5 +1,5 @@
 import SwiftUI
-import ComposeApp
+import MusicAssistantKit
 
 /// Native replacement for Compose's `ToastHost` — the display half of what
 /// `FloatingBarSideEffectsController` existed to host.

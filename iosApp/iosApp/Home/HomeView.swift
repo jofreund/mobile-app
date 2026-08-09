@@ -1,5 +1,5 @@
 import SwiftUI
-import ComposeApp
+import MusicAssistantKit
 
 /// The Home tab's root — Phase E5, part 1. Reimplements only `HomeScreen.kt`'s row content
 /// natively (a vertical list of horizontal recommendation/shortcut carousels, plus edit mode);

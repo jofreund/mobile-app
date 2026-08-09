@@ -1,5 +1,5 @@
 import SwiftUI
-import ComposeApp
+import MusicAssistantKit
 
 /// One level of the server's `music/browse` provider tree — mirrors `MainNav.Browse`'s shape.
 /// `path: nil` is the root level; a folder's own `path` (falling back to its `uri`) becomes

@@ -1,5 +1,5 @@
 import SwiftUI
-import ComposeApp
+import MusicAssistantKit
 
 /// The native artist screen: hero + three independently-loaded sections (mirrors
 /// `ItemDetailsViewModel.loadArtistAlbumSections`'s three parallel `viewModelScope.launch`

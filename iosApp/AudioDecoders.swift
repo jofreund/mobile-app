@@ -1,7 +1,7 @@
 import Foundation
 import AVFoundation
 import AudioToolbox
-import ComposeApp
+import MusicAssistantKit
 
 // Import external decoder libraries
 // NOTE: These must be added via Xcode SPM:

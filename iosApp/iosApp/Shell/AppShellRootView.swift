@@ -1,6 +1,6 @@
 import SwiftUI
 import UIKit
-import ComposeApp
+import MusicAssistantKit
 
 /// Replaces `ContentView`'s old direct Compose host. Owns exactly what
 /// `TopLevelNavRoot.kt` used to own — the Main/Settings switch, the

@@ -1,5 +1,5 @@
 import SwiftUI
-import ComposeApp
+import MusicAssistantKit
 
 /// Settings — Phase E4. `SettingsScreen.kt` (1,309 LOC) used to do double duty as both the
 /// first-run/reconnect connection setup flow (host/port/TLS, WebRTC + QR scan, connection

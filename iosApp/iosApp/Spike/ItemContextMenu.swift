@@ -1,5 +1,5 @@
 import SwiftUI
-import ComposeApp
+import MusicAssistantKit
 
 /// What surrounds a [SpikeMediaItem] row/tile that its long-press menu needs to know about —
 /// only ever set by `ItemDetailsView.swift`'s `PlayableRow`, since Library/Home/Search show

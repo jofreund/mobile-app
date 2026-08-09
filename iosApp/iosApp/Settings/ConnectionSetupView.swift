@@ -1,5 +1,5 @@
 import SwiftUI
-import ComposeApp
+import MusicAssistantKit
 
 /// Phase E4, part 2 — the native replacement for the Compose `SettingsScreen` fallback that
 /// used to render for every `SessionState` except `Connected` + `Authenticated`. Mirrors

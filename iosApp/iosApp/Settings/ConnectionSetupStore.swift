@@ -1,5 +1,5 @@
 import SwiftUI
-import ComposeApp
+import MusicAssistantKit
 import os
 
 /// Auth/connection failures reaching Swift used to be dropped on the floor, which made a

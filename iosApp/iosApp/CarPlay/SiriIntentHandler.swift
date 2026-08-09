@@ -1,6 +1,6 @@
 import Foundation
 import Intents
-import ComposeApp
+import MusicAssistantKit
 import os.log
 
 private let log = OSLog(

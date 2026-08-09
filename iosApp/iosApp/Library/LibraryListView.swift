@@ -1,5 +1,5 @@
 import SwiftUI
-import ComposeApp
+import MusicAssistantKit
 
 /// Where the Library tab's category grid (`LibraryScreen` in Compose) asks to go —
 /// mirrors `ItemDetailsRoute`'s shape and reasoning: a plain `Hashable` carrying just

@@ -1,5 +1,5 @@
 import SwiftUI
-import ComposeApp
+import MusicAssistantKit
 
 /// The Library tab's root — the category grid (Artists, Albums, Titel, …, Durchsuchen), now
 /// native. `LibraryCategoriesViewModel` was a thin pass-through over
