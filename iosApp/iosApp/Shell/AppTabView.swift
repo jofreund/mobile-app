@@ -94,7 +94,6 @@ struct AppTabView: View {
     @State private var playerExpanded = false
     @State private var deepLinkSubscription: Cancellable?
     @State private var playerBarStore = PlayerBarStore()
-    @State private var isSearchFieldActive = false
     /// The mini player's paging position, held here rather than inside `MiniPlayerView` — the
     /// accessory's content is rebuilt as tabs change, and state inside it went back to nil each
     /// time, snapping the pager to the first player before animating to the selected one.
@@ -106,17 +105,21 @@ struct AppTabView: View {
             Tab("nav_library", systemImage: "square.stack", value: .library) { libraryTab }
             Tab("nav_search", systemImage: "magnifyingglass", value: .search) { searchTab }
         }
-        // Minimising the tab bar on scroll is what buys the accessory its `.expanded` height —
-        // there is no way to ask for a taller accessory directly (the API is content + isEnabled
-        // and nothing else). MiniPlayerRow reads the placement and spends the extra room.
+        // Minimising the tab bar on scroll widens the accessory into the space the bar leaves —
+        // it doesn't make it taller. There is no way to ask for a taller accessory: the API is
+        // content plus `isEnabled` and nothing else.
         .tabBarMinimizeBehavior(.onScrollDown)
+        // Always present. It used to be conditionally emptied while Search had focus, inherited
+        // from the hand-rolled bar, which rendered squeezed against the keyboard — but returning
+        // nothing from this builder doesn't remove the accessory, it just empties it, so
+        // focusing the search field left a blank pill sitting above the keyboard. The system
+        // places the accessory around the keyboard itself, so there is nothing to hide from.
+        //
+        // (`tabViewBottomAccessory(isEnabled:)` would genuinely remove it, but that overload is
+        // iOS 26.1 and this app targets 26.0.)
         .tabViewBottomAccessory {
-            // Hidden only while Search's field has focus, or it renders squeezed against the
-            // keyboard — the one behaviour worth keeping from the hand-rolled version.
-            if !(selectedTab == .search && isSearchFieldActive) {
-                MiniPlayerView(store: playerBarStore, scrollID: $miniPlayerScrollID) {
-                    playerExpanded = true
-                }
+            MiniPlayerView(store: playerBarStore, scrollID: $miniPlayerScrollID) {
+                playerExpanded = true
             }
         }
         // Mounted once here rather than once per tab, which it had to be while it rode along
@@ -196,7 +199,7 @@ struct AppTabView: View {
 
     private var searchTab: some View {
         NavigationStack(path: $searchPath) {
-            SearchView(isSearchFieldActive: $isSearchFieldActive)
+            SearchView()
                 .navigationDestination(for: ItemDetailsRoute.self) { route in
                     ItemDetailsView(route: route)
                 }

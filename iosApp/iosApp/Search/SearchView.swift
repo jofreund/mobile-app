@@ -11,15 +11,6 @@ import ComposeApp
 /// doesn't return genres from this endpoint.
 struct SearchView: View {
 
-    /// Whether the search field's keyboard is up — threaded up to `AppTabView` so the floating
-    /// mini player can hide itself while it is (it otherwise renders squeezed directly above
-    /// the keyboard, which looks broken). Driven by `.searchFocused`, not `.searchable`'s own
-    /// `isPresented` — `isPresented` stays true for as long as the search UI/scope is active,
-    /// including while browsing results with the keyboard already dismissed; `.searchFocused`
-    /// tracks literal text-input focus, so it goes false the moment the keyboard is dismissed
-    /// (tapping a result, scrolling, swiping down), independent of whether results are shown.
-    @Binding var isSearchFieldActive: Bool
-
     @State private var query = ""
     @State private var selectedTypes: Set<MediaType> = []
     @State private var libraryOnly = false
@@ -43,9 +34,6 @@ struct SearchView: View {
                 prompt: String(localized: "library_quick_search")
             )
             .searchFocused($isSearchFieldFocused)
-            .onChange(of: isSearchFieldFocused) { _, focused in
-                isSearchFieldActive = focused
-            }
             .onSubmit(of: .search) {
                 Task { await performSearch() }
             }
