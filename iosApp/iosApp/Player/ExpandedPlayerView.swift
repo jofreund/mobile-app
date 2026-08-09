@@ -180,51 +180,70 @@ private struct ExpandedPlayerRow: View {
 
     // MARK: - Header
 
+    /// Three slots with equal flexible sides, not a pair of `Spacer()`s. Spacers split only the
+    /// *leftover* space, so they centre the middle item only when both sides are the same width
+    /// — and here they never are: one button leads, two trail, and the group-settings one is
+    /// conditional, so the player name sat left of centre and shifted sideways as that button
+    /// came and went. Equal-width sides centre the name against the screen instead. Compose hit
+    /// this too and solved it with its own `CenteredThreeSlotRow`.
     private var header: some View {
-        HStack {
+        HStack(spacing: 8) {
             Button(action: onCollapse) {
                 Image(systemName: "chevron.down")
                     .font(.title3.weight(.semibold))
             }
-            Spacer()
-            Button {
-                showPlayerPicker = true
-            } label: {
-                HStack(spacing: 4) {
-                    Text(player.name)
-                    Image(systemName: "chevron.up.chevron.down")
-                        .font(.caption2.weight(.semibold))
-                }
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            playerPicker
+                // Keeps a long player name from squeezing itself instead of the empty sides.
+                .layoutPriority(1)
+
+            headerActions
+                .frame(maxWidth: .infinity, alignment: .trailing)
+        }
+    }
+
+    private var playerPicker: some View {
+        Button {
+            showPlayerPicker = true
+        } label: {
+            HStack(spacing: 4) {
+                Text(player.name)
+                    .lineLimit(1)
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.caption2.weight(.semibold))
             }
-            .popover(isPresented: $showPlayerPicker) {
-                PlayerPickerList(store: store, currentId: player.id) {
-                    showPlayerPicker = false
-                }
-                .presentationCompactAdaptation(.popover)
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(.secondary)
+        }
+        .popover(isPresented: $showPlayerPicker) {
+            PlayerPickerList(store: store, currentId: player.id) {
+                showPlayerPicker = false
             }
-            Spacer()
-            HStack(spacing: 16) {
-                // Only shown when there's anything to manage — a bound group or at least one
-                // groupable candidate (mirrors when Compose's dialog had content to offer).
-                if player.isGrouped || !player.groupMembers.isEmpty {
-                    Button {
-                        showGroupSettings = true
-                    } label: {
-                        Image(systemName: "hifispeaker.2")
-                            .font(.title3)
-                    }
-                    .accessibilityLabel(String(localized: "players_group_settings"))
-                }
+            .presentationCompactAdaptation(.popover)
+        }
+    }
+
+    private var headerActions: some View {
+        HStack(spacing: 16) {
+            // Only shown when there's anything to manage — a bound group or at least one
+            // groupable candidate (mirrors when Compose's dialog had content to offer).
+            if player.isGrouped || !player.groupMembers.isEmpty {
                 Button {
-                    withAnimation(.easeInOut(duration: 0.2)) { showQueue.toggle() }
+                    showGroupSettings = true
                 } label: {
-                    Image(systemName: showQueue ? "list.bullet.circle.fill" : "list.bullet.circle")
+                    Image(systemName: "hifispeaker.2")
                         .font(.title3)
                 }
-                .accessibilityLabel(String(localized: "cd_toggle_queue"))
+                .accessibilityLabel(String(localized: "players_group_settings"))
             }
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) { showQueue.toggle() }
+            } label: {
+                Image(systemName: showQueue ? "list.bullet.circle.fill" : "list.bullet.circle")
+                    .font(.title3)
+            }
+            .accessibilityLabel(String(localized: "cd_toggle_queue"))
         }
     }
 
