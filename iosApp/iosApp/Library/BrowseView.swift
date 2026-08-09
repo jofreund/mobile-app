@@ -118,11 +118,10 @@ private struct BrowseRow: View {
                 }
             }
             Spacer(minLength: 8)
-            if item.kotlin is RecommendationFolder || item.kind.isBrowsable {
-                Image(systemName: "chevron.right")
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(.tertiary)
-            }
+            // No chevron drawn here. A `NavigationLink` in a `List` already gets the system
+            // disclosure indicator, and the two branches above that pushed one are exactly the
+            // two this used to draw for — so it rendered a second chevron beside the real one.
+            // The play-on-tap branch is a `Button` and correctly shows none.
         }
         .contentShape(.rect)
     }
