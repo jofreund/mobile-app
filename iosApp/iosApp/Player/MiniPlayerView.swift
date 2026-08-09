@@ -26,12 +26,15 @@ struct MiniPlayerView: View {
 
     @State private var scrollID: String?
 
-    /// Also used by `AppTabView.swift` to size `FloatingBarSideEffectsController`'s
-    /// `.background` identically — that background is `.background(alignment: .bottom)`'d
-    /// onto the *same* view this reserves space on, so if it were ever taller than this, the
-    /// excess would bleed upward past the reserved region and its opaque Compose backdrop
-    /// would paint over the bottom slice of whatever's scrolling underneath (this exact bug,
-    /// found and fixed once already — do not let the two drift apart again).
+    /// A **floor**, not the bar's actual height — see `body`, which lets real content exceed it.
+    ///
+    /// `AppTabView.swift` also uses it to size `FloatingBarSideEffectsController`'s
+    /// `.background`, which is `.background(alignment: .bottom)`'d onto the *same* view this
+    /// reserves space on: were that backdrop ever taller than the reserved region, its opaque
+    /// Compose fill would bleed upward and paint over the bottom slice of whatever is scrolling
+    /// underneath (a real bug, fixed once already). Sizing it from this floor keeps it at or
+    /// below the bar's true height, which is the safe direction — so the two may now differ,
+    /// but only ever this way round. Don't raise the backdrop off anything else.
     static let reservedHeight: CGFloat = 84
 
     var body: some View {
@@ -40,7 +43,13 @@ struct MiniPlayerView: View {
                 pager
             }
         }
-        .frame(height: Self.reservedHeight)
+        // `minHeight`, not `height`: the card is taller than [reservedHeight] once it has
+        // content — 48pt of artwork plus 16pt of vertical padding, then the player-name line
+        // and its spacing on top — and it grows further with Dynamic Type, since that name is
+        // scalable text. A fixed height reserved less safe area than the bar actually occupied,
+        // so the bottom of the scrolling content stayed tucked behind it. A floor still covers
+        // the empty case this constant exists for (see above) without capping the real thing.
+        .frame(minHeight: Self.reservedHeight)
     }
 
     private var pager: some View {
