@@ -1,45 +1,70 @@
 # Development environment
 
-## iOS
+## Requirements
 
-See [IOS-BUILD-INSTRUCTIONS](IOS-BUILD-INSTRUCTIONS.md) for a full step-by-step guide covering:
+- **macOS with Xcode 26.** This fork targets iOS 26 and is developed against the beta toolchain.
+- **JDK 21 LTS.** Gradle 9.6 / Kotlin 2.4 do not support JDK 25. `JAVA_HOME` must point at it in
+  whatever environment Xcode is launched from — including when launched from the Dock, where a
+  shell profile won't reach it (`launchctl setenv JAVA_HOME …`).
 
-- Required tools and JDK version (JDK 21 LTS required — JDK 25 is not supported)
-- WebRTC framework setup
-- Signing and provisioning configuration
-- Build commands for simulator and physical device
-- Known limitations and troubleshooting
-
-## Android
-
-To build the app:
-
-```bash
-./gradlew :androidApp:assembleDebug
-```
-
-To build a non-debuggable "release mode" APK for testing performance using your local debug keystore:
-
-```bash
-./gradlew :androidApp:assembleSelfSignedRelease
-```
+[IOS-BUILD-INSTRUCTIONS](IOS-BUILD-INSTRUCTIONS.md) has the full step-by-step, including the
+WebRTC framework and signing.
 
 ## Structure
 
-The project currently supports the iOS and Android targets. Common code is held within a KMP library module (`composeApp`) which the two platform specific app modules then depend on (`androidApp` and `iosApp`).
+One Gradle module and one Xcode project:
 
-## Writing/running tests
+```
+composeApp/src/commonMain/   Kotlin shared core — api, data, webrtc, settings, auth
+composeApp/src/commonTest/   Tests for that core
+composeApp/src/iosMain/      Swift-facing bridge (KmpHelper, NativeFlow) + iOS actuals
+iosApp/                      The SwiftUI app and its tests
+```
 
-Tests for shared multiplatform code live in the `composeApp` module's `commonTest` source set. These can be run locally in the JVM for the Android target using `./gradlew :composeApp:testAndroidHostTest`.
+`composeApp` builds a static `MusicAssistantKit.framework` that `iosApp` imports. Xcode drives
+that build through a run-script phase, so there's no separate step — but it does mean Xcode needs
+a working JDK.
 
-Tests for Compose UI code are in the `androidApp` module. This is because [multiplatform Compose testing is currently still experimental](https://kotlinlang.org/docs/multiplatform/compose-test.html) and tests written using the multiplatform approach cannot be easily run in a local JVM yet without the desktop target (which this project doesn't use). The Compose tests can be run with `./gradlew :androidApp:testDebug`.
+Two names are historical and deliberately unchanged: the module is `composeApp` though it
+contains no Compose, and its directory prefixes every upstream path, so renaming it would make
+every future cherry-pick a path-rewriting exercise.
 
-## Running MA Server locally
+There is no Android target. `androidApp` and `androidMain` were removed when this fork went
+iOS-only; anything in upstream's docs referring to them does not apply here.
 
-You can run a local MA server using Docker using the included convenience script:
+## Tests
+
+Kotlin, run on the iOS simulator target:
+
+```bash
+JAVA_HOME=/path/to/jdk-21 ./gradlew :composeApp:iosSimulatorArm64Test
+```
+
+Swift:
+
+```bash
+xcodebuild test -project iosApp/iosApp.xcodeproj -scheme iosApp \
+  -sdk iphonesimulator -destination "id=<simulator-udid>" -configuration Debug
+```
+
+`iosAppTests` has **no host application**. `Bundle.main` there is the xctest bundle, not the app,
+so anything needing app resources has to reach the repo another way — via `#filePath`, for
+instance. Pure-logic types can be compiled into both targets by adding a second `PBXBuildFile`
+entry for the same file reference; `QueueMoveMath.swift` and `SVGRasterizer.swift` do this.
+
+## Lint
+
+```bash
+CI=true JAVA_HOME=/path/to/jdk-21 ./gradlew detektAll
+```
+
+`CI=true` disables auto-correct. Without it, a local run silently rewrites your working tree and
+passes on findings a clean checkout would reject.
+
+## Running a server locally
 
 ```bash
 ./scripts/run-local-ma.sh
 ```
 
-This will start up a server at `http://localhost:8095`. Server data is stored in `.server`.
+Starts a Music Assistant server at `http://localhost:8095` in Docker, with data under `.server`.

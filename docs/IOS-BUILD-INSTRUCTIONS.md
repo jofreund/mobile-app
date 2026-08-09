@@ -8,13 +8,13 @@ Complete guide to build and run the **MusicAssistantClient** iOS app from source
 
 | Tool | Required | Tested Version |
 |------|----------|----------------|
-| macOS | 12+ | macOS 26 (Sequoia) |
-| Xcode | 15+ | 26.2 (Build 17C52) |
+| macOS | 26 | macOS 26 |
+| Xcode | 26 (beta toolchain) | 26.2 (Build 17C52) |
 | Xcode Command Line Tools | required | included with Xcode 26.2 |
-| JDK | **17 or 21 LTS only** | Temurin 21.0.10 |
-| Swift | 5.9+ | 6.2.3 (included with Xcode) |
+| JDK | **21 LTS** | Temurin 21.0.10 |
+| Swift | 5 language mode | 6.2.3 (included with Xcode) |
 
-> **Critical:** JDK 25 is **not** supported by Gradle 8.13 + Kotlin 2.3.0. Use JDK 21 LTS.
+> **Critical:** JDK 25 is **not** supported by Gradle 9.6 + Kotlin 2.4.0. Use JDK 21 LTS.
 > Install Temurin 21: https://adoptium.net/temurin/releases/?version=21
 
 ---
@@ -35,7 +35,8 @@ If JDK 21 is not installed, download from https://adoptium.net/temurin/releases/
 
 ### 2. Install Xcode
 
-Install Xcode 15 or later from the Mac App Store. Accept the license:
+Install Xcode 26. This fork targets iOS 26 and is developed against the beta toolchain, so on
+this machine only Xcode-beta works — don't switch `xcode-select` back. Accept the license:
 
 ```bash
 sudo xcodebuild -license accept
@@ -168,10 +169,11 @@ mobile-app/
 │   ├── iosApp.xcodeproj/          # Xcode project
 │   ├── iosApp/                    # Swift source files
 │   │   ├── iOSApp.swift           # SwiftUI @main entry point
-│   │   └── ContentView.swift      # Hosts KMP ComposeUIViewController
-│   ├── AudioDecoders.swift        # PCM/Opus/FLAC decoders (AudioQueue)
-│   ├── NativeAudioController.swift # AudioQueue-based PCM player
-│   ├── NowPlayingManager.swift    # Lock screen / Control Center
+│   │   ├── ContentView.swift      # Root; owns the theme and hands it down
+│   │   ├── Shell/                 # Tab shell, routing, toasts
+│   │   ├── Home/ Library/ Search/ Settings/ ItemDetails/ Player/
+│   │   └── Spike/                 # Artwork loading, media-item projection
+│   ├── iosAppTests/               # Swift tests (no host app — see DEV-ENVIRONMENT)
 │   ├── Configuration/
 │   │   └── Config.xcconfig        # TEAM_ID, PRODUCT_BUNDLE_IDENTIFIER, APP_NAME
 │   └── Frameworks/
@@ -179,12 +181,12 @@ mobile-app/
 ├── composeApp/
 │   ├── build.gradle.kts           # KMP module build config
 │   └── src/
-│       ├── commonMain/            # Shared Kotlin/Compose UI + logic
-│       ├── androidMain/           # Android-specific implementations
+│       ├── commonMain/            # Shared Kotlin core — api, data, webrtc, settings
+│       ├── commonTest/            # Tests for that core
 │       └── iosMain/               # iOS-specific Kotlin glue
-│           ├── MainViewController.kt
+│           ├── MainViewController.kt   # bootstrapKmp()
 │           ├── di/IosModule.kt
-│           └── player/MediaPlayerController.ios.kt
+│           └── di/KmpHelper.kt         # the whole Swift-facing bridge
 ├── gradle.properties              # kotlin.native.cacheKind=none
 ├── settings.gradle.kts
 └── build.gradle.kts
@@ -196,8 +198,7 @@ mobile-app/
 
 | Dependency | Version | Purpose |
 |-----------|---------|---------|
-| Kotlin Multiplatform | 2.3.0 | Cross-platform language + toolchain |
-| Compose Multiplatform | 1.9.3 | Shared UI (Compose for iOS/Android) |
+| Kotlin Multiplatform | 2.4.0 | Language + toolchain for the shared core |
 | Ktor | 3.3.3 | HTTP + WebSocket client (Darwin engine on iOS) |
 | Koin | 4.1.1 | Dependency injection |
 | kotlinx.coroutines | 1.10.2 | Async/concurrency |
@@ -225,11 +226,11 @@ ARCHS=arm64 \
 EXPANDED_CODE_SIGN_IDENTITY=- \
 ./gradlew :composeApp:embedAndSignAppleFrameworkForXcode
 
-# Run KMP unit tests (Android + common)
-./gradlew :composeApp:testDebugUnitTest
+# Run the shared-core tests (on the iOS simulator target)
+./gradlew :composeApp:iosSimulatorArm64Test
 
-# Lint
-./gradlew lintDebug
+# Lint — CI=true disables auto-correct, which otherwise hides findings
+CI=true ./gradlew detektAll
 ```
 
 ---
@@ -337,7 +338,15 @@ JVM-only APIs in `commonMain`. Use KMP-compatible alternatives (`Mutex.withLock 
 
 ## Known Limitations (iOS)
 
-- **Local playback** (`MediaPlayerController.ios.kt`): stub only — AVFoundation/AVPlayer not yet implemented
-- **WebRTC** (`DataChannelWrapper.ios.kt`, `PeerConnectionWrapper.ios.kt`): throws `NotImplementedError` — iOS WebRTC not yet implemented
-- **OAuth** (`OAuthHandler.ios.kt`): throws `UnsupportedOperationException`
-- **Background audio** / lock screen controls: infrastructure is present (`NowPlayingManager.swift`, `NativeAudioController.swift`) but requires AVFoundation player implementation to activate
+Everything this section used to list as unimplemented — WebRTC, OAuth — now works. What remains
+are deliberate absences, not gaps:
+
+- **No local playback.** The Sendspin on-device player was removed. This app controls remote
+  players and produces no audio.
+- **No lock screen or Control Center, and no background audio.** A consequence of the above, not a
+  separate omission: iOS grants those surfaces to the app that is actually producing audio, so a
+  pure remote control cannot have them. Restoring them means restoring local playback.
+- **No CarPlay and no Siri.** Both removed. CarPlay additionally needs the restricted
+  `com.apple.developer.carplay-audio` entitlement, which Apple grants per account on request.
+- **Expanded player overflow menu** — queue transfer, DSP, playback speed, lyrics, power toggle —
+  exists in Kotlin but has no Swift entry point yet. This one is a genuine gap.

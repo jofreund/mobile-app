@@ -62,7 +62,8 @@ run-script phase; there is no separate step. `JAVA_HOME` must point at JDK 21 in
 Xcode is launched from.
 
 See [IOS-BUILD-INSTRUCTIONS.md](docs/IOS-BUILD-INSTRUCTIONS.md) and
-[DEV-ENVIRONMENT.md](docs/DEV-ENVIRONMENT.md) for the longer version.
+[DEV-ENVIRONMENT.md](docs/DEV-ENVIRONMENT.md) for the longer version, and
+[USING-THE-APP.md](docs/USING-THE-APP.md) for what the app actually does.
 
 ## Layout
 
