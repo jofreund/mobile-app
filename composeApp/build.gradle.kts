@@ -3,16 +3,6 @@ import org.jetbrains.kotlin.gradle.plugin.mpp.TestExecutable
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.kotlinSerialization)
-    alias(libs.plugins.composeMultiplatform)
-    alias(libs.plugins.composeCompiler)
-}
-
-composeCompiler {
-    stabilityConfigurationFiles.add(project.layout.projectDirectory.file("compose-stability.conf"))
-}
-
-compose.resources {
-    publicResClass = true
 }
 
 kotlin {
@@ -28,6 +18,10 @@ kotlin {
         iosSimulatorArm64()
     ).forEach { iosTarget ->
         iosTarget.binaries.framework {
+            // Named "ComposeApp" for historical reasons only — there is no Compose in this
+            // module any more. Renaming it (and the `:composeApp` module) would churn the
+            // pbxproj, the embed-and-sign script, and every Swift `import ComposeApp`, for a
+            // cosmetic gain; left alone deliberately.
             baseName = "ComposeApp"
             isStatic = true
             binaryOption("bundleId", "io.music_assistant.client.composeapp")
@@ -58,17 +52,10 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
-            implementation(libs.compose.runtime)
-            implementation(libs.compose.foundation)
-            implementation(libs.compose.ui)
-            implementation(libs.compose.components.resources)
-            implementation(libs.compose.ui.tooling.preview)
-            implementation(libs.material)
+            // Not a Compose dependency despite the package name — `SchemaVersionWarningViewModel`
+            // extends `ViewModel` for its `viewModelScope`. The Compose-facing companion
+            // (`lifecycle-runtime-compose`) is gone with everything else.
             implementation(libs.androidx.lifecycle.viewmodel)
-            implementation(libs.androidx.lifecycle.runtime.compose)
-            implementation(libs.androidx.navigation3.ui)
-            implementation(libs.androidx.navigation3.material3.adaptive)
-            implementation(libs.androidx.navigation3.material3.viewmodel)
 
             implementation(libs.ktor.client.core)
             implementation(libs.ktor.client.websockets)
@@ -78,18 +65,19 @@ kotlin {
             implementation(libs.kotlinx.atomicfu)
 
             api(libs.koin.core)
-            implementation(libs.koin.compose)
-            implementation(libs.koin.compose.viewmodel)
-            implementation(libs.navigation.compose)
 
-            implementation(libs.coil.compose)
+            // Coil stays, minus its Compose integration: nothing *renders* through it any more
+            // (Swift uses `AsyncImage` over `MAWebRTCURLProtocol`), but `KtorServiceClient`
+            // still drives `ImageCacheInvalidator` and `WebRTCImageFetcher` feeds the loader.
+            //
+            // `coil-singleton` is the `io.coil-kt.coil3:coil` artifact — the one that actually
+            // declares `SingletonImageLoader`, which `initKoin` and `ImageCacheInvalidator` both
+            // use. It had been arriving transitively through `coil-compose` and went missing
+            // with it; depending on it directly is what that dependency always meant.
+            implementation(libs.coil.singleton)
             implementation(libs.coil.network.ktor3)
             implementation(libs.coil.svg)
 
-            implementation(libs.material.icons.core)
-            implementation(libs.material.icons.extended)
-            implementation(libs.icons.fontawesome)
-            implementation(libs.icons.tabler)
             implementation(libs.settings.multiplatform)
 
             implementation(libs.kermit)
@@ -98,8 +86,6 @@ kotlin {
             // Phase A spike: switched from `com.shepeliev:webrtc-kmp` to Ktor EAP.
             // See plans/let-s-investigate-possible-migration-sequential-pike.md.
             implementation(libs.ktor.client.webrtc)
-
-            implementation(libs.easyqrscan)
         }
 
         commonTest.dependencies {
@@ -115,58 +101,21 @@ kotlin {
     }
 }
 
-// --- Material Design Icons (community pack) webfont + codepoint table ---------
+// The MDI webfont task used to live here. It fetched the Material Design Icons community pack
+// and projected its meta.json into a slim { name -> codepoint } table, so `MdiIcon.kt` could
+// render the server's icon identifiers (e.g. "mdi-speaker") as font glyphs rather than hand-map
+// each one to a look-alike from another pack.
 //
-// The server sends icon identifiers from the MDI community pack (e.g. "mdi-speaker").
-// We render them as font glyphs (see MdiIcon.kt) instead of hand-mapping each name to a
-// look-alike from another pack. This task fetches the official webfont and projects the
-// pack's meta.json down to a slim { name -> codepoint } table.
+// Both its consumer and its delivery mechanism are gone: `MdiIcon` went out with the dead Compose
+// UI, and compose-resources — which is what turned `composeResources/font/**` into anything at
+// all — is no longer a dependency. A network-bound task feeding a resource system that does not
+// exist is worse than no task, so it's removed.
 //
-// It is NETWORK-BOUND and intentionally lazy: it only runs when an output is missing or
-// the pinned version changes (tracked via a build-dir marker). The generated assets live
-// under composeResources/ and are committed, so ordinary/offline builds never re-download.
-val mdiVersion = "7.4.47"
-val mdiFontOut = layout.projectDirectory.file("src/commonMain/composeResources/font/mdi_webfont.ttf")
-val mdiCodepointsOut = layout.projectDirectory.file("src/commonMain/composeResources/files/mdi_codepoints.json")
-val mdiVersionMarker = layout.buildDirectory.file("mdi/version.marker")
-
-val generateMdiResources by tasks.registering {
-    description = "Fetches the MDI webfont and generates a slim name->codepoint table."
-    group = "build setup"
-    inputs.property("mdiVersion", mdiVersion)
-    outputs.file(mdiFontOut)
-    outputs.file(mdiCodepointsOut)
-    outputs.file(mdiVersionMarker)
-    onlyIf {
-        !mdiFontOut.asFile.exists() ||
-            !mdiCodepointsOut.asFile.exists() ||
-            mdiVersionMarker.get().asFile.takeIf { it.exists() }?.readText() != mdiVersion
-    }
-    doLast {
-        val fontUrl = "https://cdn.jsdelivr.net/npm/@mdi/font@$mdiVersion/fonts/materialdesignicons-webfont.ttf"
-        val metaUrl = "https://cdn.jsdelivr.net/npm/@mdi/svg@$mdiVersion/meta.json"
-
-        mdiFontOut.asFile.parentFile.mkdirs()
-        uri(fontUrl).toURL().openStream().use { input ->
-            mdiFontOut.asFile.outputStream().use { input.copyTo(it) }
-        }
-
-        @Suppress("UNCHECKED_CAST")
-        val entries = groovy.json.JsonSlurper()
-            .parseText(uri(metaUrl).toURL().readText()) as List<Map<String, Any?>>
-        val table = entries.joinToString(",", "{", "}") { e ->
-            "\"${e["name"]}\":\"${e["codepoint"]}\""
-        }
-        mdiCodepointsOut.asFile.parentFile.mkdirs()
-        mdiCodepointsOut.asFile.writeText(table)
-
-        mdiVersionMarker.get().asFile.apply { parentFile.mkdirs(); writeText(mdiVersion) }
-        logger.lifecycle("generateMdiResources: wrote ${entries.size} MDI codepoints + webfont (v$mdiVersion).")
-    }
-}
-
-// Ensure the assets exist before Compose generates resource accessors (so Res.font.* and
-// the files/ table are present for both the IDE sync and clean CI builds).
-tasks.matching {
-    it.name.contains("ComposeResources") || it.name.contains("ResourceAccessors")
-}.configureEach { dependsOn(generateMdiResources) }
+// The generated assets are deliberately left in place (`composeResources/font/mdi_webfont.ttf`,
+// `composeResources/files/mdi_codepoints.json`, both committed). Restoring provider icons is an
+// open question, and if it's answered yes the font is exactly what a native renderer needs —
+// added to the Xcode target via `UIAppFonts`, which was the original Phase D plan. Regenerating
+// it is `git show` away in any case; re-deriving the codepoint table is not.
+//
+// `composeResources/values*/strings.xml` are likewise still on disk. They were the source the
+// `.xcstrings` catalog was exported from in Phase D; nothing reads them now.
