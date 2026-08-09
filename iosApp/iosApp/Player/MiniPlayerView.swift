@@ -42,8 +42,7 @@ struct MiniPlayerView: View {
     /// which is the whole point of letting the system own this. The cap exists only because the
     /// pager below is a horizontal `ScrollView` — greedy on both axes — and an unbounded
     /// proposal would let it grow without limit, which once ballooned the bar and stranded its
-    /// card mid-screen. Generous enough to clear the `.expanded` placement, which is taller
-    /// than `.inline` by roughly the tab bar it replaces.
+    /// card mid-screen. Well clear of either placement's real height.
     private static let maxContentHeight: CGFloat = 140
 
     var body: some View {
@@ -104,27 +103,24 @@ struct MiniPlayerView: View {
 /// One page: artwork, what's playing, play/pause, skip-forward. Tapping elsewhere on the row
 /// expands — mirrors `FloatingBar.kt`'s tap-anywhere-to-expand-when-collapsed.
 ///
-/// Renders two ways, following the accessory's own placement. `.inline` shares the row with the
-/// tab bar and is short, so the player's name rides on the detail line. `.expanded` — which the
-/// system hands us when the tab bar minimises away on scroll — has about a tab bar's worth of
-/// extra height, and spends it putting that name back on its own line, as it was before the bar
-/// moved into the accessory.
+/// Deliberately renders the same in both accessory placements. Minimising the tab bar turns out
+/// to widen the accessory rather than heighten it — `.expanded` shares the row with a collapsed
+/// tab bar and reclaims its width — so there is no extra vertical room to spend, and a layout
+/// that changed shape between the two just made the transition jump.
+///
+/// Draws no background of its own. The accessory supplies the pill and its material; an inner
+/// card meant a second, differently-rounded shape sitting inside it that couldn't fill the
+/// corners, which read as a grey block that didn't reach the edges.
 private struct MiniPlayerRow: View {
 
     let player: PlayerBarItemView
     let store: PlayerBarStore
     let onExpand: () -> Void
 
-    @Environment(\.tabViewBottomAccessoryPlacement) private var placement
-
-    private var isExpanded: Bool { placement == .expanded }
-
-    /// Inline has no room for the player's name of its own, so it leads the detail line —
-    /// ahead of the artist, because in a multi-room app that's what tells you which speaker
-    /// you're about to control. Expanded shows it above instead, leaving this to the artist.
+    /// The player's name leads, ahead of the artist: in a multi-room app that's what tells you
+    /// which speaker you're about to control.
     private var detailLine: String {
-        let parts = isExpanded ? [player.subtitle] : [player.name, player.subtitle]
-        return parts
+        [player.name, player.subtitle]
             .compactMap { $0?.isEmpty == false ? $0 : nil }
             .joined(separator: " • ")
     }
@@ -163,33 +159,22 @@ private struct MiniPlayerRow: View {
     }
 
     private var card: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            if isExpanded {
-                Text(player.name)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-            }
-            mainRow
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, isExpanded ? 8 : 6)
-        .frame(maxWidth: .infinity)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        // Hairline edge, as Apple Music's mini player has: over busy artwork the material alone
-        // leaves the card's boundary indistinct. `strokeBorder` insets the line so it sits
-        // inside the shape instead of straddling it and reading as double-width.
-        .overlay {
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(Color(.separator), lineWidth: 0.5)
-        }
-        .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .onTapGesture { onExpand() }
+        mainRow
+            .padding(.horizontal, 12)
+            // Only a hair of vertical padding: the accessory is short, and the previous
+            // layout's 40pt artwork plus 12pt of padding overran it and clipped the second
+            // line of text. The artwork is what sets the row's height now.
+            .padding(.vertical, 4)
+            .frame(maxWidth: .infinity)
+            // Fills the accessory, so a tap anywhere on the pill expands rather than only on
+            // the content itself.
+            .contentShape(.rect)
+            .onTapGesture { onExpand() }
     }
 
     private var mainRow: some View {
         HStack(spacing: 10) {
-            SpikeArtwork(url: player.artworkURL, kind: .track, sizing: .fixed(isExpanded ? 48 : 40))
+            SpikeArtwork(url: player.artworkURL, kind: .track, sizing: .fixed(38))
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(player.title ?? player.name)
