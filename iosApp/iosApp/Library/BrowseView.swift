@@ -56,7 +56,8 @@ struct BrowseView: View {
 
     @MainActor
     private func load() async {
-        items = nil
+        // Same reasoning as LibraryListView: don't clear what's on screen before refetching, or
+        // a reload flashes an empty screen. Nothing to clear on the first load anyway.
         loadFailed = false
 
         let result: [AppMediaItem]? = await withCheckedContinuation { continuation in

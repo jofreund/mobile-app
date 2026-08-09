@@ -23,6 +23,42 @@ struct LibraryCategoryRoute: Hashable {
 /// creation are all ported. `BROWSE` isn't a `MediaType` and never reaches this
 /// screen — it stays on `BrowseView`, a separately-scoped path-based tree rather
 /// than a flat list.
+/// Outlives the view, which is the point. SwiftUI rebuilds a `navigationDestination`'s body
+/// when the stack pops back to it, so `items` starts nil again and the screen blanks to a
+/// spinner until the refetch lands — that quarter-second of empty white is the flicker you see
+/// coming back from an artist page. Seeding from here puts the previous result on the first
+/// frame, and the refetch then replaces it in place rather than after a gap.
+///
+/// Bounded, because the key includes the search query: without a cap, every search typed in
+/// every category would be retained for the process's lifetime.
+@MainActor
+private enum LibraryListCache {
+    private static var entries: [String: [SpikeMediaItem]] = [:]
+    private static var order: [String] = []
+    private static let limit = 8
+
+    static func items(for key: String) -> [SpikeMediaItem]? { entries[key] }
+
+    static func store(_ items: [SpikeMediaItem], for key: String) {
+        if entries.updateValue(items, forKey: key) == nil { order.append(key) }
+        while order.count > limit, let oldest = order.first {
+            order.removeFirst()
+            entries.removeValue(forKey: oldest)
+        }
+    }
+
+    /// Kotlin data classes carry a structural `toString`, so interpolating them keys on the
+    /// values rather than on object identity.
+    static func key(
+        route: LibraryCategoryRoute,
+        query: String,
+        sort: SortOption,
+        filters: LibraryFilters
+    ) -> String {
+        "\(route.mediaType.name)|\(query)|\(sort)|\(filters)"
+    }
+}
+
 struct LibraryListView: View {
 
     let route: LibraryCategoryRoute
@@ -49,9 +85,17 @@ struct LibraryListView: View {
     init(route: LibraryCategoryRoute) {
         self.route = route
         self.availableSortFields = SortConfig.shared.fieldsFor(mediaType: route.mediaType)
-        _sortOption = State(initialValue: SortConfig.shared.defaultFor(mediaType: route.mediaType))
-        _filters = State(initialValue: KmpHelper.shared.libraryFilters(mediaType: route.mediaType).value ?? LibraryFilters.companion.DEFAULT)
+        let sort = SortConfig.shared.defaultFor(mediaType: route.mediaType)
+        let initialFilters = KmpHelper.shared.libraryFilters(mediaType: route.mediaType).value
+            ?? LibraryFilters.companion.DEFAULT
+        _sortOption = State(initialValue: sort)
+        _filters = State(initialValue: initialFilters)
         _viewMode = State(initialValue: KmpHelper.shared.viewMode(mediaType: route.mediaType).value ?? .grid)
+        _items = State(
+            initialValue: LibraryListCache.items(
+                for: LibraryListCache.key(route: route, query: "", sort: sort, filters: initialFilters)
+            )
+        )
     }
 
     /// Debounces `searchQuery` edits without hand-rolled Task bookkeeping: `.task(id:)`
@@ -267,7 +311,9 @@ struct LibraryListView: View {
 
     @MainActor
     private func load() async {
-        items = nil
+        // Deliberately does *not* clear `items` first. Whatever is on screen stays there until
+        // the new result arrives — a sort tap or filter change swaps content in place instead
+        // of flashing an empty screen, and a rebuilt view keeps whatever the cache seeded.
         loadFailed = false
         hasMore = true
 
@@ -286,8 +332,13 @@ struct LibraryListView: View {
             loadFailed = true
             return
         }
-        items = result.asSpikeItems
+        let loaded = result.asSpikeItems
+        items = loaded
         hasMore = result.count >= pageSize
+        LibraryListCache.store(
+            loaded,
+            for: LibraryListCache.key(route: route, query: query, sort: sortOption, filters: filters)
+        )
     }
 
     @MainActor
