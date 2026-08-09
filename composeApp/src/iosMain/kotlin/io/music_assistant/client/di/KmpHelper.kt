@@ -22,11 +22,7 @@ import io.music_assistant.client.bridge.NativeFlow
 import io.music_assistant.client.bridge.NativeStateFlow
 import io.music_assistant.client.bridge.NativeSuspend
 import io.music_assistant.client.data.MainDataSource
-import io.music_assistant.client.data.NowPlayingModes
-import io.music_assistant.client.data.NowPlayingTrack
-import io.music_assistant.client.data.NowPlayingTransport
 import io.music_assistant.client.data.PlayerBarState
-import io.music_assistant.client.data.executeLocalPlayerDispatch
 import io.music_assistant.client.data.model.client.LibraryFilters
 import io.music_assistant.client.data.model.client.MediaType
 import io.music_assistant.client.data.model.client.PlayerData
@@ -50,15 +46,12 @@ import io.music_assistant.client.data.model.client.items.Track
 import io.music_assistant.client.data.model.server.AuthProvider
 import io.music_assistant.client.data.model.server.ServerProviderInstance
 import io.music_assistant.client.data.model.server.ServerUser
-import io.music_assistant.client.data.planLocalPlayerDispatch
 import io.music_assistant.client.data.repository.MediaItemChange
 import io.music_assistant.client.data.repository.MediaItemRepository
 import io.music_assistant.client.data.repository.SearchResultData
 import io.music_assistant.client.input.VolumeButtonService
 import io.music_assistant.client.logging.InMemoryLogWriter
 import io.music_assistant.client.logging.LogSharer
-import io.music_assistant.client.player.sendspin.audio.Codec
-import io.music_assistant.client.player.sendspin.audio.Codecs
 import io.music_assistant.client.settings.ConnectionHistoryEntry
 import io.music_assistant.client.settings.SettingsRepository
 import io.music_assistant.client.settings.ViewMode
@@ -265,19 +258,6 @@ object KmpHelper : KoinComponent {
     fun onAppForeground() = serviceClient.onAppForeground()
     fun onAppBackground() = serviceClient.onAppBackground()
 
-    // MARK: - System media controls (lock screen / Control Center)
-
-    /**
-     * Route a remote-command string from `NowPlayingCoordinator` to whichever player the
-     * system-media surfaces are presenting. Returns false when there's nothing to control or the
-     * command isn't recognized, so Swift can report `.commandFailed` rather than a silent no-op.
-     *
-     * Which player that is, and how the string maps to an action, both stay in Kotlin — Swift
-     * only forwards the vocabulary `MPRemoteCommandCenter` gave it.
-     */
-    fun handleSystemMediaCommand(command: String): Boolean =
-        mainDataSource.handleSystemMediaCommand(command)
-
     // MARK: - Artwork loader (Swift-callable)
     //
     // Swift CarPlay / MPNowPlayingInfoCenter previously fetched artwork through
@@ -349,37 +329,6 @@ object KmpHelper : KoinComponent {
     // subscribers (CarPlay connecting mid-playback, foreground return) catch up
     // immediately. Callbacks arrive on the main thread; Swift needs no dispatch
     // hop. `null` means "nothing to present" (no current track).
-
-    /**
-     * Subscribe to track metadata changes (identity, titles, artwork URL,
-     * duration, long-form flag).
-     */
-    fun observeNowPlayingTrack(onChanged: (NowPlayingTrack?) -> Unit): Cancellable {
-        val job = mainScope.launch {
-            mainDataSource.nowPlayingTrack.collect { onChanged(it) }
-        }
-        return Cancellable { job.cancel() }
-    }
-
-    /**
-     * Subscribe to transport anchor changes (playing state, position anchor,
-     * rate). The anchor timestamp is only meaningful on the Kotlin side;
-     * Swift re-stamps arrival with its own clock.
-     */
-    fun observeNowPlayingTransport(onChanged: (NowPlayingTransport?) -> Unit): Cancellable {
-        val job = mainScope.launch {
-            mainDataSource.nowPlayingTransport.collect { onChanged(it) }
-        }
-        return Cancellable { job.cancel() }
-    }
-
-    /** Subscribe to queue-mode changes (shuffle, repeat, toggle availability). */
-    fun observeNowPlayingModes(onChanged: (NowPlayingModes?) -> Unit): Cancellable {
-        val job = mainScope.launch {
-            mainDataSource.nowPlayingModes.collect { onChanged(it) }
-        }
-        return Cancellable { job.cancel() }
-    }
 
     // MARK: - Swift Helpers for Data Fetching
     //
@@ -619,37 +568,6 @@ object KmpHelper : KoinComponent {
     fun deleteCrashLog() {
         logSharer.deleteCrashLog()
     }
-
-    /** Sendspin (local player) settings — one read/write pair per field, matching how
-     * `SettingsRepository` itself stores them (separate `StateFlow`s, not one grouped object).
-     * All nine mirror `SettingsViewModel`'s own re-exports/setters exactly. */
-    fun sendspinEnabled(): Boolean = settingsRepository.sendspinEnabled.value
-    fun setSendspinEnabled(enabled: Boolean) = settingsRepository.setSendspinEnabled(enabled)
-
-    fun sendspinDeviceName(): String = settingsRepository.sendspinDeviceName.value
-    fun setSendspinDeviceName(name: String) = settingsRepository.setSendspinDeviceName(name)
-
-    fun sendspinUseCustomConnection(): Boolean = settingsRepository.sendspinUseCustomConnection.value
-    fun setSendspinUseCustomConnection(enabled: Boolean) = settingsRepository.setSendspinUseCustomConnection(enabled)
-
-    fun sendspinHost(): String = settingsRepository.sendspinHost.value
-    fun setSendspinHost(host: String) = settingsRepository.setSendspinHost(host)
-
-    fun sendspinPort(): Int = settingsRepository.sendspinPort.value
-    fun setSendspinPort(port: Int) = settingsRepository.setSendspinPort(port)
-
-    fun sendspinPath(): String = settingsRepository.sendspinPath.value
-    fun setSendspinPath(path: String) = settingsRepository.setSendspinPath(path)
-
-    fun sendspinUseTls(): Boolean = settingsRepository.sendspinUseTls.value
-    fun setSendspinUseTls(enabled: Boolean) = settingsRepository.setSendspinUseTls(enabled)
-
-    fun sendspinCodecPreference(): Codec = settingsRepository.sendspinCodecPreference.value
-    fun setSendspinCodecPreference(codec: Codec) = settingsRepository.setSendspinCodecPreference(codec)
-    fun sendspinCodecOptions(): List<Codec> = Codecs.list
-
-    fun sendspinBufferCapacityMb(): Int = settingsRepository.sendspinBufferCapacityMb.value
-    fun setSendspinBufferCapacityMb(mb: Int) = settingsRepository.setSendspinBufferCapacityMb(mb)
 
     fun fetchPlaylists(completion: (List<AppMediaItem>?) -> Unit) {
         launchFetch("playlists", completion) {
@@ -1113,40 +1031,6 @@ object KmpHelper : KoinComponent {
     }
 
     // MARK: - Playback
-
-    /**
-     * Play, replace, or append [item] on the iOS local Sendspin player —
-     * never the group it may be synced to. When the local player is currently
-     * a sync-group child we always detach first, regardless of [option]:
-     * being in CarPlay means the user wants audio out of the phone they're
-     * holding, and there's no plausible scenario where they want the same
-     * audio mirrored to another player as well.
-     *
-     * Returns false on no-local-player or no-URI; callers use this to skip
-     * Siri donation and respond with `.failure`.
-     */
-    fun playOnLocalPlayer(item: AppMediaItem, option: QueueOption): Boolean =
-        dispatchLocal(item, option, radioMode = false)
-
-    private fun dispatchLocal(item: AppMediaItem, option: QueueOption, radioMode: Boolean): Boolean {
-        val player = mainDataSource.localPlayer.value?.player
-        val plan = planLocalPlayerDispatch(
-            localPlayerId = player?.id,
-            localPlayerSyncedTo = player?.syncedTo,
-            mediaUris = listOfNotNull(item.mediaUri),
-            option = option,
-            radioMode = radioMode,
-        ) ?: return false
-        plan.detachFrom?.let { syncedToId ->
-            log.i { "dispatchLocal($option, radio=$radioMode): detaching ${plan.playerId} from $syncedToId" }
-        }
-        mainScope.launch {
-            executeLocalPlayerDispatch(serviceClient, plan) { label, error ->
-                log.w(error) { "$label RPC failed: ${error.message}" }
-            }
-        }
-        return true
-    }
 
     /**
      * Play [item] on whichever player is currently selected (the Home tab's player

@@ -1,18 +1,16 @@
 import SwiftUI
 import MusicAssistantKit
 
-/// Settings — Phase E4. `SettingsScreen.kt` (1,309 LOC) used to do double duty as both the
+/// Settings. Replaced `SettingsScreen.kt` (1,309 LOC), which did double duty as both the
 /// first-run/reconnect connection setup flow (host/port/TLS, WebRTC + QR scan, connection
-/// history) *and* the authenticated settings screen (server info, login, Sendspin/local-player
-/// config, Car actions, DSP, theme, logs). Part 1 went native only for the sections reachable
-/// once already connected *and* authenticated; part 2 finishes the rest — connection setup and
-/// login/OAuth — via `ConnectionSetupView`, wrapping (never reimplementing)
-/// `AuthenticationManager`'s real state machine (server-ID-mismatch detection, per-server token
-/// lifecycle, `SilentReauth`'s bounded-retry-vs-surface-immediately asymmetry). Car actions/DSP
-/// settings are still deferred (lower usage — CarPlay-specific — same low-risk pass-through
-/// shape as Sendspin, just not done yet); as of part 2 they have no reachable native or Compose
-/// path from this screen, a pre-existing gap since part 1 shipped (the native authenticated
-/// `Form` below never included them, and nothing routes to the Compose fallback anymore).
+/// history) and the authenticated settings screen. Connection setup and login/OAuth live in
+/// `ConnectionSetupView`, wrapping (never reimplementing) `AuthenticationManager`'s real state
+/// machine — server-ID-mismatch detection, per-server token lifecycle, and `SilentReauth`'s
+/// bounded-retry-vs-surface-immediately asymmetry.
+///
+/// What the Compose original had and this doesn't: the Sendspin local-player config, and the
+/// Car actions / DSP sections. None of those are deferred work — CarPlay, Siri and the local
+/// player were removed outright, so there is nothing left for them to configure.
 ///
 /// `KmpHelper.sessionState` exposes the real Kotlin `SessionState` sealed class directly (same
 /// pattern `AppTabView.swift` already uses for `DeepLinkDestination`) so this view can branch on
@@ -67,10 +65,6 @@ struct SettingsView: View {
                 accountSection(user: user)
             }
             themeSection
-            // SendspinSection() intentionally not shown — local player is a reduced-scope
-            // feature for now (product decision, not a technical gap). Left defined below,
-            // not deleted, and KmpHelper's Sendspin bridge methods stay as-is: re-add this
-            // line to bring it back.
             miscSection
         }
     }
@@ -216,93 +210,5 @@ private struct MiscLogsSection: View {
     }
 }
 
-/// The local-player (Sendspin) config section — device name, codec, buffer size, optional
 /// custom connection, enable/disable. All fields lock while the local player is running
 /// (config is connect-time; changes take effect on the next connect), matching Compose exactly.
-private struct SendspinSection: View {
-
-    @State private var enabled = KmpHelper.shared.sendspinEnabled()
-    @State private var deviceName = KmpHelper.shared.sendspinDeviceName()
-    @State private var codec = KmpHelper.shared.sendspinCodecPreference()
-    @State private var bufferMb = Int(KmpHelper.shared.sendspinBufferCapacityMb())
-    @State private var useCustomConnection = KmpHelper.shared.sendspinUseCustomConnection()
-    @State private var host = KmpHelper.shared.sendspinHost()
-    @State private var port = String(KmpHelper.shared.sendspinPort())
-    @State private var path = KmpHelper.shared.sendspinPath()
-    @State private var useTls = KmpHelper.shared.sendspinUseTls()
-
-    // Mirrors SendspinConfig.BUFFER_MB_MIN/MAX/STEP (Kotlin companion constants, hardcoded here
-    // rather than bridged — a stable trio of numbers not worth a bridge method for).
-    private let bufferRange: ClosedRange<Double> = 5...50
-    private let bufferStep: Double = 5
-
-    private let codecOptions = KmpHelper.shared.sendspinCodecOptions()
-
-    var body: some View {
-        Section(String(localized: enabled ? "settings_local_player_enabled" : "settings_local_player_disabled")) {
-            TextField(String(localized: "settings_player_name"), text: $deviceName)
-                .disabled(enabled)
-                .onChange(of: deviceName) { _, newValue in KmpHelper.shared.setSendspinDeviceName(name: newValue) }
-
-            Picker(String(localized: "settings_codec_preference"), selection: $codec) {
-                ForEach(codecOptions, id: \.self) { option in
-                    Text(option.uiTitle()).tag(option)
-                }
-            }
-            .disabled(enabled)
-            .onChange(of: codec) { _, newValue in KmpHelper.shared.setSendspinCodecPreference(codec: newValue) }
-
-            VStack(alignment: .leading) {
-                HStack {
-                    Text(String(localized: "settings_buffer_size"))
-                    Spacer()
-                    Text("\(bufferMb) MB").foregroundStyle(.secondary)
-                }
-                Slider(
-                    value: Binding(
-                        get: { Double(bufferMb) },
-                        set: { bufferMb = Int($0) }
-                    ),
-                    in: bufferRange,
-                    step: bufferStep,
-                    onEditingChanged: { editing in
-                        if !editing { KmpHelper.shared.setSendspinBufferCapacityMb(mb: Int32(bufferMb)) }
-                    }
-                )
-                .disabled(enabled)
-            }
-
-            Toggle(String(localized: "settings_custom_sendspin"), isOn: $useCustomConnection)
-                .disabled(enabled)
-                .onChange(of: useCustomConnection) { _, newValue in KmpHelper.shared.setSendspinUseCustomConnection(enabled: newValue) }
-
-            if useCustomConnection {
-                TextField(String(localized: "settings_host"), text: $host)
-                    .disabled(enabled)
-                    .onChange(of: host) { _, newValue in KmpHelper.shared.setSendspinHost(host: newValue) }
-
-                TextField(String(localized: "settings_port_default"), text: $port)
-                    .keyboardType(.numberPad)
-                    .disabled(enabled)
-                    .onChange(of: port) { _, newValue in
-                        if let value = Int32(newValue) { KmpHelper.shared.setSendspinPort(port: value) }
-                    }
-
-                TextField(String(localized: "settings_path"), text: $path)
-                    .disabled(enabled)
-                    .onChange(of: path) { _, newValue in KmpHelper.shared.setSendspinPath(path: newValue) }
-
-                Toggle(String(localized: "settings_use_tls_wss"), isOn: $useTls)
-                    .disabled(enabled)
-                    .onChange(of: useTls) { _, newValue in KmpHelper.shared.setSendspinUseTls(enabled: newValue) }
-            }
-
-            Button(role: enabled ? .destructive : nil) {
-                enabled.toggle()
-                KmpHelper.shared.setSendspinEnabled(enabled: enabled)
-            } label: {
-                Text(String(localized: enabled ? "settings_disable_local_player" : "settings_enable_local_player"))
-            }
-        }
-    }
-}
