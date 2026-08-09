@@ -21,7 +21,6 @@ import io.music_assistant.client.bridge.Cancellable
 import io.music_assistant.client.bridge.NativeFlow
 import io.music_assistant.client.bridge.NativeStateFlow
 import io.music_assistant.client.bridge.NativeSuspend
-import io.music_assistant.client.carplay.CarPlayStrings
 import io.music_assistant.client.data.MainDataSource
 import io.music_assistant.client.data.NowPlayingModes
 import io.music_assistant.client.data.NowPlayingTrack
@@ -48,7 +47,6 @@ import io.music_assistant.client.data.model.client.items.PodcastEpisode
 import io.music_assistant.client.data.model.client.items.RadioStation
 import io.music_assistant.client.data.model.client.items.RecommendationFolder
 import io.music_assistant.client.data.model.client.items.Track
-import io.music_assistant.client.data.model.client.toItemKind
 import io.music_assistant.client.data.model.server.AuthProvider
 import io.music_assistant.client.data.model.server.ServerProviderInstance
 import io.music_assistant.client.data.model.server.ServerUser
@@ -61,14 +59,9 @@ import io.music_assistant.client.logging.InMemoryLogWriter
 import io.music_assistant.client.logging.LogSharer
 import io.music_assistant.client.player.sendspin.audio.Codec
 import io.music_assistant.client.player.sendspin.audio.Codecs
-import io.music_assistant.client.settings.CarPlatform
 import io.music_assistant.client.settings.ConnectionHistoryEntry
-import io.music_assistant.client.settings.DefaultClickOption
 import io.music_assistant.client.settings.SettingsRepository
 import io.music_assistant.client.settings.ViewMode
-import io.music_assistant.client.settings.carBulkActions
-import io.music_assistant.client.settings.carTapAction
-import io.music_assistant.client.settings.toCarDispatch
 import io.music_assistant.client.ui.AppBannerState
 import io.music_assistant.client.ui.AppRootDestination
 import io.music_assistant.client.ui.AppRootRouter
@@ -79,8 +72,6 @@ import io.music_assistant.client.ui.compose.common.action.PlayerAction
 import io.music_assistant.client.ui.compose.common.action.QueueAction
 import io.music_assistant.client.ui.compose.common.viewmodel.createPlaylistAwaitingConfirmation
 import io.music_assistant.client.ui.compose.item.ItemUseCases
-import io.music_assistant.client.ui.compose.library.LibraryCategory
-import io.music_assistant.client.ui.compose.library.carTabCategories
 import io.music_assistant.client.ui.theme.ThemeSetting
 import io.music_assistant.client.utils.HasConnectionData
 import io.music_assistant.client.utils.SessionState
@@ -286,21 +277,6 @@ object KmpHelper : KoinComponent {
      */
     fun handleSystemMediaCommand(command: String): Boolean =
         mainDataSource.handleSystemMediaCommand(command)
-
-    // MARK: - External Consumer Lifecycle (CarPlay)
-
-    /**
-     * Resolve CarPlay UI strings for the current locale off the shared Compose
-     * catalog. Async because the resource read is suspending; CarPlay defers
-     * building its first template until [completion] fires so immutable
-     * template titles are never blank.
-     */
-    fun loadCarPlayStrings(completion: (CarPlayStrings) -> Unit) {
-        mainScope.launch { completion(CarPlayStrings.load()) }
-    }
-
-    fun onExternalConsumerActive() = serviceClient.onExternalConsumerActive()
-    fun onExternalConsumerInactive() = serviceClient.onExternalConsumerInactive()
 
     // MARK: - Artwork loader (Swift-callable)
     //
@@ -1214,61 +1190,6 @@ object KmpHelper : KoinComponent {
             )
         }
         return true
-    }
-
-    // MARK: - Configurable Car actions (shared with Android Auto via SettingsRepository)
-
-    /**
-     * The ordered, CarPlay-supported bulk-action names (DefaultClickAction.name) configured for
-     * [item]'s browsable kind. Empty when the item isn't a browsable container. Swift maps each
-     * name to a localized title (CarPlayStrings.bulkActionTitle) and dispatches via [playCarAction].
-     */
-    fun carBulkActionNames(item: AppMediaItem): List<String> {
-        val kind = item.mediaType.toItemKind() ?: return emptyList()
-        return settingsRepository.carBrowsableBulkActions.value
-            .carBulkActions(kind, CarPlatform.CARPLAY)
-            .map { it.name }
-    }
-
-    /** Dispatch a named [DefaultClickOption] (a bulk button) onto [item]. False if invalid/no-op. */
-    fun playCarAction(item: AppMediaItem, actionName: String): Boolean {
-        val action = runCatching { DefaultClickOption.valueOf(actionName) }.getOrNull() ?: return false
-        val dispatch = action.toCarDispatch()
-        return dispatchLocal(item, dispatch.option, dispatch.radioMode)
-    }
-
-    /**
-     * Dispatch the per-kind tap action configured for [item] (a plain item tap). Returns the
-     * dispatched DefaultClickAction.name so Swift can decide whether to push Now Playing, or null
-     * on failure / no playable URI.
-     */
-    fun playCarDefaultTap(item: AppMediaItem): String? {
-        val action = item.mediaType.toItemKind()
-            ?.let { settingsRepository.carPlayableClickActions.value.carTapAction(it) }
-            ?: DefaultClickOption.PLAY_NOW
-        val dispatch = action.toCarDispatch()
-        return if (dispatchLocal(item, dispatch.option, dispatch.radioMode)) action.name else null
-    }
-
-    /**
-     * The ordered, enabled CarPlay browse-grid categories from the user's Car Tabs setting.
-     * Returns LibraryCategory.name strings (e.g. "ARTISTS", "ALBUMS") so Swift can map each
-     * to its fetcher and icon. Falls back to [carTabCategories] when no config is stored.
-     * Tracks and Genres are excluded because they are not in [carTabCategories].
-     */
-    fun carBrowseCategories(): List<String> {
-        val stored = settingsRepository.carTabsConfig.value
-            ?: return carTabCategories.map { it.name }
-        val parsed = stored.mapNotNull { pref ->
-            runCatching { LibraryCategory.valueOf(pref.name) }.getOrNull()
-                ?.takeIf { it in carTabCategories }
-                ?.let { it to pref.enabled }
-        }
-        val present = parsed.map { it.first }.toSet()
-        val missing = carTabCategories.filter { it !in present }.map { it to true }
-        return (parsed + missing)
-            .filter { (_, enabled) -> enabled }
-            .map { (category, _) -> category.name }
     }
 
     // MARK: - Library Actions (Siri)

@@ -7,7 +7,6 @@ import io.music_assistant.client.api.ServiceClient
 import io.music_assistant.client.auth.AuthCoordinator
 import io.music_assistant.client.auth.AuthenticationManager
 import io.music_assistant.client.connection.ConnectionManager
-import io.music_assistant.client.data.CarDspApplier
 import io.music_assistant.client.data.LocalPlayerController
 import io.music_assistant.client.data.MainDataSource
 import io.music_assistant.client.data.PlayerPositionTracker
@@ -70,9 +69,6 @@ fun sharedModule(
         singleOf(::QueueFactory)            // Stateless DTO → domain mapper (depends on MediaItemFactory)
         singleOf(::MediaItemRepository)     // Server DTO/event → client model boundary for UI
         singleOf(::MainDataSource)          // Singleton - held by foreground service
-        single(createdAtStart = true) {     // Eager - must observe car edges from launch
-            CarDspApplier(get(), get(), get(), get())
-        }
         single(createdAtStart = true) {  // Eager - schema warning must be observable before any host mounts
             SchemaVersionWarningViewModel(get())
         }
