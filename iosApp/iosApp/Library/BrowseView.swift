@@ -23,7 +23,7 @@ struct BrowseView: View {
 
     let route: BrowseRoute
 
-    @State private var items: [SpikeMediaItem]?
+    @State private var items: [MediaItem]?
     @State private var loadFailed = false
 
     var body: some View {
@@ -70,7 +70,7 @@ struct BrowseView: View {
         }
         // The server's own ".." entry is redundant with the interactive pop gesture / back
         // button a native NavigationStack already gives users for free.
-        items = result.asSpikeItems.filter {
+        items = result.asMediaItems.filter {
             !(($0.kotlin as? RecommendationFolder)?.isParentLink ?? false)
         }
     }
@@ -78,7 +78,7 @@ struct BrowseView: View {
 
 private struct BrowseRow: View {
 
-    let item: SpikeMediaItem
+    let item: MediaItem
 
     var body: some View {
         Group {
@@ -105,7 +105,7 @@ private struct BrowseRow: View {
 
     private var row: some View {
         HStack(spacing: 12) {
-            SpikeArtwork(url: item.artworkURL, kind: item.kind, sizing: .fixed(48))
+            ArtworkView(url: item.artworkURL, kind: item.kind, sizing: .fixed(48))
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.title)
                     .font(.body)

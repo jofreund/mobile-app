@@ -33,13 +33,13 @@ struct LibraryCategoryRoute: Hashable {
 /// every category would be retained for the process's lifetime.
 @MainActor
 private enum LibraryListCache {
-    private static var entries: [String: [SpikeMediaItem]] = [:]
+    private static var entries: [String: [MediaItem]] = [:]
     private static var order: [String] = []
     private static let limit = 8
 
-    static func items(for key: String) -> [SpikeMediaItem]? { entries[key] }
+    static func items(for key: String) -> [MediaItem]? { entries[key] }
 
-    static func store(_ items: [SpikeMediaItem], for key: String) {
+    static func store(_ items: [MediaItem], for key: String) {
         if entries.updateValue(items, forKey: key) == nil { order.append(key) }
         while order.count > limit, let oldest = order.first {
             order.removeFirst()
@@ -63,7 +63,7 @@ struct LibraryListView: View {
 
     let route: LibraryCategoryRoute
 
-    @State private var items: [SpikeMediaItem]?
+    @State private var items: [MediaItem]?
     @State private var loadFailed = false
     @State private var searchQuery = ""
     @State private var sortOption: SortOption
@@ -179,7 +179,7 @@ struct LibraryListView: View {
     /// was no list to draw one.
     ///
     /// Grid mode stays a `ScrollView`; a `List` has nothing to offer a grid of tiles.
-    private func listContent(_ items: [SpikeMediaItem]) -> some View {
+    private func listContent(_ items: [MediaItem]) -> some View {
         List {
             if showsCreatePlaylistRow {
                 createPlaylistRow
@@ -199,7 +199,7 @@ struct LibraryListView: View {
         .refreshable { await load() }
     }
 
-    private func gridContent(_ items: [SpikeMediaItem]) -> some View {
+    private func gridContent(_ items: [MediaItem]) -> some View {
         ScrollView {
             if showsCreatePlaylistRow {
                 createPlaylistRow
@@ -311,7 +311,7 @@ struct LibraryListView: View {
     /// Mirrors `AdaptiveMediaGrid`'s `derivedStateOf` over `LazyGridState.layoutInfo`
     /// (10-from-the-end trigger), but SwiftUI's `LazyVGrid` exposes no scroll-offset
     /// API — `.onAppear` on each tile is the idiomatic native equivalent.
-    private func loadMoreIfNeeded(current item: SpikeMediaItem) {
+    private func loadMoreIfNeeded(current item: MediaItem) {
         guard let items, hasMore, !isLoadingMore else { return }
         guard let index = items.firstIndex(where: { $0.id == item.id }) else { return }
         guard index >= items.count - 10 else { return }
@@ -367,7 +367,7 @@ struct LibraryListView: View {
             loadFailed = true
             return
         }
-        let loaded = result.asSpikeItems
+        let loaded = result.asMediaItems
         items = loaded
         hasMore = result.count >= pageSize
         LibraryListCache.store(
@@ -398,7 +398,7 @@ struct LibraryListView: View {
             return
         }
         let existingIds = Set(currentItems.map(\.id))
-        items = currentItems + result.asSpikeItems.filter { !existingIds.contains($0.id) }
+        items = currentItems + result.asMediaItems.filter { !existingIds.contains($0.id) }
         hasMore = result.count >= pageSize
     }
 }
@@ -430,7 +430,7 @@ private extension SortField {
 /// visual layout (`gridTile` vs `listRow`) changes.
 private struct LibraryItemCell: View {
 
-    let item: SpikeMediaItem
+    let item: MediaItem
     let viewMode: ViewMode
 
     var body: some View {
@@ -464,7 +464,7 @@ private struct LibraryItemCell: View {
 
     private var gridTile: some View {
         VStack(alignment: item.kind.prefersCircularArtwork ? .center : .leading, spacing: 8) {
-            SpikeArtwork(url: item.artworkURL, kind: item.kind, sizing: .flexible(decodeHint: 180))
+            ArtworkView(url: item.artworkURL, kind: item.kind, sizing: .flexible(decodeHint: 180))
                 .frame(maxWidth: .infinity)
             Text(item.title)
                 .font(.subheadline.weight(.medium))
@@ -485,7 +485,7 @@ private struct LibraryItemCell: View {
     /// further in than Apple Music's.
     private var listRow: some View {
         HStack(spacing: Self.artworkGap) {
-            SpikeArtwork(url: item.artworkURL, kind: item.kind, sizing: .fixed(Self.artworkSize))
+            ArtworkView(url: item.artworkURL, kind: item.kind, sizing: .fixed(Self.artworkSize))
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.title)
                     // One line, like Apple Music. Wrapping to two made rows in a long list

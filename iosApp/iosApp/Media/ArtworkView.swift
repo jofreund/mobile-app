@@ -3,21 +3,8 @@ import ImageIO
 import UniformTypeIdentifiers
 import MusicAssistantKit
 
-/// Downsampling image loader and cache — every native screen's artwork goes
-/// through this (ItemDetails, Artist, Genre, Library, Browse), not just the
-/// original Phase A spike it was built for.
-///
-/// Deliberately small and dependency-free: no usable memory cache and full-
-/// resolution decode is what makes bare `AsyncImage` stutter in a grid of 60pt
-/// thumbnails backed by 1000px JPEGs.
-///
-/// Phase D's plan called for replacing this with Nuke (prefetching, disk
-/// cache, progressive decode) once artwork-at-scroll-speed needed more than
-/// this provides — hasn't been revisited since, so this is still it. Every
-/// request goes through `URLSession`, so `MAWebRTCURLProtocol` transparently
-/// handles `mawebrtc://` and this code never has to know the difference.
 /// Outside the actor deliberately. `NSCache` is thread-safe on its own, and holding it here is
-/// what lets `SpikeImageLoader.cachedImage` answer synchronously — an actor-isolated cache can
+/// what lets `ArtworkLoader.cachedImage` answer synchronously — an actor-isolated cache can
 /// only be read with `await`, which costs a frame even on a hit, and that frame is a placeholder.
 private let artworkCache: NSCache<NSString, UIImage> = {
     let cache = NSCache<NSString, UIImage>()
@@ -25,9 +12,19 @@ private let artworkCache: NSCache<NSString, UIImage> = {
     return cache
 }()
 
-actor SpikeImageLoader {
+/// Downsampling image loader for every screen's artwork — ItemDetails, Artist, Genre, Library,
+/// Browse and the player all go through this.
+///
+/// Three tiers: an in-memory `NSCache`, then `ArtworkDiskCache`, then the network. The decode is
+/// the reason it exists at all — bare `AsyncImage` keeps the full-resolution bitmap resident per
+/// cell, which is what makes a grid of 60pt thumbnails backed by 1000px JPEGs stutter.
+///
+/// Deliberately dependency-free. Every request goes through `URLSession`, so
+/// `MAWebRTCURLProtocol` transparently handles `mawebrtc://` and this code never has to know
+/// which transport it is on.
+actor ArtworkLoader {
 
-    static let shared = SpikeImageLoader()
+    static let shared = ArtworkLoader()
 
     /// A cached image, or nil — without suspending. Callers use this to render a hit on their
     /// very first frame instead of flashing a placeholder and fading in behind an `await`.
@@ -117,7 +114,7 @@ actor SpikeImageLoader {
         }
     }
 
-    private static let logTag = "SpikeImageLoader"
+    private static let logTag = "ArtworkLoader"
 
     /// Decode straight to the size we will draw at. This is the whole point —
     /// `UIImage(data:)` would keep the full-resolution bitmap resident per cell.
@@ -141,7 +138,7 @@ actor SpikeImageLoader {
 }
 
 /// How an artwork view claims space.
-enum SpikeArtworkSizing {
+enum ArtworkSizing {
     /// Exact point size, for list rows and the detail header.
     case fixed(CGFloat)
     /// Fills the available width and stays square — required inside a
@@ -159,15 +156,15 @@ enum SpikeArtworkSizing {
 }
 
 /// Artwork view with a type-appropriate placeholder and a cross-fade on arrival.
-struct SpikeArtwork: View {
+struct ArtworkView: View {
 
     let url: URL?
-    let kind: SpikeMediaItem.Kind
-    let sizing: SpikeArtworkSizing
+    let kind: MediaItem.Kind
+    let sizing: ArtworkSizing
 
     @State private var image: UIImage?
 
-    init(url: URL?, kind: SpikeMediaItem.Kind, sizing: SpikeArtworkSizing) {
+    init(url: URL?, kind: MediaItem.Kind, sizing: ArtworkSizing) {
         self.url = url
         self.kind = kind
         self.sizing = sizing
@@ -178,7 +175,7 @@ struct SpikeArtwork: View {
         // page flickering, and it is why this looked like a data reload.
         _image = State(
             initialValue: url.flatMap {
-                SpikeImageLoader.cachedImage(for: $0, maxPixel: sizing.referenceSize)
+                ArtworkLoader.cachedImage(for: $0, maxPixel: sizing.referenceSize)
             }
         )
     }
@@ -202,13 +199,13 @@ struct SpikeArtwork: View {
                 }
                 // Runs on a URL change too (cell reuse), where the seeded value above belongs
                 // to the previous URL — so take the synchronous hit again before suspending.
-                if let cached = SpikeImageLoader.cachedImage(for: url, maxPixel: reference) {
+                if let cached = ArtworkLoader.cachedImage(for: url, maxPixel: reference) {
                     image = cached
                     return
                 }
                 // Deliberately not guarded on a prior attempt: that would strand a cell whose
                 // first attempt failed.
-                image = await SpikeImageLoader.shared.image(for: url, maxPixel: reference)
+                image = await ArtworkLoader.shared.image(for: url, maxPixel: reference)
             }
     }
 

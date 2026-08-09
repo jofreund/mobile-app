@@ -112,7 +112,7 @@ final class PlayerBarStore {
 }
 
 /// SwiftUI-shaped projection of the Kotlin `PlayerBarItem` — same "flatten at the bridge
-/// boundary" pattern `SpikeMediaItem` uses over `AppMediaItem`. Read by both `MiniPlayerView`
+/// boundary" pattern `MediaItem` uses over `AppMediaItem`. Read by both `MiniPlayerView`
 /// (first eight fields only) and `ExpandedPlayerView` (everything).
 struct PlayerBarItemView: Identifiable {
     let id: String

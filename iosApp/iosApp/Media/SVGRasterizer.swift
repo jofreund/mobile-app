@@ -3,7 +3,7 @@ import WebKit
 
 /// Renders SVG artwork to a `UIImage`, because nothing on the platform will.
 ///
-/// ImageIO — which `SpikeImageLoader.downsample` uses, and which backs `UIImage(data:)` — decodes
+/// ImageIO — which `ArtworkLoader.downsample` uses, and which backs `UIImage(data:)` — decodes
 /// no vector formats at all. `CGImageSourceCreateWithData` even succeeds on SVG bytes; it's the
 /// type and the thumbnail that come back nil, so the failure is silent and looks exactly like an
 /// item having no artwork.
@@ -21,7 +21,7 @@ import WebKit
 /// - Only reached when ImageIO has already refused the bytes, so raster artwork never touches it.
 /// - One shared web view, reused, rather than one per image.
 /// - Serialized through a gate: a screen of genres would otherwise start twenty of these at once.
-/// - Callers cache the result (`SpikeImageLoader`'s `NSCache`), so each URL pays once.
+/// - Callers cache the result (`ArtworkLoader`'s `NSCache`), so each URL pays once.
 @MainActor
 final class SVGRasterizer {
 

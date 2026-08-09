@@ -169,7 +169,7 @@ private struct MiniPlayerRow: View {
 
     private var mainRow: some View {
         HStack(spacing: 12) {
-            SpikeArtwork(url: player.artworkURL, kind: .track, sizing: .fixed(36))
+            ArtworkView(url: player.artworkURL, kind: .track, sizing: .fixed(36))
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(player.title ?? player.name)

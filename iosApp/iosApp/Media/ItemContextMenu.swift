@@ -1,7 +1,7 @@
 import SwiftUI
 import MusicAssistantKit
 
-/// What surrounds a [SpikeMediaItem] row/tile that its long-press menu needs to know about —
+/// What surrounds a [MediaItem] row/tile that its long-press menu needs to know about —
 /// only ever set by `ItemDetailsView.swift`'s `PlayableRow`, since Library/Home/Search show
 /// top-level items with no parent container. Mirrors Compose's `ClickContext`/`onRemoveFromPlaylist`
 /// plumbing (`PlayableItemWithMenu.kt`), narrowed to what actually varies here.
@@ -98,7 +98,7 @@ enum ItemMenuAction: Hashable, Identifiable {
 /// Unlike Compose, this doesn't distinguish a "playable" vs "browsable" call site — item kind
 /// alone (`isPlayable`, `is Genre`, `is PodcastEpisode`, `is Audiobook`) already reproduces
 /// the same per-kind gating Compose gets from calling this via two different composables.
-func resolveMenuActions(for item: SpikeMediaItem, context: ItemMenuContext) -> [ItemMenuAction] {
+func resolveMenuActions(for item: MediaItem, context: ItemMenuContext) -> [ItemMenuAction] {
     let kotlin = item.kotlin
     var actions: [ItemMenuAction] = []
 
@@ -142,17 +142,17 @@ func resolveMenuActions(for item: SpikeMediaItem, context: ItemMenuContext) -> [
 }
 
 extension View {
-    /// Attaches a native long-press context menu to a `SpikeMediaItem` row/tile, wired to the
+    /// Attaches a native long-press context menu to a `MediaItem` row/tile, wired to the
     /// `KmpHelper` bridge methods for every action `resolveMenuActions` can produce. One shared
     /// implementation for `LibraryItemCell`, `HomeCarouselTile`, `SearchResultRow`, and
     /// `ItemDetailsView`'s `PlayableRow` rather than four copies.
-    func itemContextMenu(item: SpikeMediaItem, context: ItemMenuContext = ItemMenuContext()) -> some View {
+    func itemContextMenu(item: MediaItem, context: ItemMenuContext = ItemMenuContext()) -> some View {
         modifier(ItemContextMenuModifier(item: item, context: context))
     }
 }
 
 private struct ItemContextMenuModifier: ViewModifier {
-    let item: SpikeMediaItem
+    let item: MediaItem
     let context: ItemMenuContext
 
     @State private var showRemoveLibraryConfirm = false

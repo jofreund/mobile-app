@@ -75,9 +75,9 @@ struct GenreDetailsView: View {
     }
 
     private func header(for genre: Genre) -> some View {
-        let media = SpikeMediaItem(genre)
+        let media = MediaItem(genre)
         return VStack(spacing: 12) {
-            SpikeArtwork(url: media.artworkURL, kind: media.kind, sizing: .fixed(140))
+            ArtworkView(url: media.artworkURL, kind: media.kind, sizing: .fixed(140))
                 .shadow(color: .black.opacity(0.22), radius: 14, y: 8)
             Text(media.title)
                 .font(.title2.weight(.semibold))
@@ -98,7 +98,7 @@ struct GenreDetailsView: View {
     private var tabContent: some View {
         let filtered: SectionLoadState = {
             guard case .loaded(let items) = overview else { return overview }
-            let kind: SpikeMediaItem.Kind = selectedTab == .albums ? .album : .artist
+            let kind: MediaItem.Kind = selectedTab == .albums ? .album : .artist
             return .loaded(items.filter { $0.kind == kind })
         }()
 
@@ -170,17 +170,17 @@ struct GenreDetailsView: View {
             ) { continuation.resume(returning: $0) }
         }
         guard !Task.isCancelled else { return }
-        overview = result.map { .loaded($0.asSpikeItems) } ?? .failed
+        overview = result.map { .loaded($0.asMediaItems) } ?? .failed
     }
 }
 
 private struct GenreGridTile: View {
 
-    let item: SpikeMediaItem
+    let item: MediaItem
 
     var body: some View {
         VStack(alignment: item.kind.prefersCircularArtwork ? .center : .leading, spacing: 8) {
-            SpikeArtwork(url: item.artworkURL, kind: item.kind, sizing: .flexible(decodeHint: 180))
+            ArtworkView(url: item.artworkURL, kind: item.kind, sizing: .flexible(decodeHint: 180))
                 .frame(maxWidth: .infinity)
             Text(item.title)
                 .font(.subheadline.weight(.medium))

@@ -182,7 +182,7 @@ private func reconciledCategories(config: [SettingsRepository.LibraryCategoryPre
 }
 
 private extension LibraryCategory {
-    /// Same SF Symbol set `SpikeMediaItem.Kind.symbol` already uses for each media type, plus
+    /// Same SF Symbol set `MediaItem.Kind.symbol` already uses for each media type, plus
     /// a folder glyph for Browse.
     var symbolName: String {
         switch self {

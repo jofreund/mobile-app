@@ -43,7 +43,7 @@ struct ContainerItemDetailsView: View {
     @State private var itemLoadFailed = false
     @State private var isFavorite = false
 
-    @State private var playableItems: [SpikeMediaItem] = []
+    @State private var playableItems: [MediaItem] = []
     @State private var chapters: [Chapter] = []
     @State private var subItemsLoading = false
     @State private var subItemsLoadFailed = false
@@ -135,7 +135,7 @@ struct ContainerItemDetailsView: View {
             subItemsLoadFailed = true
             return
         }
-        playableItems = result.map(SpikeMediaItem.init)
+        playableItems = result.map(MediaItem.init)
     }
 }
 
@@ -146,7 +146,7 @@ private struct DetailContent: View {
 
     let item: AppMediaItem
     @Binding var isFavorite: Bool
-    let playableItems: [SpikeMediaItem]
+    let playableItems: [MediaItem]
     let chapters: [Chapter]
     let subItemsLoading: Bool
     let subItemsLoadFailed: Bool
@@ -181,11 +181,11 @@ private struct DetailContent: View {
         }
     }
 
-    private var media: SpikeMediaItem { SpikeMediaItem(item) }
+    private var media: MediaItem { MediaItem(item) }
 
     private var header: some View {
         VStack(spacing: 14) {
-            SpikeArtwork(url: media.artworkURL, kind: media.kind, sizing: .fixed(220))
+            ArtworkView(url: media.artworkURL, kind: media.kind, sizing: .fixed(220))
                 .shadow(color: .black.opacity(0.22), radius: 18, y: 10)
 
             VStack(spacing: 4) {
@@ -295,7 +295,7 @@ private struct DetailContent: View {
 /// has a parent Album/Playlist context.
 private struct PlayableRow: View {
 
-    let media: SpikeMediaItem
+    let media: MediaItem
     let parentItem: AppMediaItem
     let index: Int
     let onRemovedFromPlaylist: () -> Void

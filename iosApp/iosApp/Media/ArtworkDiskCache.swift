@@ -1,6 +1,6 @@
 import UIKit
 
-/// On-disk store for already-downsampled artwork, behind `SpikeImageLoader`'s memory cache.
+/// On-disk store for already-downsampled artwork, behind `ArtworkLoader`'s memory cache.
 ///
 /// The memory cache dies with the process, so without this every cold launch re-downloads every
 /// image the user scrolls past. That matters most over WebRTC, where artwork is relayed through a
@@ -12,7 +12,7 @@ import UIKit
 /// will be drawn at, so a hit skips both the network *and* the resize.
 ///
 /// Nothing here is on the main actor and nothing is async — callers are expected to be off the
-/// main thread already (`SpikeImageLoader` is an actor). Failures are silent by design: a cache
+/// main thread already (`ArtworkLoader` is an actor). Failures are silent by design: a cache
 /// that throws is worse than one that misses.
 struct ArtworkDiskCache {
 

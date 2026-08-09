@@ -11,7 +11,7 @@ import io.music_assistant.client.ui.compose.common.DataState
 
 /**
  * Flat, Swift-bridgeable projection of [PlayerData] for the native mini and expanded player —
- * mirrors the "flatten at the bridge boundary" pattern `SpikeMediaItem` uses over
+ * mirrors the "flatten at the bridge boundary" pattern `MediaItem` uses over
  * `AppMediaItem`, rather than exporting `Player`/`PlayerData`/`PlayerMedia` directly. One shape
  * for both: the mini player only reads the first eight fields, the expanded player also reads
  * the rest (duration/elapsedTime/shuffle/repeat/volume/trackItem) — mirrors Compose's own

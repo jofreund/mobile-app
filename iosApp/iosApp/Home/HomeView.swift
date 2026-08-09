@@ -248,11 +248,11 @@ struct HomeView: View {
 struct HomeRow: Identifiable, Equatable {
     let id: String
     let title: String
-    let items: [SpikeMediaItem]
+    let items: [MediaItem]
 
     /// Includes `items` deliberately: a carousel keeps its row id across refreshes, so an
     /// id-only `==` told SwiftUI a row whose contents had just changed was unchanged, and the
-    /// carousel kept rendering the old items (same defect as `SpikeMediaItem`'s own `==`).
+    /// carousel kept rendering the old items (same defect as `MediaItem`'s own `==`).
     static func == (lhs: HomeRow, rhs: HomeRow) -> Bool {
         lhs.id == rhs.id && lhs.title == rhs.title && lhs.items == rhs.items
     }
@@ -272,7 +272,7 @@ private func reconciledRows(
         let items = folder.items ?? []
         guard items.contains(where: { !($0 is RecommendationFolder) }) else { return nil }
         guard seenKeys.insert(folder.itemId).inserted else { return nil }
-        return HomeRow(id: folder.itemId, title: folder.displayName, items: items.map(SpikeMediaItem.init))
+        return HomeRow(id: folder.itemId, title: folder.displayName, items: items.map(MediaItem.init))
     }
 
     let baseRows: [HomeRow]
@@ -280,7 +280,7 @@ private func reconciledRows(
         let shortcutsRow = HomeRow(
             id: shortcutsRowId,
             title: String(localized: "home_shortcuts"),
-            items: shortcuts.map(SpikeMediaItem.init)
+            items: shortcuts.map(MediaItem.init)
         )
         baseRows = recommendationRows + [shortcutsRow]
     } else {
@@ -310,7 +310,7 @@ private func reconciledRows(
 /// column). Same browsable-vs-play tap dispatch as everywhere else.
 private struct HomeCarouselTile: View {
 
-    let item: SpikeMediaItem
+    let item: MediaItem
     private let width: CGFloat = 140
 
     var body: some View {
@@ -338,7 +338,7 @@ private struct HomeCarouselTile: View {
 
     private var tile: some View {
         VStack(alignment: item.kind.prefersCircularArtwork ? .center : .leading, spacing: 8) {
-            SpikeArtwork(url: item.artworkURL, kind: item.kind, sizing: .flexible(decodeHint: width))
+            ArtworkView(url: item.artworkURL, kind: item.kind, sizing: .flexible(decodeHint: width))
             Text(item.title)
                 .font(.subheadline.weight(.medium))
                 .lineLimit(1)

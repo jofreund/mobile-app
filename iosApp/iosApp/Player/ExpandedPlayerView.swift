@@ -286,7 +286,7 @@ private struct ExpandedPlayerRow: View {
 
     private var hero: some View {
         VStack(spacing: 16) {
-            SpikeArtwork(url: player.artworkURL, kind: .track, sizing: .flexible(decodeHint: 340))
+            ArtworkView(url: player.artworkURL, kind: .track, sizing: .flexible(decodeHint: 340))
                 .frame(maxWidth: 340)
                 .shadow(color: .black.opacity(0.18), radius: 20, y: 12)
 
@@ -324,7 +324,7 @@ private struct ExpandedPlayerRow: View {
     /// the Apple Music screenshot the queue design is based on.
     private var peekRow: some View {
         HStack(spacing: 12) {
-            SpikeArtwork(url: player.artworkURL, kind: .track, sizing: .fixed(48))
+            ArtworkView(url: player.artworkURL, kind: .track, sizing: .fixed(48))
             VStack(alignment: .leading, spacing: 2) {
                 Text(player.title ?? player.name)
                     .font(.subheadline.weight(.semibold))
@@ -418,7 +418,7 @@ private struct ExpandedPlayerRow: View {
             store.playQueueItem(queueId: queueId, queueItemId: item.id)
         } label: {
             HStack(spacing: 12) {
-                SpikeArtwork(url: item.artworkURL, kind: .track, sizing: .fixed(40))
+                ArtworkView(url: item.artworkURL, kind: .track, sizing: .fixed(40))
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 4) {
                         if isCurrent {
@@ -732,7 +732,7 @@ private struct QueueRowContextMenu: ViewModifier {
     func body(content: Content) -> some View {
         if enabled, let queueId, let trackItem = item.trackItem {
             content.itemContextMenu(
-                item: SpikeMediaItem(trackItem),
+                item: MediaItem(trackItem),
                 context: ItemMenuContext(removeFromQueue: (queueId: queueId, queueItemId: item.id))
             )
         } else {

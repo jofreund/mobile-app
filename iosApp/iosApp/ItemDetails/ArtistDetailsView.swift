@@ -87,9 +87,9 @@ struct ArtistDetailsView: View {
     }
 
     private func header(for artist: Artist) -> some View {
-        let media = SpikeMediaItem(artist)
+        let media = MediaItem(artist)
         return VStack(spacing: 14) {
-            SpikeArtwork(url: media.artworkURL, kind: media.kind, sizing: .fixed(180))
+            ArtworkView(url: media.artworkURL, kind: media.kind, sizing: .fixed(180))
                 .shadow(color: .black.opacity(0.22), radius: 18, y: 10)
 
             VStack(spacing: 4) {
@@ -198,7 +198,7 @@ struct ArtistDetailsView: View {
             KmpHelper.shared.fetchAlbumsByArtist(artist: artist) { continuation.resume(returning: $0) }
         }
         guard !Task.isCancelled else { return }
-        libraryAlbums = result.map { .loaded(Array($0.asSpikeItems.prefix(10))) } ?? .failed
+        libraryAlbums = result.map { .loaded(Array($0.asMediaItems.prefix(10))) } ?? .failed
     }
 
     @MainActor
@@ -207,7 +207,7 @@ struct ArtistDetailsView: View {
             KmpHelper.shared.fetchArtistAllAlbums(artist: artist) { continuation.resume(returning: $0) }
         }
         guard !Task.isCancelled else { return }
-        allAlbums = result.map { .loaded($0.asSpikeItems) } ?? .failed
+        allAlbums = result.map { .loaded($0.asMediaItems) } ?? .failed
     }
 
     @MainActor
@@ -216,7 +216,7 @@ struct ArtistDetailsView: View {
             KmpHelper.shared.fetchArtistTopTracks(artist: artist) { continuation.resume(returning: $0) }
         }
         guard !Task.isCancelled else { return }
-        topTracks = result.map { .loaded($0.asSpikeItems) } ?? .failed
+        topTracks = result.map { .loaded($0.asMediaItems) } ?? .failed
     }
 }
 
@@ -226,7 +226,7 @@ struct ArtistDetailsView: View {
 enum SectionLoadState {
     case loading
     case failed
-    case loaded([SpikeMediaItem])
+    case loaded([MediaItem])
 }
 
 /// One tile in a horizontal section row. Albums push via the same implicit
@@ -235,7 +235,7 @@ enum SectionLoadState {
 /// anywhere in this app.
 private struct ArtistSectionTile: View {
 
-    let item: SpikeMediaItem
+    let item: MediaItem
     let isPlayable: Bool
 
     var body: some View {
@@ -258,7 +258,7 @@ private struct ArtistSectionTile: View {
 
     private var tile: some View {
         VStack(alignment: .leading, spacing: 6) {
-            SpikeArtwork(url: item.artworkURL, kind: item.kind, sizing: .fixed(120))
+            ArtworkView(url: item.artworkURL, kind: item.kind, sizing: .fixed(120))
             Text(item.title)
                 .font(.caption.weight(.medium))
                 .lineLimit(1)

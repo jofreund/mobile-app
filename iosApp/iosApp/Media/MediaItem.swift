@@ -12,7 +12,7 @@ import MusicAssistantKit
 /// Note what this deliberately does *not* do: it does not re-derive `displayName`
 /// or `subtitle`. Those are Kotlin-side presentation policy (album version suffixes,
 /// artist joining) that Android and the server already agree on.
-struct SpikeMediaItem: Identifiable, Hashable {
+struct MediaItem: Identifiable, Hashable {
 
     /// What the item is, for icon and drilldown purposes.
     ///
@@ -90,12 +90,12 @@ struct SpikeMediaItem: Identifiable, Hashable {
 
     /// Compares the rendered content, not just identity. SwiftUI decides whether it can skip
     /// re-running a view's body by comparing that view's stored properties through their
-    /// `Equatable` conformance, and cells here store a `SpikeMediaItem` (plus, at most, an
+    /// `Equatable` conformance, and cells here store a `MediaItem` (plus, at most, an
     /// equatable view-mode) — so an id-only `==` claimed "unchanged" for a reloaded item whose
     /// favorite, title or artwork had actually changed, and the cell kept its stale render.
     /// `kotlin` is excluded: it's a bridged Kotlin class Swift can't compare, and every field
     /// this projection draws from it is already mirrored above.
-    static func == (lhs: SpikeMediaItem, rhs: SpikeMediaItem) -> Bool {
+    static func == (lhs: MediaItem, rhs: MediaItem) -> Bool {
         lhs.id == rhs.id
             && lhs.isFavorite == rhs.isFavorite
             && lhs.title == rhs.title
@@ -110,7 +110,7 @@ struct SpikeMediaItem: Identifiable, Hashable {
 }
 
 extension Array where Element == AppMediaItem {
-    var asSpikeItems: [SpikeMediaItem] { map(SpikeMediaItem.init) }
+    var asMediaItems: [MediaItem] { map(MediaItem.init) }
 }
 
 /// m:ss track-time formatting, shared by every place that renders a media duration

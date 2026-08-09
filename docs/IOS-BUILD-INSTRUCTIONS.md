@@ -172,7 +172,7 @@ mobile-app/
 │   │   ├── ContentView.swift      # Root; owns the theme and hands it down
 │   │   ├── Shell/                 # Tab shell, routing, toasts
 │   │   ├── Home/ Library/ Search/ Settings/ ItemDetails/ Player/
-│   │   └── Spike/                 # Artwork loading, media-item projection
+│   │   └── Media/                 # Artwork loading + caching, media-item projection
 │   ├── iosAppTests/               # Swift tests (no host app — see DEV-ENVIRONMENT)
 │   ├── Configuration/
 │   │   └── Config.xcconfig        # TEAM_ID, PRODUCT_BUNDLE_IDENTIFIER, APP_NAME

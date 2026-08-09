@@ -113,32 +113,32 @@ struct SearchView: View {
     private struct SearchSection: Identifiable {
         let id: String
         let title: String
-        let items: [SpikeMediaItem]
+        let items: [MediaItem]
     }
 
     /// Fixed order — mirrors `SearchViewModel.SearchResults.nonEmptyLists`: Tracks, Artists,
     /// Albums, Playlists, Podcasts, Audiobooks, Radio.
     private func nonEmptySections(_ result: SearchResultData) -> [SearchSection] {
         [
-            SearchSection(id: "tracks", title: String(localized: "media_type_tracks"), items: result.tracks.map(SpikeMediaItem.init)),
-            SearchSection(id: "artists", title: String(localized: "media_type_artists"), items: result.artists.map(SpikeMediaItem.init)),
-            SearchSection(id: "albums", title: String(localized: "media_type_albums"), items: result.albums.map(SpikeMediaItem.init)),
+            SearchSection(id: "tracks", title: String(localized: "media_type_tracks"), items: result.tracks.map(MediaItem.init)),
+            SearchSection(id: "artists", title: String(localized: "media_type_artists"), items: result.artists.map(MediaItem.init)),
+            SearchSection(id: "albums", title: String(localized: "media_type_albums"), items: result.albums.map(MediaItem.init)),
             SearchSection(
                 id: "playlists",
                 title: String(localized: "media_type_playlists"),
-                items: result.playlists.map(SpikeMediaItem.init)
+                items: result.playlists.map(MediaItem.init)
             ),
             SearchSection(
                 id: "podcasts",
                 title: String(localized: "media_type_podcasts"),
-                items: result.podcasts.map(SpikeMediaItem.init)
+                items: result.podcasts.map(MediaItem.init)
             ),
             SearchSection(
                 id: "audiobooks",
                 title: String(localized: "media_type_audiobooks"),
-                items: result.audiobooks.map(SpikeMediaItem.init)
+                items: result.audiobooks.map(MediaItem.init)
             ),
-            SearchSection(id: "radios", title: String(localized: "media_type_radio"), items: result.radios.map(SpikeMediaItem.init)),
+            SearchSection(id: "radios", title: String(localized: "media_type_radio"), items: result.radios.map(MediaItem.init)),
         ].filter { !$0.items.isEmpty }
     }
 
@@ -173,7 +173,7 @@ struct SearchView: View {
 /// `ItemDetailsRoute` onto this tab's own `NavigationStack`, everything else plays now.
 private struct SearchResultRow: View {
 
-    let item: SpikeMediaItem
+    let item: MediaItem
 
     var body: some View {
         Group {
@@ -199,7 +199,7 @@ private struct SearchResultRow: View {
 
     private var row: some View {
         HStack(spacing: 12) {
-            SpikeArtwork(url: item.artworkURL, kind: item.kind, sizing: .fixed(48))
+            ArtworkView(url: item.artworkURL, kind: item.kind, sizing: .fixed(48))
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.title)
                     .font(.body)

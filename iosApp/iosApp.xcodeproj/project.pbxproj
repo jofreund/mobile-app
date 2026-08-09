@@ -40,8 +40,8 @@
 		C8SH00042F3E000000000004 /* ToastHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SH00142F3E000000000014 /* ToastHost.swift */; };
 		C8SH00052F3E000000000005 /* ThemeStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SH00152F3E000000000015 /* ThemeStore.swift */; };
 		C8SP00012F2D000000000001 /* MAWebRTCURLProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SP00112F2D000000000011 /* MAWebRTCURLProtocol.swift */; };
-		C8SP00022F2D000000000002 /* SpikeMediaItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SP00122F2D000000000012 /* SpikeMediaItem.swift */; };
-		C8SP00032F2D000000000003 /* SpikeArtwork.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SP00132F2D000000000013 /* SpikeArtwork.swift */; };
+		C8SP00022F2D000000000002 /* MediaItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SP00122F2D000000000012 /* MediaItem.swift */; };
+		C8SP00032F2D000000000003 /* ArtworkView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SP00132F2D000000000013 /* ArtworkView.swift */; };
 		C8SP00B02F2D0000000000B0 /* ArtworkDiskCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SP00202F2D000000000020 /* ArtworkDiskCache.swift */; };
 		C8SP00B12F2D0000000000B1 /* ArtworkDiskCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SP00202F2D000000000020 /* ArtworkDiskCache.swift */; };
 		C8SP00A62F2D0000000000A6 /* SVGRasterizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SP00152F2D000000000015 /* SVGRasterizer.swift */; };
@@ -93,8 +93,8 @@
 		C8SH00142F3E000000000014 /* ToastHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToastHost.swift; sourceTree = "<group>"; };
 		C8SH00152F3E000000000015 /* ThemeStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeStore.swift; sourceTree = "<group>"; };
 		C8SP00112F2D000000000011 /* MAWebRTCURLProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MAWebRTCURLProtocol.swift; sourceTree = "<group>"; };
-		C8SP00122F2D000000000012 /* SpikeMediaItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpikeMediaItem.swift; sourceTree = "<group>"; };
-		C8SP00132F2D000000000013 /* SpikeArtwork.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpikeArtwork.swift; sourceTree = "<group>"; };
+		C8SP00122F2D000000000012 /* MediaItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaItem.swift; sourceTree = "<group>"; };
+		C8SP00132F2D000000000013 /* ArtworkView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtworkView.swift; sourceTree = "<group>"; };
 		C8SP00202F2D000000000020 /* ArtworkDiskCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtworkDiskCache.swift; sourceTree = "<group>"; };
 		C8SP00152F2D000000000015 /* SVGRasterizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SVGRasterizer.swift; sourceTree = "<group>"; };
 		C8SP00142F2D000000000014 /* ItemContextMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ItemContextMenu.swift; sourceTree = "<group>"; };
@@ -180,7 +180,7 @@
 				7555FF8C242A565B00829871 /* Info.plist */,
 				2152FB032600AC8F00CF470E /* iOSApp.swift */,
 				058557D7273AAEEB004C7B11 /* Preview Content */,
-				C8SP00062F2D000000000006 /* Spike */,
+				C8SP00062F2D000000000006 /* Media */,
 				C8SH00062F3E000000000006 /* Shell */,
 				C8ID00062F5A000000000006 /* ItemDetails */,
 				C8LL00062F5D000000000006 /* Library */,
@@ -266,17 +266,17 @@
 			path = Shell;
 			sourceTree = "<group>";
 		};
-		C8SP00062F2D000000000006 /* Spike */ = {
+		C8SP00062F2D000000000006 /* Media */ = {
 			isa = PBXGroup;
 			children = (
 				C8SP00112F2D000000000011 /* MAWebRTCURLProtocol.swift */,
-				C8SP00122F2D000000000012 /* SpikeMediaItem.swift */,
-				C8SP00132F2D000000000013 /* SpikeArtwork.swift */,
+				C8SP00122F2D000000000012 /* MediaItem.swift */,
+				C8SP00132F2D000000000013 /* ArtworkView.swift */,
 				C8SP00202F2D000000000020 /* ArtworkDiskCache.swift */,
 				C8SP00152F2D000000000015 /* SVGRasterizer.swift */,
 				C8SP00142F2D000000000014 /* ItemContextMenu.swift */,
 			);
-			path = Spike;
+			path = Media;
 			sourceTree = "<group>";
 		};
 		C8ST00062F63000000000006 /* Settings */ = {
@@ -441,8 +441,8 @@
 				2152FB042600AC8F00CF470E /* iOSApp.swift in Sources */,
 				7555FF83242A565900829871 /* ContentView.swift in Sources */,
 				C8SP00012F2D000000000001 /* MAWebRTCURLProtocol.swift in Sources */,
-				C8SP00022F2D000000000002 /* SpikeMediaItem.swift in Sources */,
-				C8SP00032F2D000000000003 /* SpikeArtwork.swift in Sources */,
+				C8SP00022F2D000000000002 /* MediaItem.swift in Sources */,
+				C8SP00032F2D000000000003 /* ArtworkView.swift in Sources */,
 				C8SP00B12F2D0000000000B1 /* ArtworkDiskCache.swift in Sources */,
 				C8SP00052F2D000000000005 /* SVGRasterizer.swift in Sources */,
 				C8SP00042F2D000000000004 /* ItemContextMenu.swift in Sources */,
