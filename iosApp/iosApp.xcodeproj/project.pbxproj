@@ -45,6 +45,7 @@
 		C8SH00022F3E000000000002 /* AppShellRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SH00122F3E000000000012 /* AppShellRootView.swift */; };
 		C8SH00032F3E000000000003 /* AppTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SH00132F3E000000000013 /* AppTabView.swift */; };
 		C8SH00042F3E000000000004 /* ToastHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SH00142F3E000000000014 /* ToastHost.swift */; };
+		C8SH00052F3E000000000005 /* ThemeStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SH00152F3E000000000015 /* ThemeStore.swift */; };
 		C8SI00012F1B000000000001 /* SiriIntentHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SI00022F1B000000000001 /* SiriIntentHandler.swift */; };
 		C8SP00012F2D000000000001 /* MAWebRTCURLProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SP00112F2D000000000011 /* MAWebRTCURLProtocol.swift */; };
 		C8SP00022F2D000000000002 /* SpikeMediaItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SP00122F2D000000000012 /* SpikeMediaItem.swift */; };
@@ -96,6 +97,7 @@
 		C8SH00122F3E000000000012 /* AppShellRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppShellRootView.swift; sourceTree = "<group>"; };
 		C8SH00132F3E000000000013 /* AppTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTabView.swift; sourceTree = "<group>"; };
 		C8SH00142F3E000000000014 /* ToastHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToastHost.swift; sourceTree = "<group>"; };
+		C8SH00152F3E000000000015 /* ThemeStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeStore.swift; sourceTree = "<group>"; };
 		C8SI00022F1B000000000001 /* SiriIntentHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SiriIntentHandler.swift; sourceTree = "<group>"; };
 		C8SP00112F2D000000000011 /* MAWebRTCURLProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MAWebRTCURLProtocol.swift; sourceTree = "<group>"; };
 		C8SP00122F2D000000000012 /* SpikeMediaItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpikeMediaItem.swift; sourceTree = "<group>"; };
@@ -281,6 +283,7 @@
 				C8SH00122F3E000000000012 /* AppShellRootView.swift */,
 				C8SH00132F3E000000000013 /* AppTabView.swift */,
 				C8SH00142F3E000000000014 /* ToastHost.swift */,
+				C8SH00152F3E000000000015 /* ThemeStore.swift */,
 			);
 			path = Shell;
 			sourceTree = "<group>";
@@ -476,6 +479,7 @@
 				C8SH00022F3E000000000002 /* AppShellRootView.swift in Sources */,
 				C8SH00032F3E000000000003 /* AppTabView.swift in Sources */,
 				C8SH00042F3E000000000004 /* ToastHost.swift in Sources */,
+				C8SH00052F3E000000000005 /* ThemeStore.swift in Sources */,
 				C8ID00032F5A000000000003 /* ItemDetailsView.swift in Sources */,
 				C8AD00032F5B000000000003 /* ArtistDetailsView.swift in Sources */,
 				C8GD00032F5C000000000003 /* GenreDetailsView.swift in Sources */,

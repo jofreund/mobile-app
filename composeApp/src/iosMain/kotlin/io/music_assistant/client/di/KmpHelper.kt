@@ -589,6 +589,18 @@ object KmpHelper : KoinComponent {
 
     fun theme(): ThemeSetting = settingsRepository.theme.value
 
+    /**
+     * Observable form of [theme], for the one place that has to *react* to the setting rather
+     * than read it on demand: `ThemeStore.swift`, which turns it into SwiftUI's
+     * `.preferredColorScheme`.
+     *
+     * Applying the theme used to be Kotlin's job — `ui/theme/SystemAppearance.ios.kt` reached
+     * into every `UIWindow` and set `overrideUserInterfaceStyle` from inside a `@Composable`.
+     * That only ran while a Compose host was mounted, which is no longer ever.
+     */
+    val themeSetting: NativeStateFlow<ThemeSetting>
+        get() = NativeStateFlow(settingsRepository.theme, mainScope)
+
     fun switchTheme(theme: ThemeSetting) {
         settingsRepository.switchTheme(theme)
     }

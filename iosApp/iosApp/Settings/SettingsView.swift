@@ -22,6 +22,9 @@ struct SettingsView: View {
     @State private var sessionState: SessionState?
     @State private var subscription: Cancellable?
 
+    /// Owned by `ContentView` — this screen is one of two readers, not the source of truth.
+    @Environment(ThemeStore.self) private var theme
+
     var body: some View {
         NavigationStack {
             Group {
@@ -99,10 +102,13 @@ struct SettingsView: View {
         }
     }
 
+    /// Reads and writes `ThemeStore` rather than calling `KmpHelper` directly. The previous
+    /// version's getter was a bare `KmpHelper.shared.theme()` — nothing observable — so a tap
+    /// wrote the new value but left the control with nothing to redraw from.
     private var themeBinding: Binding<ThemeSetting> {
         Binding(
-            get: { KmpHelper.shared.theme() },
-            set: { KmpHelper.shared.switchTheme(theme: $0) }
+            get: { theme.setting },
+            set: { theme.select($0) }
         )
     }
 

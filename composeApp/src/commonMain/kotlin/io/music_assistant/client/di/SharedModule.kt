@@ -25,11 +25,9 @@ import io.music_assistant.client.settings.SettingsRepository
 import io.music_assistant.client.settings.provideSettings
 import io.music_assistant.client.ui.AppRootRouter
 import io.music_assistant.client.ui.SchemaVersionWarningViewModel
-import io.music_assistant.client.ui.theme.ThemeViewModel
 import io.music_assistant.client.utils.NetworkMonitor
 import org.koin.core.module.dsl.bind
 import org.koin.core.module.dsl.singleOf
-import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
 
 fun sharedModule(
@@ -75,7 +73,6 @@ fun sharedModule(
         single(createdAtStart = true) {     // Eager - must observe car edges from launch
             CarDspApplier(get(), get(), get(), get())
         }
-        viewModelOf(::ThemeViewModel)
         single(createdAtStart = true) {  // Eager - schema warning must be observable before any host mounts
             SchemaVersionWarningViewModel(get())
         }
