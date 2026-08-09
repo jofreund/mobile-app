@@ -108,16 +108,12 @@ struct AppShellRootView: View {
         switch router.destination {
         case .main:
             AppTabView()
-                // Compose had its own keyboard handler on this side — SettingsView() below is
-                // now substantially native (Phase E4 part 2's real TextFields) and must NOT get
-                // this: it was found to suppress the keyboard from appearing for native fields
-                // entirely (iOS 26 beta).
+                // Compose has its own keyboard handler and owns full-screen chrome on this
+                // side — SettingsView() below is now substantially native (Phase E4 part 2's
+                // real TextFields) and must NOT get this: it was found to suppress the
+                // keyboard from appearing for native fields entirely (iOS 26 beta).
                 .ignoresSafeArea(.keyboard)
-                // `.ignoresSafeArea(.container)` used to sit here too, from when this side was
-                // one full-screen Compose host that drew its own chrome. Nothing here is Compose
-                // any more, and it was actively harmful: it zeroed the bottom container safe
-                // area for the whole tab content, so scroll views reserved nothing for the tab
-                // bar or the home indicator and the last rows sat underneath the furniture.
+                .ignoresSafeArea(.container)
         default:
             // Kotlin-exported enums aren't a closed set to Swift's exhaustiveness
             // checker, so this covers .settings (and anything added later).
