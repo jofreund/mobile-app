@@ -3443,6 +3443,7 @@
     },
     "common_close" : {
       "comment" : "Accessibility label for the close (X) button on the Settings screen.",
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
