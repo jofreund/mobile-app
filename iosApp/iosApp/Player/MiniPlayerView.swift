@@ -7,14 +7,14 @@ import ComposeApp
 /// wiring it replaces (see `ComposeScreenHosts.kt`'s now-removed `PlayerBarContent` pager
 /// effect for the original).
 ///
-/// Reserves [reservedHeight] unconditionally — even before `store.players` is populated —
-/// rather than collapsing to zero height while empty. `.safeAreaInset`'s reserved space is
-/// supposed to track its content's size dynamically, but with `store.players` arriving a beat
-/// after first layout (an async Kotlin subscription), the reserve was observed getting stuck
-/// at its original zero-height measurement, leaving scrollable content underneath (e.g.
-/// `HomeView`'s carousels) clipped by the mini player once it appeared. A constant height
-/// sidesteps that regardless of the exact cause, matching the original Compose host's own
-/// always-100pt-regardless-of-content behavior.
+/// Lives in `.tabViewBottomAccessory` (see `AppTabView`), so the system owns its height and the
+/// space scroll views leave for it. This view used to reserve that space itself, with a constant
+/// height and a hand-rolled `.safeAreaInset`; none of that is its job any more.
+///
+/// It renders at two sizes, following `\.tabViewBottomAccessoryPlacement`: `.inline` alongside
+/// the tab bar, and the taller `.expanded` the system gives it when the tab bar minimises away
+/// on scroll. There is no way to ask for a specific height — the accessory API takes content and
+/// an enabled flag, nothing else — so `.expanded` is the only route to a roomier bar.
 ///
 /// This is the *collapsed* bar only, styled after Apple Music's mini player — no volume/
 /// shuffle/repeat/seek here; tapping it opens `ExpandedPlayerView.swift` via `onExpand`, which
@@ -32,18 +32,19 @@ struct MiniPlayerView: View {
     // Last, so callers can pass it as a trailing closure.
     let onExpand: () -> Void
 
-    /// An upper bound, not a height. `.tabViewBottomAccessory` decides how tall the bar is;
-    /// forcing this value inside it simply pushed the row past the accessory's bounds and got
-    /// the top of the content clipped. A *maximum* still pins the one thing that must stay
-    /// pinned: the pager below is a horizontal `ScrollView`, greedy on both axes, so without a
-    /// ceiling it grows into whatever it's offered — which once ballooned the bar and stranded
-    /// its card mid-screen (tried, reverted).
-    ///
-    /// `AppTabView.swift` also sizes `FloatingBarSideEffectsController`'s invisible `.background`
-    /// from this. That host fills itself with an opaque colour, so it must never be taller than
-    /// the bar it hides behind, or it paints over whatever is scrolling underneath (a real bug,
-    /// fixed once already). A ceiling keeps it at or below, which is the safe direction.
-    static let reservedHeight: CGFloat = 92
+    /// Sizes `FloatingBarSideEffectsController`'s invisible `.background` in `AppTabView.swift`.
+    /// Nothing to do with this bar's own height any more — the accessory decides that — but the
+    /// host has to be given *some* size, and it fills itself with an opaque colour, so keeping
+    /// it small keeps it from painting over whatever is scrolling behind it.
+    static let sideEffectsHostHeight: CGFloat = 64
+
+    /// A ceiling, never a height. The accessory proposes its own size and the content takes it,
+    /// which is the whole point of letting the system own this. The cap exists only because the
+    /// pager below is a horizontal `ScrollView` — greedy on both axes — and an unbounded
+    /// proposal would let it grow without limit, which once ballooned the bar and stranded its
+    /// card mid-screen. Generous enough to clear the `.expanded` placement, which is taller
+    /// than `.inline` by roughly the tab bar it replaces.
+    private static let maxContentHeight: CGFloat = 140
 
     var body: some View {
         ZStack {
@@ -51,7 +52,7 @@ struct MiniPlayerView: View {
                 pager
             }
         }
-        .frame(maxHeight: Self.reservedHeight)
+        .frame(maxHeight: Self.maxContentHeight)
     }
 
     private var pager: some View {
@@ -100,35 +101,69 @@ struct MiniPlayerView: View {
     }
 }
 
-/// One page: the player's name (mirrors Compose's `PlayerSelectionButton`, shown above
-/// `CompactPlayerItem` in `CollapsedPlayerPage` — here it's part of the same card rather than
-/// floating above it), then artwork, title/artist, play/pause, skip-forward. Tapping elsewhere
-/// on the row expands — mirrors `FloatingBar.kt`'s tap-anywhere-to-expand-when-collapsed.
+/// One page: artwork, what's playing, play/pause, skip-forward. Tapping elsewhere on the row
+/// expands — mirrors `FloatingBar.kt`'s tap-anywhere-to-expand-when-collapsed.
+///
+/// Renders two ways, following the accessory's own placement. `.inline` shares the row with the
+/// tab bar and is short, so the player's name rides on the detail line. `.expanded` — which the
+/// system hands us when the tab bar minimises away on scroll — has about a tab bar's worth of
+/// extra height, and spends it putting that name back on its own line, as it was before the bar
+/// moved into the accessory.
 private struct MiniPlayerRow: View {
 
     let player: PlayerBarItemView
     let store: PlayerBarStore
     let onExpand: () -> Void
 
-    /// Which player this is, ahead of who made the track — in a multi-room app that's the line
-    /// that tells you what you're about to control, and it used to sit on its own row above.
-    /// The accessory isn't tall enough for three lines, and that row was the one being clipped.
-    private var secondLine: String {
-        [player.name, player.subtitle]
+    @Environment(\.tabViewBottomAccessoryPlacement) private var placement
+
+    private var isExpanded: Bool { placement == .expanded }
+
+    /// Inline has no room for the player's name of its own, so it leads the detail line —
+    /// ahead of the artist, because in a multi-room app that's what tells you which speaker
+    /// you're about to control. Expanded shows it above instead, leaving this to the artist.
+    private var detailLine: String {
+        let parts = isExpanded ? [player.subtitle] : [player.name, player.subtitle]
+        return parts
             .compactMap { $0?.isEmpty == false ? $0 : nil }
             .joined(separator: " • ")
     }
 
     var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            if isExpanded {
+                Text(player.name)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            mainRow
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, isExpanded ? 8 : 6)
+        .frame(maxWidth: .infinity)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        // Hairline edge, as Apple Music's mini player has: over busy artwork the material alone
+        // leaves the card's boundary indistinct. `strokeBorder` insets the line so it sits
+        // inside the shape instead of straddling it and reading as double-width.
+        .overlay {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(Color(.separator), lineWidth: 0.5)
+        }
+        .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .onTapGesture { onExpand() }
+    }
+
+    private var mainRow: some View {
         HStack(spacing: 10) {
-            SpikeArtwork(url: player.artworkURL, kind: .track, sizing: .fixed(40))
+            SpikeArtwork(url: player.artworkURL, kind: .track, sizing: .fixed(isExpanded ? 48 : 40))
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(player.title ?? player.name)
                     .font(.subheadline.weight(.medium))
                     .lineLimit(1)
-                if !secondLine.isEmpty {
-                    Text(secondLine)
+                if !detailLine.isEmpty {
+                    Text(detailLine)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
@@ -153,18 +188,5 @@ private struct MiniPlayerRow: View {
             }
             .buttonStyle(.plain)
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .frame(maxWidth: .infinity)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        // Hairline edge, as Apple Music's mini player has: over busy artwork the material alone
-        // leaves the card's boundary indistinct. `strokeBorder` insets the line so it sits
-        // inside the shape instead of straddling it and reading as double-width.
-        .overlay {
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(Color(.separator), lineWidth: 0.5)
-        }
-        .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .onTapGesture { onExpand() }
     }
 }

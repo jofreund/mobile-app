@@ -106,6 +106,10 @@ struct AppTabView: View {
             Tab("nav_library", systemImage: "square.stack", value: .library) { libraryTab }
             Tab("nav_search", systemImage: "magnifyingglass", value: .search) { searchTab }
         }
+        // Minimising the tab bar on scroll is what buys the accessory its `.expanded` height —
+        // there is no way to ask for a taller accessory directly (the API is content + isEnabled
+        // and nothing else). MiniPlayerRow reads the placement and spends the extra room.
+        .tabBarMinimizeBehavior(.onScrollDown)
         .tabViewBottomAccessory {
             // Hidden only while Search's field has focus, or it renders squeezed against the
             // keyboard — the one behaviour worth keeping from the hand-rolled version.
@@ -127,7 +131,7 @@ struct AppTabView: View {
                     onExpand: { playerExpanded = true }
                 )
             })
-            .frame(height: MiniPlayerView.reservedHeight)
+            .frame(height: MiniPlayerView.sideEffectsHostHeight)
             .allowsHitTesting(false)
         }
         .fullScreenCover(isPresented: $playerExpanded) {
