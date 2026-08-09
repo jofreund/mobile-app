@@ -741,8 +741,6 @@ data class Request @OptIn(ExperimentalUuidApi::class) constructor(
             },
         )
 
-        fun providersManifests() = Request(command = APICommands.PROVIDERS_MANIFESTS)
-
         /** Loaded provider instances (music/player/…); filter client-side by type. */
         fun providers() = Request(command = APICommands.PROVIDERS)
 

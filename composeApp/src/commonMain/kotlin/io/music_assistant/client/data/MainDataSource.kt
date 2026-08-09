@@ -22,7 +22,6 @@ import io.music_assistant.client.data.model.client.items.Track
 import io.music_assistant.client.data.model.client.items.image
 import io.music_assistant.client.data.model.server.DspConfig
 import io.music_assistant.client.data.model.server.DspConfigPreset
-import io.music_assistant.client.data.model.server.ProviderManifest
 import io.music_assistant.client.data.model.server.ServerPlayer
 import io.music_assistant.client.data.model.server.ServerQueue
 import io.music_assistant.client.data.model.server.ServerQueueItem
@@ -43,7 +42,6 @@ import io.music_assistant.client.ui.compose.common.DataState
 import io.music_assistant.client.ui.compose.common.StaleReason
 import io.music_assistant.client.ui.compose.common.action.PlayerAction
 import io.music_assistant.client.ui.compose.common.action.QueueAction
-import io.music_assistant.client.ui.compose.common.providers.ProviderIconModel
 import io.music_assistant.client.utils.AuthProcessState
 import io.music_assistant.client.utils.DataConnectionState
 import io.music_assistant.client.utils.SessionState
@@ -105,7 +103,6 @@ class MainDataSource(
 
     private val _serverPlayers = MutableStateFlow<DataState<List<Player>>>(DataState.Loading())
     private val _queueInfos = MutableStateFlow<List<QueueInfo>>(emptyList())
-    private val _providersIcons = MutableStateFlow<Map<String, ProviderIconModel>>(emptyMap())
 
     /**
      * Authoritative favorite state per track, keyed by [favKey]. The server's
@@ -283,9 +280,6 @@ class MainDataSource(
         return true
     }
 
-    fun providerIcon(provider: String): ProviderIconModel? =
-        _providersIcons.value[provider.substringBefore("--")]
-
     private var watchJob: Job? = null
     private var updateJob: Job? = null
 
@@ -384,7 +378,6 @@ class MainDataSource(
                                             _serverPlayers.update {
                                                 DataState.Data(currentState.data)
                                             }
-                                            updateProvidersManifests()
                                             updatePlayersAndQueues()
                                         }
                                     }
@@ -393,7 +386,6 @@ class MainDataSource(
                                 is DataState.Data -> {
                                     // Already have data (shouldn't happen, but handle gracefully)
                                     log.w { "Connected while already in Data state - refreshing anyway" }
-                                    updateProvidersManifests()
                                     updatePlayersAndQueues()
                                     refreshSelectedPlayerQueueItems()
                                 }
@@ -401,7 +393,6 @@ class MainDataSource(
                                 is DataState.Loading, is DataState.NoData, is DataState.Error -> {
                                     // Fresh connection or error recovery - show loading
                                     _serverPlayers.update { DataState.Loading() }
-                                    updateProvidersManifests()
                                     updatePlayersAndQueues()
                                 }
                             }
@@ -754,7 +745,6 @@ class MainDataSource(
         _serverPlayers.update { DataState.NoData() }
         _queueInfos.update { emptyList() }
         positionTracker.clear()
-        // Note: _providersIcons deliberately NOT cleared (static data)
     }
 
     suspend fun getDspConfig(playerId: String): DspConfig? =
@@ -1339,27 +1329,6 @@ class MainDataSource(
                 state is DataState.Data && state.data.any { it.queueInfo != null }
             }
             refreshAllPlayersQueueItems()
-        }
-    }
-
-    private fun updateProvidersManifests() {
-        launch {
-            apiClient.sendRequest(Request.Library.providersManifests())
-                .resultAs<List<ProviderManifest>>()?.filter { it.type == "music" }
-                ?.let { manifests ->
-                    // The synthetic "library" entry that used to lead this map is gone with the
-                    // Compose `ImageVector` it carried — an app-local icon is the renderer's
-                    // business, and the renderer is native now. This map holds only what the
-                    // server actually describes.
-                    val map = buildMap {
-                        manifests.forEach { manifest ->
-                            ProviderIconModel.from(manifest.icon, manifest.iconSvgDark)?.let {
-                                put(manifest.domain, it)
-                            }
-                        }
-                    }
-                    _providersIcons.update { map }
-                }
         }
     }
 

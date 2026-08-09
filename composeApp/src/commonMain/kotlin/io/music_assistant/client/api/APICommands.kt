@@ -88,7 +88,6 @@ object APICommands {
     // Contents of a single recommendation row. Exists on servers (2.10+) whose
     // MUSIC_RECOMMENDATIONS response returns rows without embedded items
     const val MUSIC_RECOMMENDATIONS_ITEMS = "music/recommendations/items"
-    const val PROVIDERS_MANIFESTS = "providers/manifests"
     const val PROVIDERS = "providers"
 
     // Items
