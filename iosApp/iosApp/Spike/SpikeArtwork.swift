@@ -51,23 +51,36 @@ actor SpikeImageLoader {
         let task = Task<UIImage?, Never> {
             do {
                 let (data, response) = try await URLSession.shared.data(from: url)
-                guard let image = Self.downsample(data, maxPixel: maxPixel) else {
-                    // The content type and leading bytes are here because a decode failure is
-                    // otherwise indistinguishable from "no artwork" — the cell just shows its
-                    // placeholder. ImageIO handles no vector formats at all, so an SVG (which
-                    // this server does serve; the Compose client decoded them with Coil's
-                    // `SvgDecoder`) lands here and looks exactly like a missing image.
-                    let mime = (response as? HTTPURLResponse)?.value(forHTTPHeaderField: "Content-Type") ?? "?"
-                    let head = String(decoding: data.prefix(48), as: UTF8.self)
-                        .replacingOccurrences(of: "\n", with: " ")
+                let contentType = (response as? HTTPURLResponse)?.value(forHTTPHeaderField: "Content-Type")
+
+                if let image = Self.downsample(data, maxPixel: maxPixel) { return image }
+
+                // ImageIO decodes no vector formats, and this server serves genre artwork as
+                // `image/svg+xml`. Tried only after ImageIO declines, so raster artwork never
+                // pays for the web view behind this. See `SVGRasterizer`.
+                if SVGRasterizer.looksLikeSVG(data, contentType: contentType) {
+                    if let image = await SVGRasterizer.shared.image(from: data, maxPixel: maxPixel) {
+                        return image
+                    }
                     NativeLog.shared.warn(
                         tag: Self.logTag,
-                        message: "decode failed (\(data.count) bytes, type=\(mime)) for "
-                            + "\(url.absoluteString) — starts: \(head)"
+                        message: "SVG rasterization failed (\(data.count) bytes) for \(url.absoluteString)"
                     )
                     return nil
                 }
-                return image
+
+                // Neither a format ImageIO knows nor an SVG. The content type and leading bytes
+                // are logged because a decode failure is otherwise indistinguishable from "no
+                // artwork" — the cell just shows its placeholder either way. That silence is
+                // what hid the SVG case until the log said `type=image/svg+xml`.
+                let head = String(decoding: data.prefix(48), as: UTF8.self)
+                    .replacingOccurrences(of: "\n", with: " ")
+                NativeLog.shared.warn(
+                    tag: Self.logTag,
+                    message: "decode failed (\(data.count) bytes, type=\(contentType ?? "?")) for "
+                        + "\(url.absoluteString) — starts: \(head)"
+                )
+                return nil
             } catch {
                 NativeLog.shared.warn(
                     tag: Self.logTag,

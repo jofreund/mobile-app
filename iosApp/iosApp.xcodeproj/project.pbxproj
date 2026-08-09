@@ -16,6 +16,7 @@
 		7555FF83242A565900829871 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7555FF82242A565900829871 /* ContentView.swift */; };
 		C29F123E61DAA17B671EC955 /* NowPlayingInfoStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FE624765BDE4DC4138CA710 /* NowPlayingInfoStoreTests.swift */; };
 		C29F123E61DAA17B671EC956 /* KotlinLocalizationKeyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FE624765BDE4DC4138CA711 /* KotlinLocalizationKeyTests.swift */; };
+		C29F123E61DAA17B671EC957 /* SVGRasterizerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FE624765BDE4DC4138CA712 /* SVGRasterizerTests.swift */; };
 		C85119262F18C7A900185678 /* Copus in Frameworks */ = {isa = PBXBuildFile; productRef = C85119252F18C7A900185678 /* Copus */; };
 		C85119282F18C7A900185678 /* Opus in Frameworks */ = {isa = PBXBuildFile; productRef = C85119272F18C7A900185678 /* Opus */; };
 		C851192B2F18C88B00185678 /* FLAC in Frameworks */ = {isa = PBXBuildFile; productRef = C851192A2F18C88B00185678 /* FLAC */; };
@@ -41,6 +42,8 @@
 		C8PL00072F70000000000007 /* GroupSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8PL00172F70000000000017 /* GroupSettingsView.swift */; };
 		C8PL00082F70000000000008 /* VolumeSlider.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8PL00182F70000000000018 /* VolumeSlider.swift */; };
 		C8PL00092F70000000000009 /* PlayerPickerMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8PL00192F70000000000019 /* PlayerPickerMenu.swift */; };
+		C8PL000B2F7000000000000B /* QueueMoveMath.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8PL001A2F7000000000001A /* QueueMoveMath.swift */; };
+		C8PL000A2F7000000000000A /* QueueMoveMath.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8PL001A2F7000000000001A /* QueueMoveMath.swift */; };
 		C8SH00012F3E000000000001 /* AppRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SH00112F3E000000000011 /* AppRouter.swift */; };
 		C8SH00022F3E000000000002 /* AppShellRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SH00122F3E000000000012 /* AppShellRootView.swift */; };
 		C8SH00032F3E000000000003 /* AppTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SH00132F3E000000000013 /* AppTabView.swift */; };
@@ -50,6 +53,8 @@
 		C8SP00012F2D000000000001 /* MAWebRTCURLProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SP00112F2D000000000011 /* MAWebRTCURLProtocol.swift */; };
 		C8SP00022F2D000000000002 /* SpikeMediaItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SP00122F2D000000000012 /* SpikeMediaItem.swift */; };
 		C8SP00032F2D000000000003 /* SpikeArtwork.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SP00132F2D000000000013 /* SpikeArtwork.swift */; };
+		C8SP00A62F2D0000000000A6 /* SVGRasterizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SP00152F2D000000000015 /* SVGRasterizer.swift */; };
+		C8SP00052F2D000000000005 /* SVGRasterizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SP00152F2D000000000015 /* SVGRasterizer.swift */; };
 		C8SP00042F2D000000000004 /* ItemContextMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SP00142F2D000000000014 /* ItemContextMenu.swift */; };
 		C8ST00032F63000000000003 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8ST00132F63000000000013 /* SettingsView.swift */; };
 		C8ST00042F63000000000004 /* ConnectionSetupStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8ST00142F63000000000014 /* ConnectionSetupStore.swift */; };
@@ -66,6 +71,7 @@
 		2152FB032600AC8F00CF470E /* iOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iOSApp.swift; sourceTree = "<group>"; };
 		2FE624765BDE4DC4138CA710 /* NowPlayingInfoStoreTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NowPlayingInfoStoreTests.swift; sourceTree = "<group>"; };
 		2FE624765BDE4DC4138CA711 /* KotlinLocalizationKeyTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KotlinLocalizationKeyTests.swift; sourceTree = "<group>"; };
+		2FE624765BDE4DC4138CA712 /* SVGRasterizerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SVGRasterizerTests.swift; sourceTree = "<group>"; };
 		59B7DA191C857DA4E4F3A44A /* iosAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = iosAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		7555FF7B242A565900829871 /* MusicAssistantClient.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MusicAssistantClient.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		7555FF82242A565900829871 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -93,6 +99,7 @@
 		C8PL00172F70000000000017 /* GroupSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupSettingsView.swift; sourceTree = "<group>"; };
 		C8PL00182F70000000000018 /* VolumeSlider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VolumeSlider.swift; sourceTree = "<group>"; };
 		C8PL00192F70000000000019 /* PlayerPickerMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerPickerMenu.swift; sourceTree = "<group>"; };
+		C8PL001A2F7000000000001A /* QueueMoveMath.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QueueMoveMath.swift; sourceTree = "<group>"; };
 		C8SH00112F3E000000000011 /* AppRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRouter.swift; sourceTree = "<group>"; };
 		C8SH00122F3E000000000012 /* AppShellRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppShellRootView.swift; sourceTree = "<group>"; };
 		C8SH00132F3E000000000013 /* AppTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTabView.swift; sourceTree = "<group>"; };
@@ -102,6 +109,7 @@
 		C8SP00112F2D000000000011 /* MAWebRTCURLProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MAWebRTCURLProtocol.swift; sourceTree = "<group>"; };
 		C8SP00122F2D000000000012 /* SpikeMediaItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpikeMediaItem.swift; sourceTree = "<group>"; };
 		C8SP00132F2D000000000013 /* SpikeArtwork.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpikeArtwork.swift; sourceTree = "<group>"; };
+		C8SP00152F2D000000000015 /* SVGRasterizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SVGRasterizer.swift; sourceTree = "<group>"; };
 		C8SP00142F2D000000000014 /* ItemContextMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ItemContextMenu.swift; sourceTree = "<group>"; };
 		C8ST00132F63000000000013 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		C8ST00142F63000000000014 /* ConnectionSetupStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionSetupStore.swift; sourceTree = "<group>"; };
@@ -157,6 +165,7 @@
 			children = (
 				2FE624765BDE4DC4138CA710 /* NowPlayingInfoStoreTests.swift */,
 				2FE624765BDE4DC4138CA711 /* KotlinLocalizationKeyTests.swift */,
+				2FE624765BDE4DC4138CA712 /* SVGRasterizerTests.swift */,
 			);
 			path = iosAppTests;
 			sourceTree = "<group>";
@@ -272,6 +281,7 @@
 				C8PL00172F70000000000017 /* GroupSettingsView.swift */,
 				C8PL00182F70000000000018 /* VolumeSlider.swift */,
 				C8PL00192F70000000000019 /* PlayerPickerMenu.swift */,
+				C8PL001A2F7000000000001A /* QueueMoveMath.swift */,
 			);
 			path = Player;
 			sourceTree = "<group>";
@@ -294,6 +304,7 @@
 				C8SP00112F2D000000000011 /* MAWebRTCURLProtocol.swift */,
 				C8SP00122F2D000000000012 /* SpikeMediaItem.swift */,
 				C8SP00132F2D000000000013 /* SpikeArtwork.swift */,
+				C8SP00152F2D000000000015 /* SVGRasterizer.swift */,
 				C8SP00142F2D000000000014 /* ItemContextMenu.swift */,
 			);
 			path = Spike;
@@ -454,6 +465,9 @@
 			files = (
 				C29F123E61DAA17B671EC955 /* NowPlayingInfoStoreTests.swift in Sources */,
 				C29F123E61DAA17B671EC956 /* KotlinLocalizationKeyTests.swift in Sources */,
+				C29F123E61DAA17B671EC957 /* SVGRasterizerTests.swift in Sources */,
+				C8SP00A62F2D0000000000A6 /* SVGRasterizer.swift in Sources */,
+				C8PL000B2F7000000000000B /* QueueMoveMath.swift in Sources */,
 				6CF3E16270B477C8D3CDB192 /* NowPlayingInfoStore.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -474,6 +488,7 @@
 				C8SP00012F2D000000000001 /* MAWebRTCURLProtocol.swift in Sources */,
 				C8SP00022F2D000000000002 /* SpikeMediaItem.swift in Sources */,
 				C8SP00032F2D000000000003 /* SpikeArtwork.swift in Sources */,
+				C8SP00052F2D000000000005 /* SVGRasterizer.swift in Sources */,
 				C8SP00042F2D000000000004 /* ItemContextMenu.swift in Sources */,
 				C8SH00012F3E000000000001 /* AppRouter.swift in Sources */,
 				C8SH00022F3E000000000002 /* AppShellRootView.swift in Sources */,
@@ -494,6 +509,7 @@
 				C8PL00072F70000000000007 /* GroupSettingsView.swift in Sources */,
 				C8PL00082F70000000000008 /* VolumeSlider.swift in Sources */,
 				C8PL00092F70000000000009 /* PlayerPickerMenu.swift in Sources */,
+				C8PL000A2F7000000000000A /* QueueMoveMath.swift in Sources */,
 				C8HV00032F61000000000003 /* HomeView.swift in Sources */,
 				C8ST00032F63000000000003 /* SettingsView.swift in Sources */,
 				C8ST00042F63000000000004 /* ConnectionSetupStore.swift in Sources */,
