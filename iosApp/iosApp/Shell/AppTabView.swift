@@ -113,7 +113,23 @@ struct AppTabView: View {
             }
         }
         .fullScreenCover(isPresented: $playerExpanded) {
-            ExpandedPlayerView(store: playerBarStore) { playerExpanded = false }
+            ExpandedPlayerView(
+                store: playerBarStore,
+                onNavigateToItem: { route in
+                    // Dismiss first, then push. The expanded player is a `fullScreenCover`, so
+                    // it isn't inside any of the tabs' `NavigationStack`s and can't push for
+                    // itself — and appending while it's still on screen puts the destination
+                    // behind a cover the user then has to dismiss to see. The push lands on
+                    // whichever tab is active, which is the one they'll be looking at.
+                    playerExpanded = false
+                    switch selectedTab {
+                    case .home: homePath.append(route)
+                    case .library: libraryPath.append(route)
+                    case .search: searchPath.append(route)
+                    }
+                },
+                onCollapse: { playerExpanded = false }
+            )
         }
         .task { playerBarStore.start() }
         .task {

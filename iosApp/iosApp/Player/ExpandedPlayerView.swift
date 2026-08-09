@@ -29,6 +29,9 @@ private let playerLog = Logger(
 struct ExpandedPlayerView: View {
 
     var store: PlayerBarStore
+    /// Navigation has to leave this view: it's presented as a `fullScreenCover`, so it sits
+    /// outside every tab's `NavigationStack` and cannot push. `AppTabView` dismisses and pushes.
+    let onNavigateToItem: (ItemDetailsRoute) -> Void
     let onCollapse: () -> Void
 
     /// Fresh per presentation — matches Compose's own "fresh `PagerState` per mount, seeded
@@ -58,6 +61,7 @@ struct ExpandedPlayerView: View {
                         player: player,
                         store: store,
                         isSelected: player.id == scrollID,
+                        onNavigateToItem: onNavigateToItem,
                         onCollapse: onCollapse
                     )
                     .containerRelativeFrame(.horizontal)
@@ -100,6 +104,7 @@ private struct ExpandedPlayerRow: View {
     /// Whether this page is the one currently on screen — gates the live position
     /// subscription so only the visible page's ticker runs, not one per connected player.
     let isSelected: Bool
+    let onNavigateToItem: (ItemDetailsRoute) -> Void
     let onCollapse: () -> Void
 
     @State private var livePosition: Double?
@@ -216,6 +221,67 @@ private struct ExpandedPlayerRow: View {
         }
     }
 
+    // MARK: - Hero subtitle
+
+    /// "Artist • Album", with each part tappable when there's somewhere to go.
+    ///
+    /// Built from `trackItem` — the real `Track`, carrying `artists` and `album` as media items —
+    /// rather than from `player.subtitle`, which Kotlin has already joined into one string.
+    /// Splitting that string back apart would break on any artist or album containing the
+    /// separator, and would still leave nothing to navigate *to*.
+    ///
+    /// Falls back to the plain joined subtitle whenever the structured form isn't available: a
+    /// radio stream has no track, and a track can have neither album nor artists.
+    @ViewBuilder
+    private var heroSubtitle: some View {
+        let track = player.trackItem as? Track
+        let album = track?.album
+        // Compose showed a "choose artist" dialog for multi-artist tracks. One tap target that
+        // sometimes needs a second decision is worse here than linking the primary artist, which
+        // is the one the joined subtitle named anyway.
+        let artist = track?.artists.first
+
+        if album != nil || artist != nil {
+            HStack(spacing: 0) {
+                if let artist {
+                    linkedName(artist.displayName, for: artist)
+                }
+                if album != nil && artist != nil {
+                    Text(" • ").font(.subheadline).foregroundStyle(.secondary)
+                }
+                if let album {
+                    linkedName(album.displayName, for: album)
+                }
+            }
+            .lineLimit(1)
+        } else if let subtitle = player.subtitle, !subtitle.isEmpty {
+            Text(subtitle)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+        }
+    }
+
+    private func linkedName(_ name: String, for item: AppMediaItem) -> some View {
+        Button {
+            onNavigateToItem(
+                ItemDetailsRoute(
+                    itemId: item.itemId,
+                    mediaType: item.mediaType,
+                    providerId: item.provider
+                )
+            )
+        } label: {
+            Text(name)
+                .font(.subheadline)
+                // `.tint`, not `.secondary`: these are the only tappable words on the screen and
+                // nothing else marks them as such — no underline, no chevron, no disclosure.
+                .foregroundStyle(.tint)
+                .lineLimit(1)
+        }
+        .buttonStyle(.plain)
+    }
+
     // MARK: - Hero
 
     private var hero: some View {
@@ -229,12 +295,7 @@ private struct ExpandedPlayerRow: View {
                     .font(.title3.weight(.semibold))
                     .lineLimit(1)
                     .multilineTextAlignment(.center)
-                if let subtitle = player.subtitle, !subtitle.isEmpty {
-                    Text(subtitle)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
+                heroSubtitle
             }
         }
         .contentShape(Rectangle())
