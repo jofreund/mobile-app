@@ -26,13 +26,23 @@ struct MiniPlayerView: View {
 
     @State private var scrollID: String?
 
-    /// Also used by `AppTabView.swift` to size `FloatingBarSideEffectsController`'s
-    /// `.background` identically — that background is `.background(alignment: .bottom)`'d
-    /// onto the *same* view this reserves space on, so if it were ever taller than this, the
-    /// excess would bleed upward past the reserved region and its opaque Compose backdrop
-    /// would paint over the bottom slice of whatever's scrolling underneath (this exact bug,
-    /// found and fixed once already — do not let the two drift apart again).
-    static let reservedHeight: CGFloat = 84
+    /// Sized to what `MiniPlayerRow` actually draws, which is roughly:
+    /// the player-name line (~17) + `VStack` spacing (6) + the artwork row (48) + the row's
+    /// vertical padding (2 × 8) + the pager's bottom padding (4) ≈ 91. Rounded up to 92 so the
+    /// card is never trimmed by its own frame. Recompute this if that row changes shape.
+    ///
+    /// It has to stay a *fixed* height rather than a minimum: the pager inside is a horizontal
+    /// `ScrollView`, and a `ScrollView` is greedy on both axes, so a `minHeight` lets it grow
+    /// to whatever height it's offered — which balloons the bar and strands its card in the
+    /// middle of the screen (tried, reverted). The cost of pinning it is that very large
+    /// Dynamic Type sizes will crop the name line.
+    ///
+    /// `AppTabView.swift` also sizes `FloatingBarSideEffectsController`'s `.background` from
+    /// this — that background is `.background(alignment: .bottom)`'d onto the *same* view this
+    /// reserves space on, so if it were ever taller, the excess would bleed upward past the
+    /// reserved region and its opaque Compose backdrop would paint over the bottom slice of
+    /// whatever's scrolling underneath (a real bug, fixed once already — keep them equal).
+    static let reservedHeight: CGFloat = 92
 
     var body: some View {
         ZStack {

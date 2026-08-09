@@ -108,12 +108,18 @@ struct AppShellRootView: View {
         switch router.destination {
         case .main:
             AppTabView()
-                // Compose has its own keyboard handler and owns full-screen chrome on this
-                // side — SettingsView() below is now substantially native (Phase E4 part 2's
-                // real TextFields) and must NOT get this: it was found to suppress the
-                // keyboard from appearing for native fields entirely (iOS 26 beta).
+                // Compose had its own keyboard handler on this side — SettingsView() below is
+                // now substantially native (Phase E4 part 2's real TextFields) and must NOT get
+                // this: it was found to suppress the keyboard from appearing for native fields
+                // entirely (iOS 26 beta).
                 .ignoresSafeArea(.keyboard)
-                .ignoresSafeArea(.container)
+                // `.ignoresSafeArea(.container)` was here too, from when this side was a single
+                // full-screen Compose host drawing its own chrome. Nothing here is Compose now,
+                // and it suppressed the bottom container safe area for the whole tab subtree —
+                // including the region each tab reserves for the mini player via
+                // `.safeAreaInset`. That's why the last row of a scroll could never be brought
+                // clear of the bar, however far you scrolled: the reservation was being ignored
+                // rather than being too small.
         default:
             // Kotlin-exported enums aren't a closed set to Swift's exhaustiveness
             // checker, so this covers .settings (and anything added later).
