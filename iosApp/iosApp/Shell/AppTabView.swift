@@ -156,14 +156,9 @@ struct AppTabView: View {
 
     private var libraryTab: some View {
         NavigationStack(path: $libraryPath) {
-            LibraryView(
-                onNavigateToLibraryCategory: { mediaType in
-                    libraryPath.append(LibraryCategoryRoute(mediaType: mediaType))
-                },
-                onNavigateToBrowse: {
-                    libraryPath.append(BrowseRoute(path: nil, title: nil))
-                }
-            )
+            // No navigation closures: `LibraryView` builds `LibraryCategoryRoute`/`BrowseRoute`
+            // into real `NavigationLink`s against the destinations registered right here.
+            LibraryView()
             .navigationDestination(for: ItemDetailsRoute.self) { route in
                 ItemDetailsView(route: route)
             }
