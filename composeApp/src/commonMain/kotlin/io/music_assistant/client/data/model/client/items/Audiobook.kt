@@ -7,7 +7,6 @@ import io.music_assistant.client.data.model.client.MediaType
 import io.music_assistant.client.data.model.client.Metadata
 import io.music_assistant.client.data.model.server.ProviderMapping
 import io.music_assistant.client.data.model.server.ServerMediaItem
-import io.music_assistant.client.ui.compose.common.icons.BookAudioIcon
 
 data class Audiobook(
     override val itemId: String,
@@ -39,7 +38,6 @@ data class Audiobook(
     override val subtitle =
         authors?.takeIf { it.isNotEmpty() }?.joinToString(", ") ?: "Audiobook"
     override val parentName: String? = authors?.firstOrNull()
-    override val defaultIcon = BookAudioIcon
     override fun withFavorite(favorite: Boolean?) = copy(favorite = favorite)
     override fun withPlayed(fullyPlayed: Boolean) = copy(fullyPlayed = fullyPlayed, resumePositionMs = 0)
 }

@@ -5,7 +5,6 @@ import io.music_assistant.client.data.model.client.ImageType
 import io.music_assistant.client.data.model.client.MediaType
 import io.music_assistant.client.data.model.client.Metadata
 import io.music_assistant.client.data.model.server.ProviderMapping
-import io.music_assistant.client.ui.compose.common.icons.RadioIcon
 
 data class RadioStation(
     override val itemId: String,
@@ -23,6 +22,5 @@ data class RadioStation(
     override val mediaType: MediaType = MediaType.RADIO
     override val duration: Double? = null
     override val parentName: String? = null
-    override val defaultIcon = RadioIcon
     override fun withFavorite(favorite: Boolean?) = copy(favorite = favorite)
 }

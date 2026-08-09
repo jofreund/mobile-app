@@ -1,6 +1,5 @@
 package io.music_assistant.client.utils
 
-import androidx.compose.ui.Modifier
 import io.music_assistant.client.api.Answer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.SharingStarted
@@ -55,20 +54,6 @@ fun String.isValidHost(): Boolean {
 fun String.isIpPort(): Boolean {
     val port = this.toIntOrNull()
     return port != null && port in 1..65535
-}
-
-fun Modifier.conditional(
-    condition: Boolean,
-    ifFalse: (Modifier.() -> Modifier)? = null,
-    ifTrue: Modifier.() -> Modifier,
-): Modifier {
-    return if (condition) {
-        then(ifTrue(Modifier))
-    } else if (ifFalse != null) {
-        then(ifFalse(Modifier))
-    } else {
-        this
-    }
 }
 
 inline fun <reified T : Any> Result<Answer>.resultAs(): T? = getOrNull()?.resultAs()

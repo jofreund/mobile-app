@@ -1,7 +1,5 @@
 package io.music_assistant.client.data.model.client.items
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Podcasts
 import io.music_assistant.client.data.model.client.ImageInfo
 import io.music_assistant.client.data.model.client.ImageType
 import io.music_assistant.client.data.model.client.MediaType
@@ -38,7 +36,6 @@ data class PodcastEpisode(
     override val mediaType: MediaType = MediaType.PODCAST_EPISODE
     override val subtitle = releaseDate?.let(::formatIsoDate)
     override val parentName: String? = podcast?.displayName
-    override val defaultIcon = Icons.Default.Podcasts
     override fun withFavorite(favorite: Boolean?) = copy(favorite = favorite)
     override fun withPlayed(fullyPlayed: Boolean) = copy(fullyPlayed = fullyPlayed, resumePositionMs = 0)
 }

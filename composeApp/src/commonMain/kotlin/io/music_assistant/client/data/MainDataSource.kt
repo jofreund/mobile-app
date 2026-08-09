@@ -3,7 +3,6 @@
 
 package io.music_assistant.client.data
 
-import androidx.compose.ui.graphics.Color
 import co.touchlab.kermit.Logger
 import io.music_assistant.client.api.Request
 import io.music_assistant.client.api.ServiceClient
@@ -47,7 +46,6 @@ import io.music_assistant.client.ui.compose.common.DataState
 import io.music_assistant.client.ui.compose.common.StaleReason
 import io.music_assistant.client.ui.compose.common.action.PlayerAction
 import io.music_assistant.client.ui.compose.common.action.QueueAction
-import io.music_assistant.client.ui.compose.common.icons.BookshelfIcon
 import io.music_assistant.client.ui.compose.common.providers.ProviderIconModel
 import io.music_assistant.client.utils.AuthProcessState
 import io.music_assistant.client.utils.DataConnectionState
@@ -1547,11 +1545,11 @@ class MainDataSource(
             apiClient.sendRequest(Request.Library.providersManifests())
                 .resultAs<List<ProviderManifest>>()?.filter { it.type == "music" }
                 ?.let { manifests ->
+                    // The synthetic "library" entry that used to lead this map is gone with the
+                    // Compose `ImageVector` it carried — an app-local icon is the renderer's
+                    // business, and the renderer is native now. This map holds only what the
+                    // server actually describes.
                     val map = buildMap {
-                        put(
-                            "library",
-                            ProviderIconModel.Mdi(BookshelfIcon, Color.White),
-                        )
                         manifests.forEach { manifest ->
                             ProviderIconModel.from(manifest.icon, manifest.iconSvgDark)?.let {
                                 put(manifest.domain, it)

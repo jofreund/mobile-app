@@ -1,6 +1,5 @@
 package io.music_assistant.client.data.model.client.items
 
-import androidx.compose.ui.graphics.vector.ImageVector
 import io.music_assistant.client.data.model.client.ImageInfo
 import io.music_assistant.client.data.model.client.ImageType
 import io.music_assistant.client.data.model.client.MediaType
@@ -11,7 +10,6 @@ import io.music_assistant.client.data.model.server.ProviderMapping
 import io.music_assistant.client.data.model.server.ServerMediaItem
 
 interface PlayableItem {
-    val defaultIcon: ImageVector
     val parentName: String?
     val mediaType: MediaType
     val itemId: String

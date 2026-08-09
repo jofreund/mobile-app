@@ -6,7 +6,6 @@ import io.music_assistant.client.data.model.client.MediaType
 import io.music_assistant.client.data.model.client.Metadata
 import io.music_assistant.client.data.model.server.ProviderMapping
 import io.music_assistant.client.data.model.server.ServerMediaItem
-import io.music_assistant.client.ui.compose.common.icons.TrackIcon
 
 data class Track(
     override val itemId: String,
@@ -42,6 +41,5 @@ data class Track(
         "${name}${version?.trim()?.takeIf { it.isNotBlank() }?.let { " ($it)" }.orEmpty()}"
     override val subtitle = artists.joinToString(separator = ", ") { it.displayName }
     override val parentName: String? = album?.displayName
-    override val defaultIcon = TrackIcon
     override fun withFavorite(favorite: Boolean?) = copy(favorite = favorite)
 }

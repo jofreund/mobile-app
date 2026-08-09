@@ -1,11 +1,5 @@
 package io.music_assistant.client.data.model.client
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Podcasts
-import io.music_assistant.client.ui.compose.common.icons.BookAudioIcon
-import io.music_assistant.client.ui.compose.common.icons.RadioIcon
-import io.music_assistant.client.ui.compose.common.icons.TrackIcon
-
 data class PlayerMedia(
     val title: String?,
     val artist: String?,
@@ -19,11 +13,4 @@ data class PlayerMedia(
 ) {
     val subtitle = listOfNotNull(artist, album)
         .takeIf { it.isNotEmpty() }?.joinToString(" • ")
-
-    val defaultIcon = when (mediaType) {
-        MediaType.AUDIOBOOK -> BookAudioIcon
-        MediaType.PODCAST_EPISODE -> Icons.Default.Podcasts
-        MediaType.RADIO -> RadioIcon
-        else -> TrackIcon
-    }
 }

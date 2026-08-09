@@ -1,27 +1,30 @@
 package io.music_assistant.client.ui.compose.common.providers
 
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import co.touchlab.kermit.Logger
 import kotlin.io.encoding.Base64
 
 /**
- * Sealed class representing different types of provider icons
+ * What a provider's icon *is*, as the server describes it — not how to draw it.
+ *
+ * Nothing renders these today: the Compose chain that did (`ProviderIcon` → `MdiIcon` →
+ * `MdiCodepoints`) went out with the dead UI, and the native side hasn't picked it up yet
+ * (tracked in the master plan's "lost in the cutover"). The model and the manifest fetch that
+ * fills it are kept deliberately, so bringing provider icons back is a Swift rendering job
+ * rather than a re-derivation of the server's icon rules.
+ *
+ * Formerly carried Compose types — an `ImageVector` variant for app-local icons and a
+ * `Color` tint on the glyph case. Both are gone: the tint was never read, and an app-local
+ * icon is the renderer's business, not the server model's.
  */
 sealed class ProviderIconModel {
     /**
-     * Pre-built [ImageVector] type - for app-local icons (e.g. the "library" bookshelf).
-     */
-    data class Mdi(val icon: ImageVector, val tint: Color = Color.White) : ProviderIconModel()
-
-    /**
      * Material Design Icons community-pack glyph, referenced by its server-provided name
-     * (e.g. "mdi-speaker"). Resolved to a font glyph at render time by [MdiIcon].
+     * (e.g. "mdi-speaker"). A renderer resolves the name to a glyph.
      */
-    data class MdiGlyph(val name: String, val tint: Color = Color.White) : ProviderIconModel()
+    data class MdiGlyph(val name: String) : ProviderIconModel()
 
     /**
-     * PNG type - contains decoded PNG bytes ready for Coil
+     * PNG type - contains decoded PNG bytes
      */
     data class Png(val imageBytes: ByteArray) : ProviderIconModel() {
         override fun equals(other: Any?): Boolean {
@@ -37,7 +40,7 @@ sealed class ProviderIconModel {
     }
 
     /**
-     * SVG type - contains SVG bytes ready for Coil
+     * SVG type - contains SVG bytes
      */
     data class Svg(val svgBytes: ByteArray) : ProviderIconModel() {
         override fun equals(other: Any?): Boolean {
