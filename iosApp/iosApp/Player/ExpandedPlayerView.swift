@@ -35,6 +35,8 @@ struct ExpandedPlayerView: View {
     /// from the current selection" behavior (a `.fullScreenCover` is a new view every time).
     @State private var scrollID: String?
 
+    @State private var pagerHaptic = HapticSignal()
+
     var body: some View {
         ZStack {
             Color(.systemBackground).ignoresSafeArea()
@@ -70,7 +72,9 @@ struct ExpandedPlayerView: View {
         .onChange(of: scrollID) { _, newID in
             guard let newID, newID != currentPlayerID else { return }
             store.selectPlayer(id: newID)
+            pagerHaptic.fire(.selection)
         }
+        .haptics(pagerHaptic)
     }
 
     private var currentPlayerID: String? {
@@ -111,6 +115,8 @@ private struct ExpandedPlayerRow: View {
     /// order) whenever the Kotlin-driven order changes, mirroring Compose's
     /// `remember(items) { mutableStateOf(items) }` reset-on-server-echo.
     @State private var displayOrder: [String]?
+
+    @State private var haptic = HapticSignal()
 
     var body: some View {
         VStack(spacing: showQueue ? 16 : 24) {
@@ -537,6 +543,7 @@ private struct ExpandedPlayerRow: View {
         HStack(spacing: 28) {
             Button {
                 store.toggleShuffle(id: player.id)
+                haptic.fire(.selection)
             } label: {
                 Image(systemName: "shuffle")
                     .font(.title3)
@@ -546,12 +553,14 @@ private struct ExpandedPlayerRow: View {
 
             Button {
                 store.skipPrevious(id: player.id)
+                haptic.fire(.impact(weight: .light))
             } label: {
                 Image(systemName: "backward.fill").font(.title2)
             }
 
             Button {
                 store.togglePlayPause(id: player.id)
+                haptic.fire(.impact(weight: .medium))
             } label: {
                 Image(systemName: player.isPlaying ? "pause.fill" : "play.fill")
                     .font(.system(size: 44))
@@ -560,12 +569,14 @@ private struct ExpandedPlayerRow: View {
 
             Button {
                 store.skipNext(id: player.id)
+                haptic.fire(.impact(weight: .light))
             } label: {
                 Image(systemName: "forward.fill").font(.title2)
             }
 
             Button {
                 store.cycleRepeatMode(id: player.id)
+                haptic.fire(.selection)
             } label: {
                 Image(systemName: repeatSymbolName)
                     .font(.title3)
@@ -576,6 +587,7 @@ private struct ExpandedPlayerRow: View {
         .buttonStyle(.plain)
         .disabled(!player.canPlay)
         .frame(maxWidth: .infinity)
+        .haptics(haptic)
     }
 
     private var repeatSymbolName: String {

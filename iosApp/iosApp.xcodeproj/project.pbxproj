@@ -45,6 +45,7 @@
 		C8PL00092F70000000000009 /* PlayerPickerMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8PL00192F70000000000019 /* PlayerPickerMenu.swift */; };
 		C8PL000B2F7000000000000B /* QueueMoveMath.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8PL001A2F7000000000001A /* QueueMoveMath.swift */; };
 		C8PL000A2F7000000000000A /* QueueMoveMath.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8PL001A2F7000000000001A /* QueueMoveMath.swift */; };
+		C8PL000C2F7000000000000C /* HapticSignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8PL001B2F7000000000001B /* HapticSignal.swift */; };
 		C8SH00012F3E000000000001 /* AppRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SH00112F3E000000000011 /* AppRouter.swift */; };
 		C8SH00022F3E000000000002 /* AppShellRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SH00122F3E000000000012 /* AppShellRootView.swift */; };
 		C8SH00032F3E000000000003 /* AppTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SH00132F3E000000000013 /* AppTabView.swift */; };
@@ -102,6 +103,7 @@
 		C8PL00182F70000000000018 /* VolumeSlider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VolumeSlider.swift; sourceTree = "<group>"; };
 		C8PL00192F70000000000019 /* PlayerPickerMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerPickerMenu.swift; sourceTree = "<group>"; };
 		C8PL001A2F7000000000001A /* QueueMoveMath.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QueueMoveMath.swift; sourceTree = "<group>"; };
+		C8PL001B2F7000000000001B /* HapticSignal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HapticSignal.swift; sourceTree = "<group>"; };
 		C8SH00112F3E000000000011 /* AppRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRouter.swift; sourceTree = "<group>"; };
 		C8SH00122F3E000000000012 /* AppShellRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppShellRootView.swift; sourceTree = "<group>"; };
 		C8SH00132F3E000000000013 /* AppTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTabView.swift; sourceTree = "<group>"; };
@@ -285,6 +287,7 @@
 				C8PL00182F70000000000018 /* VolumeSlider.swift */,
 				C8PL00192F70000000000019 /* PlayerPickerMenu.swift */,
 				C8PL001A2F7000000000001A /* QueueMoveMath.swift */,
+				C8PL001B2F7000000000001B /* HapticSignal.swift */,
 			);
 			path = Player;
 			sourceTree = "<group>";
@@ -514,6 +517,7 @@
 				C8PL00082F70000000000008 /* VolumeSlider.swift in Sources */,
 				C8PL00092F70000000000009 /* PlayerPickerMenu.swift in Sources */,
 				C8PL000A2F7000000000000A /* QueueMoveMath.swift in Sources */,
+				C8PL000C2F7000000000000C /* HapticSignal.swift in Sources */,
 				C8HV00032F61000000000003 /* HomeView.swift in Sources */,
 				C8ST00032F63000000000003 /* SettingsView.swift in Sources */,
 				C8ST00042F63000000000004 /* ConnectionSetupStore.swift in Sources */,
