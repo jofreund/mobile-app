@@ -72,8 +72,8 @@ struct MiniPlayerView: View {
         // floating card that needed clearance above the tab bar — inside the accessory it just
         // pushed everything 4pt off centre. The horizontal inset went the same way: the
         // accessory already insets its content, and stacking another 8pt on top of the row's
-        // own 12 held the artwork well clear of the pill's edge. Spacing now comes from one
-        // place, the row itself.
+        // own held the artwork well clear of the pill's edge. Horizontal spacing now comes from
+        // one place, the row itself, so it can be tuned by eye without two values compounding.
         .onAppear { syncScrollToSelection(animated: false) }
         .onChange(of: store.selectedIndex) { _, _ in syncScrollToSelection(animated: true) }
         .onChange(of: scrollID) { _, newID in
@@ -165,9 +165,14 @@ private struct MiniPlayerRow: View {
 
     private var card: some View {
         mainRow
-            .padding(.horizontal, 12)
-            // Only a hair of vertical padding: the accessory is short, and an earlier layout's
-            // 40pt artwork plus 12pt of padding overran it and clipped the second line of text.
+            .padding(.horizontal, 18)
+            // Vertical padding is nearly cosmetic here, and that's worth knowing before
+            // reaching for it: the row is centred in a fixed-height accessory, so the gap above
+            // and below the artwork is (accessory height − artwork) / 2 whatever this is set
+            // to. Padding only eats the slack it's centred in. Breathing room above and below
+            // comes from the artwork size instead. Kept small as headroom against clipping —
+            // an earlier 40pt artwork with 12pt of padding overran the accessory and cut off
+            // the second line of text.
             .padding(.vertical, 4)
             // Filling the height is what actually centres the row: given a frame the size of
             // the accessory, the content sits in the middle of it rather than wherever a
@@ -180,8 +185,8 @@ private struct MiniPlayerRow: View {
     }
 
     private var mainRow: some View {
-        HStack(spacing: 10) {
-            SpikeArtwork(url: player.artworkURL, kind: .track, sizing: .fixed(38))
+        HStack(spacing: 12) {
+            SpikeArtwork(url: player.artworkURL, kind: .track, sizing: .fixed(36))
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(player.title ?? player.name)
