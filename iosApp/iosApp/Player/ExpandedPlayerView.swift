@@ -35,6 +35,8 @@ struct ExpandedPlayerView: View {
     /// from the current selection" behavior (a `.fullScreenCover` is a new view every time).
     @State private var scrollID: String?
 
+    @State private var pagerHaptic = HapticSignal()
+
     var body: some View {
         ZStack {
             Color(.systemBackground).ignoresSafeArea()
@@ -70,7 +72,9 @@ struct ExpandedPlayerView: View {
         .onChange(of: scrollID) { _, newID in
             guard let newID, newID != currentPlayerID else { return }
             store.selectPlayer(id: newID)
+            pagerHaptic.fire(.selection)
         }
+        .haptics(pagerHaptic)
     }
 
     private var currentPlayerID: String? {
@@ -111,6 +115,8 @@ private struct ExpandedPlayerRow: View {
     /// order) whenever the Kotlin-driven order changes, mirroring Compose's
     /// `remember(items) { mutableStateOf(items) }` reset-on-server-echo.
     @State private var displayOrder: [String]?
+
+    @State private var haptic = HapticSignal()
 
     var body: some View {
         VStack(spacing: showQueue ? 16 : 24) {
@@ -419,51 +425,30 @@ private struct ExpandedPlayerRow: View {
     /// then applies it optimistically to `displayOrder` before dispatching.
     private func handleMove(rows: [QueueDisplayRow], from: IndexSet, to: Int) {
         guard let fromDisplayIndex = from.first, from.count == 1 else { return }
-        guard case let .track(fromItem, fromQueueIndex) = rows[fromDisplayIndex] else { return }
+        guard case let .track(fromItem, _) = rows[fromDisplayIndex] else { return }
         guard let queueId = player.queueId else { return }
 
-        let toQueueIndex = resolveTargetQueueIndex(rows: rows, to: to, currentIndex: currentQueueIndex)
-        // Dropping at or before the currently-playing item is rejected. A queue with no current
-        // item at all imposes no such floor — Compose spells this out as
-        // `currentIdx >= 0 && toQueueIndex <= currentIdx`, and requiring a current item here
-        // (as this used to) silently dropped every reorder in a not-yet-playing queue.
-        if let currentIndex = currentQueueIndex, toQueueIndex <= currentIndex { return }
+        // The arithmetic lives in `QueueMoveMath` so it can be tested without a view. Three
+        // separate bugs shipped in it — a display-index-vs-queue-index mixup, a pre- vs
+        // post-removal `pos_shift` convention error, and a guard that discarded every reorder
+        // in an idle queue — and none of them needed a UI to reproduce.
+        guard let move = QueueMoveMath.resolve(
+            rowQueueIndices: rows.map(\.queueIndex),
+            from: fromDisplayIndex,
+            to: to,
+            currentQueueIndex: currentQueueIndex
+        ) else { return }
 
         var order = displayOrder ?? orderedQueueItems.map(\.id)
-        order.move(fromOffsets: IndexSet(integer: fromQueueIndex), toOffset: toQueueIndex)
+        order.move(fromOffsets: IndexSet(integer: move.fromQueueIndex), toOffset: move.localToIndex)
         displayOrder = order
 
-        // `toQueueIndex` is a pre-removal "insert before this original index" position — the
-        // convention `Array.move`/SwiftUI's own `.onMove` use, needed for the optimistic
-        // `order.move` above. The server's `pos_shift` mirrors Compose's own
-        // `add(toQueueIndex, removeAt(fromQueueIndex))` sequence, which is measured
-        // post-removal: removing the source item first shifts every index after it down by one.
-        // Forward moves (the only direction this feature allows — dropping before the current
-        // item is rejected above) need that index shifted back by one to match; backward moves
-        // are unaffected since removal never touches indices before itself. Sending the
-        // unadjusted pre-removal index overshoots by one position on every forward drag — the
-        // cause of reorders that looked right locally but didn't persist correctly server-side.
-        let serverToIndex = toQueueIndex > fromQueueIndex ? toQueueIndex - 1 : toQueueIndex
-        store.moveQueueItem(queueId: queueId, queueItemId: fromItem.id, from: fromQueueIndex, to: serverToIndex)
-    }
-
-    /// Maps a *display* drop position (an index into `rows`, which omits the current item's own
-    /// row — see `QueueDisplayRow.build`) to the absolute queue index `moveQueueItem` needs.
-    /// Deliberately reads the `queueIndex` already stored on the nearest surrounding `.track`
-    /// row rather than counting rows up to `to`: counting undercounts by exactly the number of
-    /// omitted current-item rows before `to`, which is what silently broke every reorder after
-    /// the current-item row was removed to fix the queue-duplication issue — this reads the
-    /// real index directly instead of re-deriving it.
-    private func resolveTargetQueueIndex(rows: [QueueDisplayRow], to: Int, currentIndex: Int?) -> Int {
-        for row in rows[to...] {
-            if case let .track(_, queueIndex) = row { return queueIndex }
-        }
-        for row in rows[..<to].reversed() {
-            if case let .track(_, queueIndex) = row { return queueIndex + 1 }
-        }
-        // Only reachable with no `.track` rows at all (a queue of nothing but chapter rows),
-        // where nothing is draggable in the first place.
-        return (currentIndex ?? -1) + 1
+        store.moveQueueItem(
+            queueId: queueId,
+            queueItemId: fromItem.id,
+            from: move.fromQueueIndex,
+            to: move.serverToIndex
+        )
     }
 
     private func scrollToCurrent(proxy: ScrollViewProxy, animated: Bool) {
@@ -558,6 +543,7 @@ private struct ExpandedPlayerRow: View {
         HStack(spacing: 28) {
             Button {
                 store.toggleShuffle(id: player.id)
+                haptic.fire(.selection)
             } label: {
                 Image(systemName: "shuffle")
                     .font(.title3)
@@ -567,12 +553,14 @@ private struct ExpandedPlayerRow: View {
 
             Button {
                 store.skipPrevious(id: player.id)
+                haptic.fire(.impact(weight: .light))
             } label: {
                 Image(systemName: "backward.fill").font(.title2)
             }
 
             Button {
                 store.togglePlayPause(id: player.id)
+                haptic.fire(.impact(weight: .medium))
             } label: {
                 Image(systemName: player.isPlaying ? "pause.fill" : "play.fill")
                     .font(.system(size: 44))
@@ -581,12 +569,14 @@ private struct ExpandedPlayerRow: View {
 
             Button {
                 store.skipNext(id: player.id)
+                haptic.fire(.impact(weight: .light))
             } label: {
                 Image(systemName: "forward.fill").font(.title2)
             }
 
             Button {
                 store.cycleRepeatMode(id: player.id)
+                haptic.fire(.selection)
             } label: {
                 Image(systemName: repeatSymbolName)
                     .font(.title3)
@@ -597,6 +587,7 @@ private struct ExpandedPlayerRow: View {
         .buttonStyle(.plain)
         .disabled(!player.canPlay)
         .frame(maxWidth: .infinity)
+        .haptics(haptic)
     }
 
     private var repeatSymbolName: String {
@@ -637,6 +628,16 @@ private enum QueueDisplayRow: Identifiable {
         switch self {
         case .track(let item, _): "queue:\(item.id)"
         case .chapter(let chapter, let parentId): "chapter:\(parentId):\(chapter.position)"
+        }
+    }
+
+    /// The absolute queue position, or nil for a chapter row. This is the only thing
+    /// `QueueMoveMath` needs from a row, which is what lets the arithmetic be tested without
+    /// constructing bridged Kotlin values.
+    var queueIndex: Int? {
+        switch self {
+        case .track(_, let queueIndex): queueIndex
+        case .chapter: nil
         }
     }
 

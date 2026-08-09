@@ -1,8 +1,8 @@
 import SwiftUI
 import MusicAssistantKit
 
-/// The Library tab's root — the category grid (Artists, Albums, Titel, …, Durchsuchen), now
-/// native. `LibraryCategoriesViewModel` was a thin pass-through over
+/// The Library tab's root — a table of categories (Artists, Albums, Titel, …, Durchsuchen).
+/// `LibraryCategoriesViewModel` was a thin pass-through over
 /// `SettingsRepository.libraryCategoryConfig` (no session state, no server round trip — the
 /// category list itself is a fixed Kotlin enum), so there's nothing worth wrapping: this screen
 /// reads/writes that config directly via `KmpHelper.libraryCategoryConfig`/
@@ -14,15 +14,10 @@ import MusicAssistantKit
 /// clamping or its tap-swallow-but-allow-drag gesture scrim.
 struct LibraryView: View {
 
-    let onNavigateToLibraryCategory: (MediaType) -> Void
-    let onNavigateToBrowse: () -> Void
-
     @State private var config: [SettingsRepository.LibraryCategoryPref] = []
     @State private var isEditing = false
     @State private var editingEnabledRows: [LibraryCategoryRow] = []
     @State private var editingDisabledRows: [LibraryCategoryRow] = []
-
-    private static let columns = [GridItem(.adaptive(minimum: 150), spacing: 8)]
 
     private var rows: [(row: LibraryCategoryRow, enabled: Bool)] {
         reconciledCategories(config: config)
@@ -43,28 +38,40 @@ struct LibraryView: View {
         if isEditing {
             editingList
         } else {
-            ScrollView {
-                LazyVGrid(columns: Self.columns, spacing: 8) {
-                    ForEach(rows.filter(\.enabled).map(\.row)) { row in
-                        Button {
-                            select(row.category)
-                        } label: {
-                            LibraryCategoryTile(row: row)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .padding(16)
+            // A table rather than the tile grid this started as. The grid was a fairly direct
+            // read of Compose's `GridButton` layout; a list is what Apple Music's own Library
+            // root uses, and it reads better for a short, fixed set of text destinations.
+            // `.plain` for the same reason — edge-to-edge separators, not inset cards.
+            List(rows.filter(\.enabled).map(\.row)) { row in
+                categoryLink(row)
             }
+            .listStyle(.plain)
         }
     }
 
-    private func select(_ category: LibraryCategory) {
-        if category == .browse {
-            onNavigateToBrowse()
-        } else if let mediaType = category.mediaType {
-            onNavigateToLibraryCategory(mediaType)
+    /// Real `NavigationLink`s, so each row gets the system disclosure indicator and the standard
+    /// highlight for free. This screen used to take `onNavigateToLibraryCategory`/
+    /// `onNavigateToBrowse` closures and push through the parent, which predates these routes
+    /// being registered on the Library stack — `AppTabView` was appending exactly the values
+    /// built here, one indirection later.
+    @ViewBuilder
+    private func categoryLink(_ row: LibraryCategoryRow) -> some View {
+        if row.category == .browse {
+            NavigationLink(value: BrowseRoute(path: nil, title: nil)) { categoryLabel(row) }
+        } else if let mediaType = row.category.mediaType {
+            NavigationLink(value: LibraryCategoryRoute(mediaType: mediaType)) { categoryLabel(row) }
         }
+    }
+
+    private func categoryLabel(_ row: LibraryCategoryRow) -> some View {
+        Label {
+            Text(row.title)
+                .font(.body)
+        } icon: {
+            Image(systemName: row.category.symbolName)
+                .foregroundStyle(.tint)
+        }
+        .padding(.vertical, 6)
     }
 
     // MARK: - Toolbar
@@ -205,28 +212,5 @@ private extension LibraryCategory {
         case .browse: String(localized: "nav_browse")
         default: ""
         }
-    }
-}
-
-/// Same functional layout as Compose's `GridButton` (icon + label in a wide, short rounded
-/// rect) restyled to read as native iOS rather than a literal port of the Material tile.
-private struct LibraryCategoryTile: View {
-
-    let row: LibraryCategoryRow
-
-    var body: some View {
-        HStack(spacing: 16) {
-            Image(systemName: row.category.symbolName)
-                .font(.title2)
-                .foregroundStyle(.tint)
-            Text(row.title)
-                .font(.headline)
-                .lineLimit(1)
-                .foregroundStyle(.primary)
-            Spacer(minLength: 0)
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, minHeight: 64)
-        .background(.tint.opacity(0.15), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 }

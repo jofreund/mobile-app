@@ -802,26 +802,3 @@ class LocalPlayerController(
         private const val MICROS = 1_000_000.0
     }
 }
-
-/**
- * Maps a platform remote-command string (Control Center / lock screen / CarPlay)
- * to the [PlayerAction] to dispatch. Toggle commands read their current state
- * from [queueInfo], defaulting to off when no queue exists. Returns null for
- * unrecognized commands and malformed seek payloads.
- */
-internal fun remoteCommandToPlayerAction(command: String, queueInfo: QueueInfo?): PlayerAction? = when {
-    command == "play" -> PlayerAction.Play
-    command == "pause" -> PlayerAction.Pause
-    command == "toggle_play_pause" -> PlayerAction.TogglePlayPause
-    command == "next" -> PlayerAction.Next
-    command == "previous" -> PlayerAction.Previous
-    command == "toggle_shuffle" ->
-        PlayerAction.ToggleShuffle(current = queueInfo?.shuffleEnabled == true)
-    command == "toggle_repeat" ->
-        PlayerAction.ToggleRepeatMode(current = queueInfo?.repeatMode ?: RepeatMode.OFF)
-    command.startsWith("seek:") ->
-        command.removePrefix("seek:").toDoubleOrNull()?.let { PlayerAction.SeekTo(it.toLong()) }
-    command.startsWith("seek_by:") ->
-        command.removePrefix("seek_by:").toLongOrNull()?.let { PlayerAction.SeekBy(it) }
-    else -> null
-}

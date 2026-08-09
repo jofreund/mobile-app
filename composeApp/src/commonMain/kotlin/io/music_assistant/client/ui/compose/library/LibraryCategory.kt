@@ -19,13 +19,3 @@ enum class LibraryCategory {
             BROWSE -> null
         }
 }
-
-/** Tabs Android Auto / CarPlay can render at root — Tracks/Genres aren't AA tabs. */
-val carTabCategories: List<LibraryCategory> = listOf(
-    LibraryCategory.ARTISTS,
-    LibraryCategory.ALBUMS,
-    LibraryCategory.PLAYLISTS,
-    LibraryCategory.PODCASTS,
-    LibraryCategory.RADIOS,
-    LibraryCategory.AUDIOBOOKS,
-)

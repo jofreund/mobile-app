@@ -3,11 +3,15 @@ package io.music_assistant.client.data
 import io.music_assistant.client.data.model.client.PlayerData
 import io.music_assistant.client.data.model.client.PlayerDataFixtures
 import io.music_assistant.client.data.model.client.PlayerType
+import io.music_assistant.client.data.model.client.QueueTrack
+import io.music_assistant.client.data.model.client.testTrack
 import io.music_assistant.client.ui.compose.common.DataState
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotSame
 import kotlin.test.assertNull
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 /**
@@ -134,5 +138,215 @@ class PlayerBarStateTest {
         assertNull(item.currentQueueItemId)
         assertTrue(item.currentItemChapters.isEmpty())
         assertEquals(data.queueOrPlayerId, item.queueId)
+    }
+
+    // The `distinctUntilChanged` predicate behind `MainDataSource.playerBarState`. Most of these
+    // assert states are *not* equivalent, because over-suppression is the dangerous direction:
+    // a dropped emission is a UI that silently stops updating, which is far harder to notice
+    // than an extra one.
+
+    private fun projected() = stateOf(PlayerDataFixtures.playerData())
+
+    private fun PlayerBarState.Data.mutatingFirst(
+        transform: (PlayerBarItem) -> PlayerBarItem,
+    ) = copy(players = players.mapIndexed { index, item -> if (index == 0) transform(item) else item })
+
+    @Test
+    fun `a queue time tick alone is suppressed`() {
+        val base = projected()
+        val ticked = base.mutatingFirst { it.copy(elapsedTime = (it.elapsedTime ?: 0.0) + 1.0) }
+        assertTrue(playerBarStatesEquivalentIgnoringElapsed(base, ticked))
+    }
+
+    @Test
+    fun `an unchanged projection is suppressed`() {
+        val base = projected()
+        assertTrue(playerBarStatesEquivalentIgnoringElapsed(base, base))
+    }
+
+    @Test
+    fun `a track change is not suppressed even though elapsed resets with it`() {
+        // The case most at risk: advancing a track resets elapsedTime *and* changes the item.
+        // Keying only on elapsedTime would hide the part that matters.
+        val base = projected()
+        val advanced = base.mutatingFirst {
+            it.copy(currentQueueItemId = "next-item", title = "Next Track", elapsedTime = 0.0)
+        }
+        assertFalse(playerBarStatesEquivalentIgnoringElapsed(base, advanced))
+    }
+
+    @Test
+    fun `play pause is not suppressed`() {
+        val base = projected()
+        assertFalse(
+            playerBarStatesEquivalentIgnoringElapsed(base, base.mutatingFirst { it.copy(isPlaying = !it.isPlaying) }),
+        )
+    }
+
+    @Test
+    fun `volume and mute changes are not suppressed`() {
+        val base = projected()
+        assertFalse(
+            playerBarStatesEquivalentIgnoringElapsed(base, base.mutatingFirst { it.copy(volumeLevel = 0.42f) }),
+        )
+        assertFalse(
+            playerBarStatesEquivalentIgnoringElapsed(base, base.mutatingFirst { it.copy(isMuted = !it.isMuted) }),
+        )
+    }
+
+    @Test
+    fun `queue contents changing is not suppressed`() {
+        // Reordering and removal both have to get through, or the queue list freezes after a
+        // drag — the exact class of bug this projection has already produced twice.
+        val base = projected()
+        val withItems = base.mutatingFirst {
+            it.copy(
+                queueItems = listOf(
+                    QueueBarItem("a", "A", null, null, isPlayable = true, trackItem = null),
+                    QueueBarItem("b", "B", null, null, isPlayable = true, trackItem = null),
+                ),
+            )
+        }
+        val reordered = withItems.mutatingFirst { it.copy(queueItems = it.queueItems.reversed()) }
+        val removed = withItems.mutatingFirst { it.copy(queueItems = it.queueItems.drop(1)) }
+
+        assertFalse(playerBarStatesEquivalentIgnoringElapsed(base, withItems))
+        assertFalse(playerBarStatesEquivalentIgnoringElapsed(withItems, reordered))
+        assertFalse(playerBarStatesEquivalentIgnoringElapsed(withItems, removed))
+    }
+
+    @Test
+    fun `group membership changes are not suppressed`() {
+        val base = projected()
+        assertFalse(
+            playerBarStatesEquivalentIgnoringElapsed(base, base.mutatingFirst { it.copy(isGrouped = !it.isGrouped) }),
+        )
+    }
+
+    @Test
+    fun `selection and player list changes are not suppressed`() {
+        val two = stateOf(PlayerDataFixtures.playerData(), PlayerDataFixtures.playerData())
+        assertFalse(playerBarStatesEquivalentIgnoringElapsed(two, two.copy(selectedIndex = 1)))
+        assertFalse(playerBarStatesEquivalentIgnoringElapsed(two, two.copy(players = two.players.drop(1))))
+    }
+
+    @Test
+    fun `transitions in and out of loading are not suppressed`() {
+        val base = projected()
+        assertFalse(playerBarStatesEquivalentIgnoringElapsed(PlayerBarState.Loading, base))
+        assertFalse(playerBarStatesEquivalentIgnoringElapsed(base, PlayerBarState.Empty))
+        // Repeats of the same non-Data state still collapse, so a stuck connection doesn't
+        // re-notify Swift on every rebuild.
+        assertTrue(playerBarStatesEquivalentIgnoringElapsed(PlayerBarState.Loading, PlayerBarState.Loading))
+    }
+
+    // QueueProjectionCache. The failure that matters is a *stale hit* — returning last tick's
+    // items after the queue changed — so most of this checks the cache lets real changes through.
+
+    private fun queueTracks(vararg ids: String) = with(PlayerDataFixtures) {
+        ids.map { testTrack().toQueueTrack(id = it) }
+    }
+
+    /** [PlayerDataFixtures.playerData] with a loaded queue, reusing whatever info it built. */
+    private fun playerDataWithQueue(tracks: List<QueueTrack>): PlayerData {
+        val base = PlayerDataFixtures.playerData()
+        val queue = (base.queue as DataState.Data).data
+        return base.copy(queue = DataState.Data(queue.copy(items = DataState.Data(tracks))))
+    }
+
+    @Test
+    fun `an unchanged queue is projected once and reused by identity`() {
+        // The point of the cache: same source object, same result object. Reusing the instance
+        // also lets the distinctUntilChanged comparison short-circuit instead of walking items.
+        val cache = QueueProjectionCache()
+        val source = queueTracks("a", "b")
+
+        val first = cache.project("player-1", source)
+        val second = cache.project("player-1", source)
+
+        assertSame(first, second)
+    }
+
+    @Test
+    fun `a changed queue is re-projected`() {
+        val cache = QueueProjectionCache()
+        cache.project("player-1", queueTracks("a", "b"))
+
+        val afterChange = cache.project("player-1", queueTracks("a", "b", "c"))
+
+        assertEquals(listOf("a", "b", "c"), afterChange.map { it.id })
+    }
+
+    @Test
+    fun `a reordered queue of the same tracks is re-projected`() {
+        // Same size, same contents, different order — the case a sloppy size-only guard misses.
+        val cache = QueueProjectionCache()
+        cache.project("player-1", queueTracks("a", "b"))
+
+        val reordered = cache.project("player-1", queueTracks("b", "a"))
+
+        assertEquals(listOf("b", "a"), reordered.map { it.id })
+    }
+
+    @Test
+    fun `an equal but distinct source re-projects rather than reusing`() {
+        // Documents the identity-not-equality choice: a miss costs a re-map, never correctness.
+        // Comparing by equality here would cost exactly the walk the cache exists to avoid.
+        val cache = QueueProjectionCache()
+        val first = cache.project("player-1", queueTracks("a"))
+        val second = cache.project("player-1", queueTracks("a"))
+
+        assertNotSame(first, second)
+        assertEquals(first, second)
+    }
+
+    @Test
+    fun `players do not share cache entries`() {
+        val cache = QueueProjectionCache()
+        val oneSource = queueTracks("a")
+        val twoSource = queueTracks("b")
+
+        val one = cache.project("player-1", oneSource)
+        val two = cache.project("player-2", twoSource)
+
+        assertEquals(listOf("a"), one.map { it.id })
+        assertEquals(listOf("b"), two.map { it.id })
+        // And each still hits its own entry afterwards.
+        assertSame(one, cache.project("player-1", oneSource))
+        assertSame(two, cache.project("player-2", twoSource))
+    }
+
+    @Test
+    fun `an emptied queue drops its entry and projects empty`() {
+        val cache = QueueProjectionCache()
+        cache.project("player-1", queueTracks("a"))
+
+        assertTrue(cache.project("player-1", emptyList()).isEmpty())
+        assertTrue(cache.project("player-1", null).isEmpty())
+    }
+
+    @Test
+    fun `retainOnly evicts players that are gone`() {
+        val cache = QueueProjectionCache()
+        val source = queueTracks("a")
+        val before = cache.project("player-1", source)
+
+        cache.retainOnly(setOf("player-2"))
+
+        // Same source object, but the entry was evicted — so this re-projects rather than
+        // resurrecting a queue belonging to a player that no longer exists.
+        assertNotSame(before, cache.project("player-1", source))
+    }
+
+    @Test
+    fun `repeated projection through buildPlayerBarState reuses the queue items`() {
+        // End-to-end: what MainDataSource actually does on a queue-time tick.
+        val cache = QueueProjectionCache()
+        val state = DataState.Data(listOf(playerDataWithQueue(queueTracks("a", "b"))))
+
+        val first = buildPlayerBarState(state, 0, cache) as PlayerBarState.Data
+        val second = buildPlayerBarState(state, 0, cache) as PlayerBarState.Data
+
+        assertSame(first.players.single().queueItems, second.players.single().queueItems)
     }
 }

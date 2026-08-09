@@ -30,6 +30,8 @@ struct MiniPlayerView: View {
     /// every tab switch. Held above, it simply stays where it was.
     @Binding var scrollID: String?
 
+    @State private var pagerHaptic = HapticSignal()
+
     // Last, so callers can pass it as a trailing closure.
     let onExpand: () -> Void
 
@@ -77,7 +79,11 @@ struct MiniPlayerView: View {
             // the fallback is `TabView(selection:).tabViewStyle(.page(...))` instead.
             guard let newID, newID != currentPlayerID else { return }
             store.selectPlayer(id: newID)
+            // Only on a real settle onto a different player. A programmatic sync (Kotlin changed
+            // the selection) trips the guard above and returns before reaching this.
+            pagerHaptic.fire(.selection)
         }
+        .haptics(pagerHaptic)
     }
 
     private var currentPlayerID: String? {
@@ -115,6 +121,8 @@ private struct MiniPlayerRow: View {
     let player: PlayerBarItemView
     let store: PlayerBarStore
     let onExpand: () -> Void
+
+    @State private var haptic = HapticSignal()
 
     /// The player's name leads, ahead of the artist: in a multi-room app that's what tells you
     /// which speaker you're about to control.
@@ -156,6 +164,7 @@ private struct MiniPlayerRow: View {
             // the content itself.
             .contentShape(.rect)
             .onTapGesture { onExpand() }
+            .haptics(haptic)
     }
 
     private var mainRow: some View {
@@ -178,6 +187,7 @@ private struct MiniPlayerRow: View {
 
             Button {
                 store.togglePlayPause(id: player.id)
+                haptic.fire(.impact(weight: .medium))
             } label: {
                 Image(systemName: player.isPlaying ? "pause.fill" : "play.fill")
                     .font(.title3)
@@ -186,6 +196,7 @@ private struct MiniPlayerRow: View {
 
             Button {
                 store.skipNext(id: player.id)
+                haptic.fire(.impact(weight: .light))
             } label: {
                 Image(systemName: "forward.fill")
                     .font(.subheadline)

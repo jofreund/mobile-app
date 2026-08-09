@@ -3,6 +3,7 @@ package io.music_assistant.client.data
 import io.music_assistant.client.data.model.client.Chapter
 import io.music_assistant.client.data.model.client.ImageType
 import io.music_assistant.client.data.model.client.PlayerData
+import io.music_assistant.client.data.model.client.QueueTrack
 import io.music_assistant.client.data.model.client.RepeatMode
 import io.music_assistant.client.data.model.client.items.AppMediaItem
 import io.music_assistant.client.data.model.client.items.Audiobook
@@ -105,6 +106,45 @@ sealed class PlayerBarState {
 }
 
 /**
+ * True when two states are the same except for [PlayerBarItem.elapsedTime] — the
+ * `distinctUntilChanged` predicate behind [MainDataSource.playerBarState].
+ *
+ * While something is playing, a queue-time event lands about once a second and re-emits this
+ * whole projection. Almost always the *only* difference is `elapsedTime`, and every downstream
+ * consumer pays for it: Swift rebuilds a `PlayerBarItemView` per player and a
+ * `QueueBarItemView` per queue item — each with a `URL(string:)` parse — and SwiftUI invalidates
+ * the mini player, the expanded player and the queue list. With a few hundred queue items that
+ * is thousands of allocations and URL parses a second, with the queue UI closed.
+ *
+ * Dropping those emissions is safe because `elapsedTime` is documented as a snapshot and is very
+ * nearly vestigial: the only Swift reader is `livePosition ?? player.elapsedTime ?? 0`, and
+ * `livePosition` comes from `PlayerPositionTracker.observe`, which is a `StateFlow` behind
+ * `flatMapLatest` and therefore emits immediately on subscribe. The fallback covers at most one
+ * frame.
+ *
+ * Note what this deliberately does *not* do: remove `elapsedTime` from the model. That is the
+ * obvious version of this fix and it's the one that can show a seek bar at 0:00. Keeping the
+ * field means a suppressed run leaves a stale value that nothing reads, rather than no value at
+ * all — and any real change re-emits it fresh alongside whatever else moved.
+ */
+internal fun playerBarStatesEquivalentIgnoringElapsed(
+    old: PlayerBarState,
+    new: PlayerBarState,
+): Boolean {
+    if (old !is PlayerBarState.Data || new !is PlayerBarState.Data) return old == new
+    if (old.selectedIndex != new.selectedIndex) return false
+    if (old.players.size != new.players.size) return false
+    // Copying the new elapsed onto the old item reduces "equal except elapsedTime" to a plain
+    // data-class comparison, so this can't drift out of sync as fields are added to
+    // PlayerBarItem — which a hand-written field-by-field check certainly would.
+    return old.players.indices.all { index ->
+        val oldItem = old.players[index]
+        val newItem = new.players[index]
+        oldItem.copy(elapsedTime = newItem.elapsedTime) == newItem
+    }
+}
+
+/**
  * Derives [PlayerBarState] from [MainDataSource.playersData]/[MainDataSource.selectedPlayerIndex] —
  * mirrors the same `DataState.Data`-only gating [MainDataSource.selectedPlayerIndex]/
  * [MainDataSource.isAnythingPlaying] already use: Loading/Error/NoData/Stale all collapse to
@@ -112,12 +152,72 @@ sealed class PlayerBarState {
  * [MainDataSource.selectedPlayerIndex] itself doesn't survive Stale either — mirroring that
  * existing gap rather than inventing behavior neither of them has today.
  */
+/**
+ * Per-player memo for the queue projection, keyed on the *identity* of the source list.
+ *
+ * [MainDataSource.buildPlayerDataList] carries loaded queue items across rebuilds by reference
+ * (`updateFrom` keeps `oldQueueData.items` when the incoming state has none), so on a queue-time
+ * tick the source list is literally the same object as last time. Mapping it again produced a
+ * fresh `QueueBarItem` per track — plus an `image(THUMB)` lookup each — several hundred times a
+ * second, only for the result to be discarded by the `distinctUntilChanged` in
+ * [MainDataSource.playerBarState].
+ *
+ * Returning the previous list instance has a second effect worth as much as the first: the
+ * data-class equality behind that `distinctUntilChanged` then short-circuits on identity
+ * (`AbstractList.equals` checks `this === other` first) instead of walking a few hundred items
+ * field by field.
+ *
+ * Identity, not equality, on purpose — an equality check here would cost the very comparison it
+ * is meant to avoid. A miss is only ever a missed optimization: the items are re-projected and
+ * the result is correct either way.
+ *
+ * Not thread-safe, and doesn't need to be: the only caller is a single flow collector, which
+ * processes emissions sequentially with a happens-before between them.
+ */
+internal class QueueProjectionCache {
+    private class Entry(val source: List<QueueTrack>, val projected: List<QueueBarItem>)
+
+    private val entries = mutableMapOf<String, Entry>()
+
+    fun project(playerId: String, source: List<QueueTrack>?): List<QueueBarItem> {
+        if (source.isNullOrEmpty()) {
+            entries.remove(playerId)
+            return emptyList()
+        }
+        entries[playerId]?.let { cached ->
+            if (cached.source === source) return cached.projected
+        }
+        val projected = source.map { queueTrack ->
+            val itemMedia = queueTrack.track as? AppMediaItem
+            QueueBarItem(
+                id = queueTrack.id,
+                title = itemMedia?.displayName ?: itemMedia?.name.orEmpty(),
+                subtitle = itemMedia?.subtitle,
+                artworkUrl = itemMedia?.image(ImageType.THUMB)?.url,
+                isPlayable = queueTrack.isPlayable,
+                trackItem = itemMedia,
+            )
+        }
+        entries[playerId] = Entry(source, projected)
+        return projected
+    }
+
+    /** Drops players that no longer exist, so a long session can't accumulate their queues. */
+    fun retainOnly(playerIds: Set<String>) {
+        if (entries.isNotEmpty()) entries.keys.retainAll(playerIds)
+    }
+}
+
 internal fun buildPlayerBarState(
     playersDataState: DataState<List<PlayerData>>,
     selectedIndex: Int?,
+    // Defaults to a throwaway cache so the function stays pure for callers that don't have one —
+    // notably the tests, which would otherwise all have to thread an instance through.
+    queueCache: QueueProjectionCache = QueueProjectionCache(),
 ): PlayerBarState {
     val players = (playersDataState as? DataState.Data)?.data ?: return PlayerBarState.Loading
     if (players.isEmpty()) return PlayerBarState.Empty
+    queueCache.retainOnly(players.mapTo(mutableSetOf()) { it.playerId })
     return PlayerBarState.Data(
         players = players.map { data ->
             val player = data.player
@@ -142,17 +242,7 @@ internal fun buildPlayerBarState(
                 canMute = player.canMute,
                 trackItem = queue?.currentItem?.track as? AppMediaItem,
                 queueId = data.queueOrPlayerId,
-                queueItems = data.queueItems.orEmpty().map { queueTrack ->
-                    val itemMedia = queueTrack.track as? AppMediaItem
-                    QueueBarItem(
-                        id = queueTrack.id,
-                        title = itemMedia?.displayName ?: itemMedia?.name.orEmpty(),
-                        subtitle = itemMedia?.subtitle,
-                        artworkUrl = itemMedia?.image(ImageType.THUMB)?.url,
-                        isPlayable = queueTrack.isPlayable,
-                        trackItem = itemMedia,
-                    )
-                },
+                queueItems = queueCache.project(data.playerId, data.queueItems),
                 currentQueueItemId = queue?.currentItem?.id,
                 currentItemChapters = (queue?.currentItem?.track as? Audiobook)?.chapters.orEmpty(),
                 isGroup = player.isGroup,

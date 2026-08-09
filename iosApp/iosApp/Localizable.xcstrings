@@ -7049,6 +7049,29 @@
         }
       }
     },
+    "search_prompt_types" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Künstler, Alben, Titel und mehr"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Artists, albums, tracks and more"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Artiesten, albums, nummers en meer"
+          }
+        }
+      }
+    },
     "search_query_label" : {
       "extractionState" : "stale",
       "localizations" : {

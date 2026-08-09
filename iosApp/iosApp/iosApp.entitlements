@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Universal Links (https://music-assistant.io/app/…) into DeepLinkBus — see
+	     handleIncomingURL in iOSApp.swift. This is the only entitlement the app needs.
+	     Was CarPlay.entitlements, which by the end carried no CarPlay entitlement at all:
+	     com.apple.developer.carplay-audio had been dropped (restricted, granted per-account,
+	     and its absence broke device signing), and com.apple.developer.siri went with the
+	     Siri integration. -->
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>applinks:www.music-assistant.io</string>
+		<string>applinks:music-assistant.io</string>
+	</array>
+</dict>
+</plist>
