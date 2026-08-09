@@ -710,6 +710,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.jofreund.music-assistant-client";
 				PRODUCT_NAME = "${APP_NAME}";
 				PROVISIONING_PROFILE_SPECIFIER = "Music Assistant App Store";
 				SWIFT_VERSION = 5.0;
