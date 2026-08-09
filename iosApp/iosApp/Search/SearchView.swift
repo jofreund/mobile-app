@@ -31,7 +31,11 @@ struct SearchView: View {
             .searchable(
                 text: $query,
                 placement: .navigationBarDrawer(displayMode: .always),
-                prompt: String(localized: "library_quick_search")
+                // Not `library_quick_search` ("Schnellsuche"), which says nothing about what
+                // this field reaches. That key is still right for `LibraryListView`, where the
+                // field filters one already-named category; here the whole point is that the
+                // search spans types. Mirrors `selectableTypes` above without listing all seven.
+                prompt: String(localized: "search_prompt_types")
             )
             .searchFocused($isSearchFieldFocused)
             .onSubmit(of: .search) {
