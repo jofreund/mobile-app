@@ -76,6 +76,18 @@ final class SVGRasterizerTests: XCTestCase {
     func testConcurrentRasterizationsAllSucceed() async throws {
         let data = Data(genreShapedSVG.utf8)
 
+        // Warm the shared rasterizer before the real work. XCTest orders tests alphabetically,
+        // so this one runs first and was the only test paying to create the `WKWebView` and
+        // launch WebKit's helper processes — and it paid inside `load`'s 3-second bound, which
+        // a busy machine can genuinely exceed. That made this the suite's one flaky test, in a
+        // way that looked like a concurrency defect and wasn't.
+        //
+        // The bound stays 3 seconds: it exists to stop a pathological document holding the gate
+        // shut for every later rasterization, and that is a property of the app worth keeping
+        // honest. Cold start simply isn't what this test is about — the claim under test is
+        // that concurrent callers serialize instead of trampling each other.
+        _ = await SVGRasterizer.shared.image(from: data, maxPixel: 32)
+
         let images = await withTaskGroup(of: UIImage?.self) { group in
             for _ in 0..<4 {
                 group.addTask { @MainActor in
