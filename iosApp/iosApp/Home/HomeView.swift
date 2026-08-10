@@ -383,12 +383,9 @@ private struct HomeCarouselTile: View {
             ArtworkView(url: item.artworkURL, kind: item.kind, sizing: .flexible(decodeHint: width))
                 .overlay(alignment: .bottomTrailing) {
                     if let badge = item.kind.contentBadge {
-                        ContentTypeBadge(badge)
-                            // A circle's bottom-right corner is empty, so the square's inset
-                            // would leave the badge floating outside the artwork. Half the
-                            // difference between a circle and its bounding box (≈0.146 × width)
-                            // puts it back on the disc.
-                            .padding(item.kind.prefersCircularArtwork ? 0.146 * width : 6)
+                        // No circular-artwork case to inset for: artist is the only kind with
+                        // circular artwork, and it carries no badge.
+                        ContentTypeBadge(badge).padding(6)
                     }
                 }
             Text(item.title)

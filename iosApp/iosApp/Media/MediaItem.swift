@@ -61,6 +61,8 @@ struct MediaItem: Identifiable, Hashable {
         ///
         /// Nil for radio, genres and folders on purpose: they are none of the three, and
         /// stretching one of the labels to cover them would be worse than staying quiet.
+        /// Artists are nil too — their circular artwork already marks them out, so a badge
+        /// only adds noise to the one row that never needed disambiguating.
         enum ContentBadge {
             case music, podcast, audiobook
 
@@ -86,10 +88,10 @@ struct MediaItem: Identifiable, Hashable {
 
         var contentBadge: ContentBadge? {
             switch self {
-            case .album, .artist, .track, .playlist: .music
+            case .album, .track, .playlist: .music
             case .podcast, .podcastEpisode: .podcast
             case .audiobook: .audiobook
-            case .radioStation, .genre, .folder, .other: nil
+            case .artist, .radioStation, .genre, .folder, .other: nil
             }
         }
     }
