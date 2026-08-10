@@ -1395,13 +1395,13 @@ class MainDataSource(
     ) {
         launch {
             val queueInfo = forcedQueueData ?: fullData.queueInfo ?: return@launch
-            // Temporary instrumentation. Two `player_queues/items` go out on every play and the
-            // two triggers look causally chained rather than coincidental — the queue-event fetch
-            // writes `info`, which is the very thing the other collector waits for. Naming the
-            // trigger is what turns that from a plausible story into something the log states.
-            log.i { "queueItems[${queueInfo.id}] requested by ${trigger.label}" }
+            // Answered the question it was added for — two fetches per play are two distinct
+            // `QueueItemsUpdated` events from the server, not one of ours firing twice — so it is
+            // demoted rather than deleted: release builds drop Debug, and the next time a fetch
+            // count looks wrong this is the line that settles it in seconds.
+            log.d { "queueItems[${queueInfo.id}] requested by ${trigger.label}" }
             if (!claimQueueItemFetch(queueInfo.id)) {
-                log.i { "queueItems[${queueInfo.id}] ${trigger.label} folded into the fetch in flight" }
+                log.d { "queueItems[${queueInfo.id}] ${trigger.label} folded into the fetch in flight" }
                 return@launch
             }
             try {
@@ -1410,7 +1410,7 @@ class MainDataSource(
                     fetchQueueItemsInto(fullData, queueInfo)
                     runAgain = consumeOrReleaseQueueItemFetch(queueInfo.id)
                     if (runAgain) {
-                        log.i { "queueItems[${queueInfo.id}] re-running for a request that landed mid-fetch" }
+                        log.d { "queueItems[${queueInfo.id}] re-running for a request that landed mid-fetch" }
                     }
                 } while (runAgain)
             } catch (e: CancellationException) {
@@ -1423,6 +1423,12 @@ class MainDataSource(
     /**
      * Which path asked for a queue-items refresh. Exists for the log line above: four call sites
      * converge on one function, and "two requests went out" says nothing about which two.
+     *
+     * It has already earned its keep once. Starting a podcast issues two `player_queues/items`,
+     * and the plausible explanations — coincident triggers, then a self-trigger via the `info`
+     * write — were both wrong. The log named `queueEvent` twice: the server emits two
+     * `QueueItemsUpdated` events, and this client refetches once per event, on the correct event
+     * type. Nothing to fix, which is not a conclusion guesswork was going to reach.
      */
     private enum class QueueItemsTrigger(val label: String) {
         /** The `(playersData, selectedPlayerId)` collector, once `queueInfo` is non-null. */
