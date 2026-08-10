@@ -20,10 +20,10 @@ struct SearchView: View {
     /// selection only has to name one of the sections `nonEmptySections` produced.
     @State private var selectedSectionId: String?
 
-    /// The one filter that *is* part of the query, so it lives in the search field's own scope
-    /// bar rather than among the chips. Apple Music splits these the same way: source beside the
-    /// field, type chips beneath it.
-    @State private var source: SearchSource = .everywhere
+    /// The one filter that *is* part of the query rather than a view over the results, so it
+    /// cannot be a chip: changing it re-runs the search. Parked in the toolbar until it gets a
+    /// design of its own.
+    @State private var libraryOnly = false
 
     @State private var results: SearchResultData?
     @State private var isSearching = false
@@ -31,10 +31,6 @@ struct SearchView: View {
 
     @FocusState private var isSearchFieldFocused: Bool
 
-    private enum SearchSource: Hashable {
-        case everywhere
-        case library
-    }
 
     var body: some View {
         content
@@ -50,14 +46,7 @@ struct SearchView: View {
                 prompt: String(localized: "search_prompt_types")
             )
             .searchFocused($isSearchFieldFocused)
-            // Kept visible for as long as the search UI is, not just while typing: after
-            // submitting, the scope is the thing most likely to be wrong, and a control that
-            // vanishes on the results screen cannot be corrected without refocusing the field.
-            .searchScopes($source, activation: .onSearchPresentation) {
-                Text(String(localized: "search_scope_everywhere")).tag(SearchSource.everywhere)
-                Text(String(localized: "search_scope_library")).tag(SearchSource.library)
-            }
-            .onChange(of: source) {
+            .onChange(of: libraryOnly) {
                 guard !query.isEmpty else { return }
                 Task { await performSearch() }
             }
@@ -70,6 +59,25 @@ struct SearchView: View {
                     searchFailed = false
                 }
             }
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) { libraryFilterButton }
+            }
+    }
+
+    /// A menu rather than a bare toggling icon: one filter behind an unlabelled funnel is a state
+    /// you cannot read off the screen, and the filled variant alone does not say *which* filter is
+    /// on. Naming it costs a tap and makes it legible.
+    private var libraryFilterButton: some View {
+        Menu {
+            Toggle(String(localized: "search_in_library_only"), isOn: $libraryOnly)
+        } label: {
+            Image(
+                systemName: libraryOnly
+                    ? "line.3.horizontal.decrease.circle.fill"
+                    : "line.3.horizontal.decrease.circle"
+            )
+        }
+        .accessibilityLabel(String(localized: "cd_filter"))
     }
 
     @ViewBuilder
@@ -210,7 +218,7 @@ struct SearchView: View {
                 // too would make each chip a round trip — which on a slow server is exactly the
                 // lag the chips exist to avoid.
                 mediaTypes: [],
-                libraryOnly: source == .library
+                libraryOnly: libraryOnly
             ) { continuation.resume(returning: $0) }
         }
         isSearching = false

@@ -7269,40 +7269,6 @@
         }
       }
     },
-    "search_scope_everywhere": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Überall"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Everywhere"
-          }
-        }
-      }
-    },
-    "search_scope_library": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Bibliothek"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Library"
-          }
-        }
-      }
-    },
     "search_start": {
       "extractionState": "stale",
       "localizations": {
