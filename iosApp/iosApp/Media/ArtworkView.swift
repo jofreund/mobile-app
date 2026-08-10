@@ -51,8 +51,9 @@ actor ArtworkLoader {
         ArtworkCacheKey.memoryKey(url: url, maxPixel: maxPixel)
     }
 
-    /// In-flight loads, so a grid scrolling over the same URL twice does one fetch.
-    private var inFlight: [String: Task<UIImage?, Never>] = [:]
+    /// In-flight loads, so a grid scrolling over the same URL twice does one fetch — and so a
+    /// load is cancelled once no cell is waiting on it. See `SharedLoadRegistry`.
+    private var inFlight = SharedLoadRegistry<Task<UIImage?, Never>>()
 
     /// Resolved once, on the first decode, and kept — see `resolveDisplayScale`.
     private var displayScale: CGFloat?
@@ -79,23 +80,71 @@ actor ArtworkLoader {
         return resolved
     }
 
+    /// Loads artwork, sharing one fetch between every caller that wants the same image.
+    ///
+    /// Cancelling the calling task — which SwiftUI does when a cell scrolls away or its URL
+    /// changes — withdraws that caller. The underlying fetch is cancelled only when the last
+    /// waiter withdraws, so an off-screen cell disappearing never takes a visible cell's image
+    /// with it.
     func image(for url: URL, maxPixel: CGFloat) async -> UIImage? {
         let key = Self.cacheKey(url, maxPixel)
 
         if let cached = artworkCache.object(forKey: key as NSString) { return cached }
-        if let running = inFlight[key] { return await running.value }
 
+        // Resolved before joining, deliberately: `join` and `start` must not be separated by a
+        // suspension or two callers can both be told to start. This is the only `await` on that
+        // path, and after the first call it is a cached read.
         let scale = await resolveDisplayScale()
-        // Resolved here rather than in `cacheKey`: this is the actor, so it is off the main
-        // thread and runs once per real load, whereas the memory key is computed per cell in
-        // `ArtworkView.init`. `ArtworkCacheKey.diskKey` explains why the disk needs the scope
-        // and memory doesn't.
-        let diskKey = ArtworkCacheKey.diskKey(
-            url: url,
-            maxPixel: maxPixel,
-            serverScope: KmpHelper.shared.getServerId()
-        )
-        let task = Task<UIImage?, Never> {
+
+        let task: Task<UIImage?, Never>
+        let token: SharedLoadRegistry<Task<UIImage?, Never>>.Token
+        if let running = inFlight.join(key) {
+            (task, token) = running
+        } else {
+            // Server scope resolved here rather than in `cacheKey`: this is the actor, so it is
+            // off the main thread and runs once per real load, whereas the memory key is computed
+            // per cell in `ArtworkView.init`. `ArtworkCacheKey.diskKey` explains why the disk
+            // needs the scope and memory doesn't.
+            let diskKey = ArtworkCacheKey.diskKey(
+                url: url,
+                maxPixel: maxPixel,
+                serverScope: KmpHelper.shared.getServerId()
+            )
+            task = Self.load(url: url, diskKey: diskKey, maxPixel: maxPixel, scale: scale)
+            token = inFlight.start(key, handle: task)
+        }
+
+        let image = await withTaskCancellationHandler {
+            await task.value
+        } onCancel: {
+            // Hops back onto the actor: `onCancel` runs on whichever thread cancelled us.
+            Task { await self.withdraw(key) }
+        }
+
+        // Only the uncancelled path reports completion. When we were cancelled, `withdraw` has
+        // already done the bookkeeping — and it knows whether anyone else is still waiting, which
+        // this does not: finishing here would evict an entry those other waiters still need.
+        if !Task.isCancelled {
+            inFlight.finish(key, token: token)
+        }
+        if let image {
+            artworkCache.setObject(image, forKey: key as NSString, cost: image.bitmapByteCost)
+        }
+        return image
+    }
+
+    /// A caller lost interest. Cancels the shared fetch only if nobody else is waiting on it.
+    private func withdraw(_ key: String) {
+        inFlight.withdraw(key)?.cancel()
+    }
+
+    private nonisolated static func load(
+        url: URL,
+        diskKey: String,
+        maxPixel: CGFloat,
+        scale: CGFloat
+    ) -> Task<UIImage?, Never> {
+        Task<UIImage?, Never> {
             // Disk before network. Entries are stored already downsampled, so a hit skips the
             // resize as well as the round trip — and over WebRTC the round trip is the expensive
             // part. See `ArtworkDiskCache`.
@@ -118,26 +167,26 @@ actor ArtworkLoader {
                     )
                 } catch {
                     guard attempt == 0, ArtworkRetryPolicy.isWorthRetrying(error) else {
-                        NativeLog.shared.warn(
-                            tag: Self.logTag,
-                            message: "fetch failed for \(url.absoluteString): "
-                                + "\(error.localizedDescription)"
-                        )
+                        // Cancellation is an expected outcome here, not a fault — a scroll can
+                        // produce dozens — so it is not logged. Anything else is worth knowing
+                        // about, since a missing image looks identical to an absent one.
+                        if !ArtworkRetryPolicy.isCancellation(error) {
+                            NativeLog.shared.warn(
+                                tag: logTag,
+                                message: "fetch failed for \(url.absoluteString): "
+                                    + "\(error.localizedDescription)"
+                            )
+                        }
                         return nil
                     }
                     try? await Task.sleep(for: .seconds(1))
+                    // `Task.sleep` returns immediately once cancelled, so without this the retry
+                    // would fire anyway — the one case where cancelling costs an extra request.
+                    if Task.isCancelled { return nil }
                 }
             }
             return nil
         }
-        inFlight[key] = task
-
-        let image = await task.value
-        inFlight[key] = nil
-        if let image {
-            artworkCache.setObject(image, forKey: key as NSString, cost: image.bitmapByteCost)
-        }
-        return image
     }
 
     /// One attempt. Throws only for transport failures — a response that arrives but cannot be
@@ -288,7 +337,14 @@ struct ArtworkView: View {
                 }
                 // Deliberately not guarded on a prior attempt: that would strand a cell whose
                 // first attempt failed.
-                image = await ArtworkLoader.shared.image(for: url, maxPixel: reference)
+                let loaded = await ArtworkLoader.shared.image(for: url, maxPixel: reference)
+
+                // Nothing is written back once cancelled. Cancellation means either the cell is
+                // going away — in which case the write is pointless — or `url` changed, and there
+                // the write is actively wrong: the replacement task has already seeded `image`
+                // from the cache for the *new* URL, and this one would blank it.
+                guard !Task.isCancelled else { return }
+                image = loaded
             }
     }
 

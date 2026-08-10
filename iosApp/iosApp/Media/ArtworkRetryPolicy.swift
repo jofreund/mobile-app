@@ -25,4 +25,14 @@ enum ArtworkRetryPolicy {
             return false
         }
     }
+
+    /// Whether a failure is just this request being cancelled.
+    ///
+    /// Cancellation arrives in two shapes depending on where it lands — `CancellationError` from
+    /// Swift's own machinery, `URLError(.cancelled)` from `URLSession`. Callers use this to keep
+    /// an ordinary scroll, which cancels loads by the dozen, out of the log.
+    static func isCancellation(_ error: Error) -> Bool {
+        if error is CancellationError { return true }
+        return (error as? URLError)?.code == .cancelled
+    }
 }
