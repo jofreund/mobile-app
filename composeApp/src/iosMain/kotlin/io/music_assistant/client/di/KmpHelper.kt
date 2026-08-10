@@ -1250,6 +1250,54 @@ object KmpHelper : KoinComponent {
     // player's overflow menu and queue list aren't ported yet.
 
     /**
+     * Tells the server which language to render its own strings in, for this connection.
+     *
+     * Music Assistant localizes server-side, not client-side. Curated names — the home screen's
+     * recommendation rows, browse folders, genres — are carried as a `translation_key` and
+     * resolved to *the connection's locale* when the response is serialized
+     * (`_LocalizableName._resolve_translation` in `music_assistant_models`). A connection that
+     * never declares a locale gets the in-code English source, while everything else on the same
+     * screen (artist names, podcast titles, album titles) arrives in whatever language the
+     * content itself is. That mixture is the "half-translated home screen": not a missing
+     * translation anywhere, just nobody having told the server who is asking.
+     *
+     * The web frontend declares one, which is why it is consistently in one language. This client
+     * never has, and neither does upstream's.
+     *
+     * Sent per connection, because that is the scope the server keeps it at — hence resending on
+     * every readiness transition rather than once at startup. Ordering matters and is why this
+     * hangs off readiness rather than off the first fetch: the server applies the locale to
+     * responses serialized *after* it processes this, so it needs to win the race against the
+     * first screen's fetches. Both wait on the same readiness signal, but this has no UI
+     * round-trip in front of it.
+     *
+     * Older servers do not know the command and will answer with an error; that is logged and
+     * otherwise ignored, leaving the previous English behaviour intact.
+     */
+    fun declareLocaleOnConnect(locale: String) {
+        if (locale.isBlank()) {
+            log.i { "locale: none supplied; leaving the server on its default" }
+            return
+        }
+        mainScope.launch {
+            serviceClient.isReadyForCommands.collect { ready ->
+                if (!ready) return@collect
+                val result = serviceClient.sendRequest(
+                    Request(
+                        command = "translations/set_locale",
+                        args = buildJsonObject { put("locale", JsonPrimitive(locale)) },
+                    ),
+                )
+                if (result.isAccepted) {
+                    log.i { "locale: declared $locale for this connection" }
+                } else {
+                    log.w { "locale: server rejected $locale — ${result.getOrNull()?.errorDetails}" }
+                }
+            }
+        }
+    }
+
+    /**
      * Library lifecycle changes — favourites, mark-played, add/remove from library — as they
      * happen, so a list already on screen can reconcile in place instead of refetching.
      *

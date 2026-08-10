@@ -106,6 +106,18 @@ struct iOSApp: App {
         MainViewControllerKt.bootstrapKmp()
         KmpState.isReady = true
 
+        // Music Assistant localizes *server-side*: curated names — the home screen's
+        // recommendation rows, browse folders, genres — carry a translation key that the server
+        // resolves to the connection's locale as it serializes the response. A connection that
+        // never declares one gets the English source, while artist and album names arrive in
+        // whatever language the content is, which is what makes the home screen look
+        // half-translated. The web frontend declares a locale; this client never has, and
+        // neither does upstream's.
+        //
+        // Only registers a collector — nothing is sent until a connection is ready, and it
+        // resends on every reconnect because the server scopes the locale to the connection.
+        KmpHelper.shared.declareLocaleOnConnect(locale: Locale.preferredLanguages.first ?? "")
+
         // Makes `mawebrtc://` artwork URLs resolvable through the standard URL
         // loading system (and therefore AsyncImage/URLSession). Must follow
         // bootstrapKmp() — loads dispatch into Koin-resolved Kotlin.
