@@ -324,6 +324,32 @@ private func reconciledRows(
 /// A carousel tile — same visual shape as `LibraryListView`'s grid tile, sized for a horizontal
 /// `LazyHStack` rather than a `LazyVGrid` (fixed width instead of `.flexible` filling the grid
 /// column). Same browsable-vs-play tap dispatch as everywhere else.
+/// Says whether a tile is music, a podcast or an audiobook, since the artwork alone doesn't.
+///
+/// Deliberately not a material: material takes its brightness from what is behind it, and behind
+/// this is arbitrary album art, so a white glyph would vanish over anything pale. A fixed dark
+/// scrim with a white glyph is the one combination legible over every cover — which is why Music
+/// and Photos badge over artwork the same way, in both light and dark mode.
+private struct ContentTypeBadge: View {
+
+    let badge: MediaItem.Kind.ContentBadge
+
+    init(_ badge: MediaItem.Kind.ContentBadge) { self.badge = badge }
+
+    var body: some View {
+        Image(systemName: badge.symbol)
+            .font(.system(size: 10, weight: .semibold))
+            .foregroundStyle(.white)
+            .frame(width: 20, height: 20)
+            .background(.black.opacity(0.55), in: .circle)
+            // Hairline rather than a stroke: over a dark cover the scrim and the artwork are
+            // near the same value and the disc loses its edge. `strokeBorder` insets, so the
+            // line stays inside the circle instead of straddling it and reading as thicker.
+            .overlay { Circle().strokeBorder(.white.opacity(0.25), lineWidth: 0.5) }
+            .accessibilityLabel(badge.label)
+    }
+}
+
 private struct HomeCarouselTile: View {
 
     let item: MediaItem
@@ -355,6 +381,16 @@ private struct HomeCarouselTile: View {
     private var tile: some View {
         VStack(alignment: item.kind.prefersCircularArtwork ? .center : .leading, spacing: 8) {
             ArtworkView(url: item.artworkURL, kind: item.kind, sizing: .flexible(decodeHint: width))
+                .overlay(alignment: .bottomTrailing) {
+                    if let badge = item.kind.contentBadge {
+                        ContentTypeBadge(badge)
+                            // A circle's bottom-right corner is empty, so the square's inset
+                            // would leave the badge floating outside the artwork. Half the
+                            // difference between a circle and its bounding box (≈0.146 × width)
+                            // puts it back on the disc.
+                            .padding(item.kind.prefersCircularArtwork ? 0.146 * width : 6)
+                    }
+                }
             Text(item.title)
                 .font(.subheadline.weight(.medium))
                 .lineLimit(1)

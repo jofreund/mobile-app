@@ -53,6 +53,45 @@ struct MediaItem: Identifiable, Hashable {
         /// Artists read better as circles, everything else as rounded squares —
         /// the same convention Music and most players use.
         var prefersCircularArtwork: Bool { self == .artist }
+
+        /// The three kinds of *content* a tile can hold, as opposed to the eleven kinds of
+        /// item it can be. Home mixes music, podcasts and audiobooks into rows that all look
+        /// alike — square artwork, title, subtitle — so this is what a badge can say that the
+        /// artwork can't.
+        ///
+        /// Nil for radio, genres and folders on purpose: they are none of the three, and
+        /// stretching one of the labels to cover them would be worse than staying quiet.
+        enum ContentBadge {
+            case music, podcast, audiobook
+
+            /// Not `Kind.symbol` — that one fills empty artwork at full tile size, where
+            /// detailed glyphs read fine. At 10pt inside a disc they turn to mush, so these are
+            /// picked for legibility when small.
+            var symbol: String {
+                switch self {
+                case .music: "music.note"
+                case .podcast: "mic.fill"
+                case .audiobook: "book.fill"
+                }
+            }
+
+            var label: String {
+                switch self {
+                case .music: String(localized: "content_type_music")
+                case .podcast: String(localized: "content_type_podcast")
+                case .audiobook: String(localized: "content_type_audiobook")
+                }
+            }
+        }
+
+        var contentBadge: ContentBadge? {
+            switch self {
+            case .album, .artist, .track, .playlist: .music
+            case .podcast, .podcastEpisode: .podcast
+            case .audiobook: .audiobook
+            case .radioStation, .genre, .folder, .other: nil
+            }
+        }
     }
 
     let id: String
