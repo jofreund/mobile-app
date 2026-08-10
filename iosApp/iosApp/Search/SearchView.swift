@@ -85,7 +85,7 @@ struct SearchView: View {
         if let results {
             let sections = nonEmptySections(results)
             if sections.isEmpty {
-                SearchPlaceholder(closesSearch: false) { isSearchFieldFocused = false } content: {
+                SearchPlaceholder(closesSearch: false, searchFieldFocused: $isSearchFieldFocused) {
                     ContentUnavailableView(String(localized: "search_no_results"), systemImage: "magnifyingglass")
                 }
             } else {
@@ -99,7 +99,7 @@ struct SearchView: View {
                 }
             }
         } else if searchFailed {
-            SearchPlaceholder(closesSearch: false) { isSearchFieldFocused = false } content: {
+            SearchPlaceholder(closesSearch: false, searchFieldFocused: $isSearchFieldFocused) {
                 ContentUnavailableView(String(localized: "search_error"), systemImage: "wifi.exclamationmark")
             }
         } else if isSearching {
@@ -107,7 +107,7 @@ struct SearchView: View {
         } else {
             // Nothing typed yet, so there is nothing to preserve — a tap here leaves search
             // altogether rather than only lowering the keyboard.
-            SearchPlaceholder(closesSearch: true) { isSearchFieldFocused = false } content: {
+            SearchPlaceholder(closesSearch: true, searchFieldFocused: $isSearchFieldFocused) {
                 ContentUnavailableView(String(localized: "search_start"), systemImage: "magnifyingglass")
             }
         }
@@ -309,7 +309,11 @@ private struct SearchPlaceholder<Content: View>: View {
     /// and its results, and closing search would throw both away for a tap that was probably
     /// meant to reach past the keyboard.
     let closesSearch: Bool
-    let onTap: () -> Void
+
+    /// Taken as a focus binding rather than a closure so that the two dismissals below stay
+    /// mutually exclusive — see the tap handler.
+    @FocusState.Binding var searchFieldFocused: Bool
+
     @ViewBuilder let content: () -> Content
 
     @Environment(\.dismissSearch) private var dismissSearch
@@ -321,8 +325,15 @@ private struct SearchPlaceholder<Content: View>: View {
             // area would be the label, not the empty space around it, which is where people aim.
             .contentShape(.rect)
             .onTapGesture {
-                onTap()
-                if closesSearch { dismissSearch() }
+                // Exactly one of these, never both. Collapsing the field lowers the keyboard by
+                // itself, so clearing the focus state alongside `dismissSearch` is a second,
+                // competing write to the same focus — and the next tap on the search field is
+                // spent reconciling it instead of activating, which reads as needing two taps.
+                if closesSearch {
+                    dismissSearch()
+                } else {
+                    searchFieldFocused = false
+                }
             }
     }
 }

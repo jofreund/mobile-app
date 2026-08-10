@@ -30,8 +30,9 @@ struct HomeView: View {
     @State private var editingDisabledRows: [HomeRow] = []
 
     /// Rows the server + shortcuts resolved to, reconciled against persisted enabled/order
-    /// prefs — recomputed whenever the fetch or the persisted config changes. `nil` while
-    /// loading/on failure.
+    /// prefs — recomputed whenever the fetch or the persisted config changes. `nil` only until
+    /// the *first* load succeeds: later loads leave the last good rows in place, so a refresh
+    /// (or a failed one) never empties the screen.
     private var rows: [(row: HomeRow, enabled: Bool)]? {
         guard let recommendations else { return nil }
         return reconciledRows(recommendations: recommendations, shortcuts: shortcuts ?? [], config: homeRowsConfig)
@@ -222,7 +223,11 @@ struct HomeView: View {
 
     @MainActor
     private func load() async {
-        recommendations = nil
+        // Deliberately does *not* clear `recommendations` first. Doing so dropped the whole
+        // screen back to the spinner for the length of a pull-to-refresh, so the carousels
+        // vanished and reappeared — where the point of the gesture is that you keep looking at
+        // what you have until better data arrives. The first load needs no help from it either:
+        // `recommendations` already starts nil, which is what shows the spinner.
         loadFailed = false
         homeRowsConfig = KmpHelper.shared.homeRowsConfig()
 
@@ -235,6 +240,11 @@ struct HomeView: View {
         let (loadedRecommendations, loadedShortcuts) = await (recommendationsResult, shortcutsResult)
         guard !Task.isCancelled else { return }
         guard let loadedRecommendations else {
+            // Leaves whatever is on screen in place. With content already showing, `content`
+            // takes the `rows` branch and this flag never reaches the error view — a failed
+            // refresh keeps the stale carousels rather than throwing them away, and the RPC
+            // error has already surfaced as a toast via `ErrorMessageBus`. The flag still
+            // matters for the empty case, and for the reconnect retry in `body`.
             loadFailed = true
             return
         }
