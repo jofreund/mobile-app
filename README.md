@@ -1,4 +1,4 @@
-# Music Assistant — native iOS client (personal fork)
+# Taktgeber — a native iOS client for Music Assistant (personal fork)
 
 > **This is not the official Music Assistant app.** It is a personal fork of
 > [music-assistant/mobile-app](https://github.com/music-assistant/mobile-app), rebuilt as an

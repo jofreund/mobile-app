@@ -1,6 +1,6 @@
 # iOS App Build Guide
 
-Complete guide to build and run the **MusicAssistantClient** iOS app from source.
+Complete guide to build and run **Taktgeber**, the iOS app in this repo, from source.
 
 ---
 
@@ -132,7 +132,7 @@ xcrun simctl boot <SIMULATOR_UUID>
 
 # Install the app
 xcrun simctl install <SIMULATOR_UUID> \
-  ~/Library/Developer/Xcode/DerivedData/iosApp-*/Build/Products/Debug-iphonesimulator/MusicAssistantClient.app
+  ~/Library/Developer/Xcode/DerivedData/iosApp-*/Build/Products/Debug-iphonesimulator/Taktgeber.app
 
 # Launch the app
 xcrun simctl launch <SIMULATOR_UUID> io.music-assistant.client
@@ -153,7 +153,7 @@ Edit `iosApp/Configuration/Config.xcconfig`:
 ```
 TEAM_ID=YOUR_APPLE_TEAM_ID
 PRODUCT_BUNDLE_IDENTIFIER=io.music-assistant.client
-APP_NAME=MusicAssistantClient
+APP_NAME=Taktgeber
 IPHONEOS_DEPLOYMENT_TARGET = 15.0
 ```
 

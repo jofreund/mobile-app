@@ -1,6 +1,6 @@
 TEAM_ID=5J5R9QK64D
 PRODUCT_BUNDLE_IDENTIFIER=io.music-assistant.client
-APP_NAME=MusicAssistantClient
+APP_NAME=Taktgeber
 IPHONEOS_DEPLOYMENT_TARGET = 26.0
 
 // Intel-simulator slice was removed from the KMP build (iosX64 dropped after CMP 1.11.0).
