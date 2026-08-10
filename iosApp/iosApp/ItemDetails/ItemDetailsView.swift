@@ -344,7 +344,7 @@ private struct PlayableRow: View {
             .padding(.vertical, 10)
             .contentShape(.rect)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(HighlightingRowButtonStyle())
         .itemContextMenu(item: media, context: menuContext)
     }
 }
@@ -374,6 +374,6 @@ private struct ChapterRow: View {
             .padding(.vertical, 10)
             .contentShape(.rect)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(HighlightingRowButtonStyle())
     }
 }

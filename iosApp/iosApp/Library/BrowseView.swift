@@ -80,6 +80,9 @@ private struct BrowseRow: View {
 
     let item: MediaItem
 
+    /// Only ever true for the playable branch; the navigating ones bring their own highlight.
+    @State private var isPressed = false
+
     var body: some View {
         Group {
             if let folder = item.kotlin as? RecommendationFolder {
@@ -98,9 +101,13 @@ private struct BrowseRow: View {
                 Button { _ = KmpHelper.shared.playOnSelectedPlayer(item: item.kotlin, option: .replace, radio: false) } label: {
                     row
                 }
+                // Wins over the `.plain` below, which stays for the navigating branches — those
+                // already get the system's own row highlight.
+                .buttonStyle(PressReportingButtonStyle { isPressed = $0 })
             }
         }
         .buttonStyle(.plain)
+        .pressHighlight(isPressed)
     }
 
     private var row: some View {

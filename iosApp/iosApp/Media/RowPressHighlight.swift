@@ -25,6 +25,28 @@ struct PressReportingButtonStyle: ButtonStyle {
     }
 }
 
+/// Fills the row behind the label while pressed, for rows that are *not* in a `List`.
+///
+/// The counterpart to `View.pressHighlight(_:)`, and the difference is where the row's padding
+/// lives. A `List` row is inset by the list, so a background on the label leaves those insets
+/// bare; these rows carry their own horizontal padding *inside* the label, so a background on the
+/// label already reaches both edges — which is why the same problem needs two answers.
+struct HighlightingRowButtonStyle: ButtonStyle {
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background(configuration.isPressed ? Color.rowPressHighlight : .clear)
+    }
+}
+
+extension Color {
+    /// `systemGray4` is the shade UIKit has long used for a selected table row, and it tracks
+    /// light and dark. There is no API for the exact colour `List` paints its own rows with, so
+    /// a row that plays and a row that navigates are matched by eye rather than by token — which
+    /// is also why both mechanisms read it from here instead of spelling it out twice.
+    static let rowPressHighlight = Color(uiColor: .systemGray4)
+}
+
 extension View {
     /// Paints the row while it is pressed, matching what `List` does for its navigating rows.
     ///
@@ -33,9 +55,6 @@ extension View {
     ///
     /// - Parameter isPressed: state owned by the row, fed by `PressReportingButtonStyle`.
     func pressHighlight(_ isPressed: Bool) -> some View {
-        // `systemGray4` is the shade UIKit has long used for a selected table row, and it tracks
-        // light and dark. There is no API for the exact colour `List` paints its own rows with,
-        // so a row that plays and a row that navigates are matched by eye rather than by token.
-        listRowBackground(isPressed ? Color(uiColor: .systemGray4) : nil)
+        listRowBackground(isPressed ? Color.rowPressHighlight : nil)
     }
 }
