@@ -1280,8 +1280,9 @@ object KmpHelper : KoinComponent {
             return
         }
         mainScope.launch {
+            var serverSupportsIt = true
             serviceClient.isReadyForCommands.collect { ready ->
-                if (!ready) return@collect
+                if (!ready || !serverSupportsIt) return@collect
                 val result = serviceClient.sendRequest(
                     Request(
                         command = "translations/set_locale",
@@ -1290,8 +1291,18 @@ object KmpHelper : KoinComponent {
                 )
                 if (result.isAccepted) {
                     log.i { "locale: declared $locale for this connection" }
-                } else {
-                    log.w { "locale: server rejected $locale — ${result.getOrNull()?.errorDetails}" }
+                    return@collect
+                }
+                val details = result.getOrNull()?.errorDetails
+                log.i { "locale: server did not accept $locale — $details" }
+                // Server-side localization landed after 2.9.11, so a server without the command
+                // is the expected case rather than a fault. Give up for the rest of the session
+                // instead of re-asking on every reconnect: the answer will not change while this
+                // connection's server does not, and a failing round trip per reconnect is noise
+                // in exactly the log someone would be reading to debug something else.
+                if (details?.contains("Invalid command") == true) {
+                    serverSupportsIt = false
+                    log.i { "locale: this server localizes nothing server-side; not asking again" }
                 }
             }
         }
