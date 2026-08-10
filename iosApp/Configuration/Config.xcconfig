@@ -1,8 +1,18 @@
 TEAM_ID=5J5R9QK64D
-// The app target used to override this, which made the line here dead and misleading — the
-// shipping id was com.jofreund.music-assistant-client, set in the pbxproj. The override is gone,
-// so this is the one place the bundle id lives again, as the build docs already claimed.
-PRODUCT_BUNDLE_IDENTIFIER=com.jofreund.taktgeber
+// Must match the App Store Connect record exactly; an archive whose id differs is rejected at
+// upload. The `-ios` suffix is not decoration — it is the registered id.
+//
+// This line has been dead twice now, both times because Xcode wrote PRODUCT_BUNDLE_IDENTIFIER
+// into the app target's build settings (where it outranks an xcconfig) while signing was being
+// set up, and the target-level value silently became the real one. If you ever edit the bundle
+// id or signing in Xcode's UI, check `git diff` on project.pbxproj afterwards: a
+// PRODUCT_BUNDLE_IDENTIFIER reappearing there is this same trap, and the symptom is that
+// editing this file changes nothing at all.
+//
+//   xcodebuild -showBuildSettings ... | grep PRODUCT_BUNDLE_IDENTIFIER
+//
+// settles it in one command — that is what actually builds, whatever any file says.
+PRODUCT_BUNDLE_IDENTIFIER=com.jofreund.taktgeber-ios
 APP_NAME=Taktgeber
 IPHONEOS_DEPLOYMENT_TARGET = 26.0
 
