@@ -95,8 +95,27 @@ import platform.Foundation.create
 
 private val log = Logger.withTag("KmpHelper")
 
-/** CarPlay round-trip budget before a fetch surfaces a disconnected affordance. */
-private const val FETCH_TIMEOUT_MS = 5_000L
+/**
+ * How long to wait for a reply before giving up on a fetch.
+ *
+ * This is a guard against a reply that never comes, **not** a latency budget. `sendRequestRaw`
+ * has no timeout of its own — it registers an RPC callback and suspends until the response
+ * arrives or the caller cancels — so without something here a lost reply would hang the caller
+ * for the rest of the session. That is the only job this has.
+ *
+ * It was 5 seconds, and that number came from CarPlay (`2238b503`), where a drive-quality
+ * requirement made failing fast the right trade for a short list. CarPlay is deleted, and the
+ * budget it left behind was governing every fetch in a phone UI where the user is watching a
+ * spinner and would far rather wait than be told the load failed. It was too tight to be
+ * survivable: `music/recommendations` on a real library exceeded it on a first home load, so the
+ * app's opening screen could greet you with an error for no reason other than the server taking
+ * six seconds to think.
+ *
+ * 30s is chosen to be comfortably longer than any request the server plausibly answers slowly
+ * (recommendations and all-albums-by-artist fan out across providers) while still bounded, so a
+ * genuinely lost reply resolves rather than hanging forever.
+ */
+private const val FETCH_TIMEOUT_MS = 30_000L
 
 /** See [fetchTracks]. */
 private const val TRACKS_FETCH_LIMIT = 500
@@ -320,7 +339,9 @@ object KmpHelper : KoinComponent {
     // MARK: - Swift Helpers for Data Fetching
     //
     // Every fetcher returns a nullable list. `null` means the round trip
-    // exceeded FETCH_TIMEOUT_MS — Swift renders a disconnected affordance.
+    // exceeded FETCH_TIMEOUT_MS — Swift renders a disconnected affordance. Note that an RPC
+    // *error* does not reach that path: callers reduce a failed Result to an empty list, so a
+    // null here means the reply never arrived, not that the server refused.
     // An empty list means the server answered with nothing.
 
     private inline fun <T> launchFetch(
