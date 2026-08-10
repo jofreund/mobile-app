@@ -72,6 +72,9 @@ struct LibraryListView: View {
     @State private var viewMode: ViewMode
     @State private var hasMore = true
     @State private var isLoadingMore = false
+    /// What `load()` last actually fetched, so a bare reappearance can be told apart from a real
+    /// change to the query. See the `.task` below.
+    @State private var loadedKey: LoadKey?
     @State private var showCreatePlaylist = false
     @State private var newPlaylistName = ""
     @State private var isCreatingPlaylist = false
@@ -109,6 +112,10 @@ struct LibraryListView: View {
         let query: String
         let sortOption: SortOption
         let filters: LibraryFilters
+    }
+
+    private var loadKey: LoadKey {
+        LoadKey(route: route, query: searchQuery, sortOption: sortOption, filters: filters)
     }
 
     var body: some View {
@@ -164,10 +171,25 @@ struct LibraryListView: View {
         .alert(String(localized: "toast_error_create_playlist"), isPresented: $createPlaylistFailed) {
             Button(String(localized: "common_cancel"), role: .cancel) {}
         }
-        .task(id: LoadKey(route: route, query: searchQuery, sortOption: sortOption, filters: filters)) {
+        .task(id: loadKey) {
+            // `.task` restarts on every *appearance*, not only when its id changes — including
+            // when this screen is uncovered by a pop from a detail page. Reloading there was
+            // actively destructive: `load()` fetches offset 0 and assigns the result, so a list
+            // the user had paged 300 items into collapsed back to 50 while SwiftUI restored the
+            // old, now out-of-range scroll offset. The result was a blank screen that only
+            // recovered when a scroll dragged the offset back into the shortened content, which
+            // read as "the artwork stopped loading".
+            //
+            // So: reload when something about the query genuinely changed, and otherwise leave
+            // what is on screen alone. Pull-to-refresh is the way to force one.
+            guard loadedKey != loadKey || items == nil else { return }
+
             try? await Task.sleep(for: .milliseconds(500))
             guard !Task.isCancelled else { return }
+            let key = loadKey
             await load()
+            guard !Task.isCancelled else { return }
+            loadedKey = key
         }
     }
 
