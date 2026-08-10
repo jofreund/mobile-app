@@ -606,7 +606,7 @@ class MainDataSource(
             }
                 .mapNotNull { it?.takeIf { pd -> pd.queueInfo != null } }
                 .distinctUntilChangedBy { it.playerId to it.queueInfo?.id }
-                .collect { refreshPlayerQueueItems(it) }
+                .collect { refreshPlayerQueueItems(it, trigger = QueueItemsTrigger.QUEUE_INFO_ARRIVED) }
         }
     }
 
@@ -1155,7 +1155,9 @@ class MainDataSource(
                             }
                             (playersData.value as? DataState.Data)?.data?.firstOrNull {
                                 it.queueId == data.id
-                            }?.let { refreshPlayerQueueItems(it, fresh) }
+                            }?.let {
+                                refreshPlayerQueueItems(it, fresh, QueueItemsTrigger.QUEUE_EVENT)
+                            }
                         }
 
                         is QueueTimeUpdatedEvent -> {
@@ -1348,7 +1350,9 @@ class MainDataSource(
             else -> return
         }
         players.forEach { pd ->
-            if (pd.queueInfo != null) refreshPlayerQueueItems(pd)
+            if (pd.queueInfo != null) {
+                refreshPlayerQueueItems(pd, trigger = QueueItemsTrigger.ALL_PLAYERS)
+            }
         }
     }
 
@@ -1365,7 +1369,7 @@ class MainDataSource(
         }
         _selectedPlayerId.value?.let { selectedId ->
             players.firstOrNull { it.playerId == selectedId }
-                ?.let { refreshPlayerQueueItems(it) }
+                ?.let { refreshPlayerQueueItems(it, trigger = QueueItemsTrigger.RECONNECT) }
         }
     }
 
@@ -1387,21 +1391,51 @@ class MainDataSource(
     private fun refreshPlayerQueueItems(
         fullData: PlayerData,
         forcedQueueData: QueueInfo? = null,
+        trigger: QueueItemsTrigger,
     ) {
         launch {
             val queueInfo = forcedQueueData ?: fullData.queueInfo ?: return@launch
-            if (!claimQueueItemFetch(queueInfo.id)) return@launch
+            // Temporary instrumentation. Two `player_queues/items` go out on every play and the
+            // two triggers look causally chained rather than coincidental — the queue-event fetch
+            // writes `info`, which is the very thing the other collector waits for. Naming the
+            // trigger is what turns that from a plausible story into something the log states.
+            log.i { "queueItems[${queueInfo.id}] requested by ${trigger.label}" }
+            if (!claimQueueItemFetch(queueInfo.id)) {
+                log.i { "queueItems[${queueInfo.id}] ${trigger.label} folded into the fetch in flight" }
+                return@launch
+            }
             try {
                 var runAgain: Boolean
                 do {
                     fetchQueueItemsInto(fullData, queueInfo)
                     runAgain = consumeOrReleaseQueueItemFetch(queueInfo.id)
+                    if (runAgain) {
+                        log.i { "queueItems[${queueInfo.id}] re-running for a request that landed mid-fetch" }
+                    }
                 } while (runAgain)
             } catch (e: CancellationException) {
                 releaseQueueItemFetch(queueInfo.id)
                 throw e
             }
         }
+    }
+
+    /**
+     * Which path asked for a queue-items refresh. Exists for the log line above: four call sites
+     * converge on one function, and "two requests went out" says nothing about which two.
+     */
+    private enum class QueueItemsTrigger(val label: String) {
+        /** The `(playersData, selectedPlayerId)` collector, once `queueInfo` is non-null. */
+        QUEUE_INFO_ARRIVED("queueInfoArrived"),
+
+        /** A server queue update, carrying its own fresh `QueueInfo`. */
+        QUEUE_EVENT("queueEvent"),
+
+        /** Fan-out across every player with queue metadata, so pager neighbours are not empty. */
+        ALL_PLAYERS("allPlayers"),
+
+        /** Post-reconnect catch-up, where the selection itself does not re-emit. */
+        RECONNECT("reconnect"),
     }
 
     /** Queue id -> "another refresh was asked for while this one was running". */
