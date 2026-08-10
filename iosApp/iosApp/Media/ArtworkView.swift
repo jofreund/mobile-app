@@ -294,12 +294,24 @@ struct ArtworkView: View {
     let kind: MediaItem.Kind
     let sizing: ArtworkSizing
 
+    /// Draws a hairline along the artwork's edge, so a tile whose cover fades to white (or to
+    /// black) still reads as a tile rather than dissolving into the page.
+    ///
+    /// A flag rather than something the caller overlays itself, because only this view knows
+    /// the shape being clipped to — circle or rounded rect, with a radius derived from the
+    /// reference size. An outside overlay would have to restate that formula and would drift
+    /// silently the moment it changed here.
+    let showsBorder: Bool
+
     @State private var image: UIImage?
 
-    init(url: URL?, kind: MediaItem.Kind, sizing: ArtworkSizing) {
+    @Environment(\.displayScale) private var displayScale
+
+    init(url: URL?, kind: MediaItem.Kind, sizing: ArtworkSizing, showsBorder: Bool = false) {
         self.url = url
         self.kind = kind
         self.sizing = sizing
+        self.showsBorder = showsBorder
         // Seeded from the cache so an image already in memory is on screen for the *first*
         // frame. Starting at nil and awaiting the loader meant every re-appearance — coming
         // back from a detail page, switching tabs — flashed the placeholder and cross-faded,
@@ -323,6 +335,15 @@ struct ArtworkView: View {
     var body: some View {
         content
             .clipShape(shape)
+            .overlay {
+                if showsBorder {
+                    // `.separator` is the system's own hairline colour and already adapts to
+                    // light and dark, so this stays subtle against either page background
+                    // without a hand-tuned opacity. One physical pixel wide — a fixed 0.5 would
+                    // be 1.5px on a 3x screen, which is a line, not a hairline.
+                    shape.stroke(Color(uiColor: .separator), lineWidth: 1 / displayScale)
+                }
+            }
             .animation(.easeOut(duration: 0.18), value: image != nil)
             .task(id: url) {
                 guard let url else {

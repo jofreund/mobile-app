@@ -380,7 +380,12 @@ private struct HomeCarouselTile: View {
 
     private var tile: some View {
         VStack(alignment: item.kind.prefersCircularArtwork ? .center : .leading, spacing: 8) {
-            ArtworkView(url: item.artworkURL, kind: item.kind, sizing: .flexible(decodeHint: width))
+            ArtworkView(
+                url: item.artworkURL,
+                kind: item.kind,
+                sizing: .flexible(decodeHint: width),
+                showsBorder: true
+            )
                 .overlay(alignment: .bottomTrailing) {
                     if let badge = item.kind.contentBadge {
                         // No circular-artwork case to inset for: artist is the only kind with
