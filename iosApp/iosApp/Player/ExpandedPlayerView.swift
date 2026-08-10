@@ -452,6 +452,11 @@ private struct ExpandedPlayerRow: View {
         .moveDisabled(!canInteract)
         .modifier(QueueRowContextMenu(item: item, queueId: player.queueId, enabled: canInteract))
         .listRowBackground(Color.clear)
+        .listRowInsets(Self.queueRowInsets)
+        // Keep the separator starting at the title rather than under the artwork. Zeroing the
+        // leading inset would otherwise drag it left with the content, since SwiftUI aligns it to
+        // wherever the row's content begins.
+        .alignmentGuide(.listRowSeparatorLeading) { _ in Self.queueTextInset }
     }
 
     private func queueChapterRow(_ chapter: Chapter) -> some View {
@@ -463,7 +468,21 @@ private struct ExpandedPlayerRow: View {
         .buttonStyle(.plain)
         .moveDisabled(true)
         .listRowBackground(Color.clear)
+        .listRowInsets(Self.queueRowInsets)
     }
+
+    /// Zero horizontally, so a queue row starts exactly where the peek row above it does — both
+    /// then sit on the player's own 24pt margin, which is what makes the artwork line up. The
+    /// list's default inset used to add ~16pt on top of that and pushed the queue visibly right.
+    ///
+    /// Vertical is spelled out because `listRowInsets` is all-or-nothing: taking the horizontal
+    /// values means naming the vertical ones too, so this is a deliberate row height rather than
+    /// the inherited default it replaces.
+    private static let queueRowInsets = EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0)
+
+    /// Where a queue row's text starts: 40pt of artwork plus the 12pt `HStack` spacing. Chapter
+    /// rows pad by the same amount to hang under the titles, and the separator is aligned to it.
+    private static let queueTextInset: CGFloat = 52
 
     private func queueChapterRowLabel(_ chapter: Chapter) -> some View {
         HStack {
@@ -477,7 +496,7 @@ private struct ExpandedPlayerRow: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .padding(.leading, 52)
+        .padding(.leading, Self.queueTextInset)
         .contentShape(Rectangle())
     }
 
