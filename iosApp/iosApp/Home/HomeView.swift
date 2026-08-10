@@ -272,7 +272,13 @@ private func reconciledRows(
         let items = folder.items ?? []
         guard items.contains(where: { !($0 is RecommendationFolder) }) else { return nil }
         guard seenKeys.insert(folder.itemId).inserted else { return nil }
-        return HomeRow(id: folder.itemId, title: folder.displayName, items: items.map(MediaItem.init))
+        // `displayName` is the server's English name for a curated row; `translationKey` is how
+        // it says which row this is. See `RecommendationRowTitle`.
+        let title = RecommendationRowTitle.localized(
+            translationKey: folder.translationKey,
+            serverName: folder.displayName
+        )
+        return HomeRow(id: folder.itemId, title: title, items: items.map(MediaItem.init))
     }
 
     let baseRows: [HomeRow]

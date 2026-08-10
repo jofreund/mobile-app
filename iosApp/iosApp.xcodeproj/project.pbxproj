@@ -12,6 +12,7 @@
 		0B4C257E50350DDBF95D87D5 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA991F8C8A0917FDD5510709 /* Foundation.framework */; };
 		2152FB042600AC8F00CF470E /* iOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2152FB032600AC8F00CF470E /* iOSApp.swift */; };
 		7555FF83242A565900829871 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7555FF82242A565900829871 /* ContentView.swift */; };
+		C29F123E61DAA17B671EC95E /* RecommendationRowTitleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FE624765BDE4DC4138CA719 /* RecommendationRowTitleTests.swift */; };
 		C29F123E61DAA17B671EC95D /* LibraryListReconcilerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FE624765BDE4DC4138CA718 /* LibraryListReconcilerTests.swift */; };
 		C29F123E61DAA17B671EC95C /* SharedLoadRegistryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FE624765BDE4DC4138CA717 /* SharedLoadRegistryTests.swift */; };
 		C29F123E61DAA17B671EC95B /* ArtworkCacheKeyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FE624765BDE4DC4138CA716 /* ArtworkCacheKeyTests.swift */; };
@@ -23,6 +24,8 @@
 		C8BR00032F5E000000000003 /* BrowseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8BR00132F5E000000000013 /* BrowseView.swift */; };
 		C8FS00032F5F000000000003 /* LibraryFilterSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8FS00132F5F000000000013 /* LibraryFilterSheet.swift */; };
 		C8GD00032F5C000000000003 /* GenreDetailsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8GD00132F5C000000000013 /* GenreDetailsView.swift */; };
+		C8HV00042F61000000000004 /* RecommendationRowTitle.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8HV00142F61000000000014 /* RecommendationRowTitle.swift */; };
+		C8HV00052F61000000000005 /* RecommendationRowTitle.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8HV00142F61000000000014 /* RecommendationRowTitle.swift */; };
 		C8HV00032F61000000000003 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8HV00132F61000000000013 /* HomeView.swift */; };
 		C8ID00032F5A000000000003 /* ItemDetailsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8ID00132F5A000000000013 /* ItemDetailsView.swift */; };
 		C8LC00012F4F000000000001 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = C8LC00112F4F000000000011 /* Localizable.xcstrings */; };
@@ -72,6 +75,7 @@
 		058557BA273AAA24004C7B11 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		058557D8273AAEEB004C7B11 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		2152FB032600AC8F00CF470E /* iOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iOSApp.swift; sourceTree = "<group>"; };
+		2FE624765BDE4DC4138CA719 /* RecommendationRowTitleTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecommendationRowTitleTests.swift; sourceTree = "<group>"; };
 		2FE624765BDE4DC4138CA718 /* LibraryListReconcilerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LibraryListReconcilerTests.swift; sourceTree = "<group>"; };
 		2FE624765BDE4DC4138CA717 /* SharedLoadRegistryTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SharedLoadRegistryTests.swift; sourceTree = "<group>"; };
 		2FE624765BDE4DC4138CA716 /* ArtworkCacheKeyTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ArtworkCacheKeyTests.swift; sourceTree = "<group>"; };
@@ -89,6 +93,7 @@
 		C8BR00132F5E000000000013 /* BrowseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowseView.swift; sourceTree = "<group>"; };
 		C8FS00132F5F000000000013 /* LibraryFilterSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryFilterSheet.swift; sourceTree = "<group>"; };
 		C8GD00132F5C000000000013 /* GenreDetailsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GenreDetailsView.swift; sourceTree = "<group>"; };
+		C8HV00142F61000000000014 /* RecommendationRowTitle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecommendationRowTitle.swift; sourceTree = "<group>"; };
 		C8HV00132F61000000000013 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		C8ID00132F5A000000000013 /* ItemDetailsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ItemDetailsView.swift; sourceTree = "<group>"; };
 		C8LC00112F4F000000000011 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
@@ -165,6 +170,7 @@
 		6697875A889242950A65544F /* iosAppTests */ = {
 			isa = PBXGroup;
 			children = (
+				2FE624765BDE4DC4138CA719 /* RecommendationRowTitleTests.swift */,
 				2FE624765BDE4DC4138CA718 /* LibraryListReconcilerTests.swift */,
 				2FE624765BDE4DC4138CA717 /* SharedLoadRegistryTests.swift */,
 				2FE624765BDE4DC4138CA716 /* ArtworkCacheKeyTests.swift */,
@@ -236,6 +242,7 @@
 		C8HV00062F61000000000006 /* Home */ = {
 			isa = PBXGroup;
 			children = (
+				C8HV00142F61000000000014 /* RecommendationRowTitle.swift */,
 				C8HV00132F61000000000013 /* HomeView.swift */,
 			);
 			path = Home;
@@ -452,6 +459,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C8HV00052F61000000000005 /* RecommendationRowTitle.swift in Sources */,
+				C29F123E61DAA17B671EC95E /* RecommendationRowTitleTests.swift in Sources */,
 				C29F123E61DAA17B671EC95D /* LibraryListReconcilerTests.swift in Sources */,
 				C29F123E61DAA17B671EC95C /* SharedLoadRegistryTests.swift in Sources */,
 				C29F123E61DAA17B671EC95B /* ArtworkCacheKeyTests.swift in Sources */,
@@ -507,6 +516,7 @@
 				C8PL00092F70000000000009 /* PlayerPickerMenu.swift in Sources */,
 				C8PL000A2F7000000000000A /* QueueMoveMath.swift in Sources */,
 				C8PL000C2F7000000000000C /* HapticSignal.swift in Sources */,
+				C8HV00042F61000000000004 /* RecommendationRowTitle.swift in Sources */,
 				C8HV00032F61000000000003 /* HomeView.swift in Sources */,
 				C8ST00032F63000000000003 /* SettingsView.swift in Sources */,
 				C8ST00042F63000000000004 /* ConnectionSetupStore.swift in Sources */,

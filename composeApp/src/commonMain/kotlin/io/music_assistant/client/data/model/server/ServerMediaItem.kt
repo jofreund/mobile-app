@@ -66,6 +66,10 @@ data class ServerMediaItem(
     @SerialName("items") val items: List<ServerMediaItem>? = null,
     // BrowseFolder only: the server browse path to descend into (distinct from `uri`).
     @SerialName("path") val path: String? = null,
+    // Curated rows (recommendations, browse folders) carry a stable key alongside the
+    // English `name`, for the client to translate. Servers that localize server-side strip
+    // it and localize `name` instead, so treating it as optional is correct either way.
+    @SerialName("translation_key") val translationKey: String? = null,
 ) {
     companion object {
         const val LIBRARY_PROVIDER = "library"

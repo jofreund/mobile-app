@@ -105,6 +105,7 @@ class MediaItemFactory(
                 images = resolveImageInfo(image, metadata),
                 items = items?.let { createList(it) },
                 path = path,
+                translationKey = translationKey,
             )
 
             MediaType.PODCAST -> Podcast(

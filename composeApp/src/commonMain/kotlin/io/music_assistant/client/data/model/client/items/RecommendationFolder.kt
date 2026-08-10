@@ -16,6 +16,9 @@ data class RecommendationFolder(
     val items: List<AppMediaItem>? = null,
     // BrowseFolder path used to descend one level; null for recommendation folders.
     val path: String? = null,
+    // Stable identifier for a curated row's title, for the client to translate. See
+    // `ServerMediaItem.translationKey`.
+    val translationKey: String? = null,
 ) : AppMediaItem() {
     override val providerMappings: List<ProviderMapping>? = null
     override val metadata: Metadata? = null
