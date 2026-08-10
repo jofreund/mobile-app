@@ -28,6 +28,7 @@
 		C8HV00042F61000000000004 /* RecommendationRowTitle.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8HV00142F61000000000014 /* RecommendationRowTitle.swift */; };
 		C8HV00052F61000000000005 /* RecommendationRowTitle.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8HV00142F61000000000014 /* RecommendationRowTitle.swift */; };
 		C8ID00032F5A000000000003 /* ItemDetailsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8ID00132F5A000000000013 /* ItemDetailsView.swift */; };
+		C8PR00022F2D000000000002 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = C8PR00012F2D000000000001 /* PrivacyInfo.xcprivacy */; };
 		C8LC00012F4F000000000001 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = C8LC00112F4F000000000011 /* Localizable.xcstrings */; };
 		C8LL00032F5D000000000003 /* LibraryListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8LL00132F5D000000000013 /* LibraryListView.swift */; };
 		C8LV00032F62000000000003 /* LibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8LV00132F62000000000013 /* LibraryView.swift */; };
@@ -97,6 +98,7 @@
 		C8HV00132F61000000000013 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		C8HV00142F61000000000014 /* RecommendationRowTitle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecommendationRowTitle.swift; sourceTree = "<group>"; };
 		C8ID00132F5A000000000013 /* ItemDetailsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ItemDetailsView.swift; sourceTree = "<group>"; };
+		C8PR00012F2D000000000001 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		C8LC00112F4F000000000011 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		C8LL00132F5D000000000013 /* LibraryListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryListView.swift; sourceTree = "<group>"; };
 		C8LV00132F62000000000013 /* LibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryView.swift; sourceTree = "<group>"; };
@@ -220,6 +222,7 @@
 				C8PL00062F70000000000006 /* Player */,
 				C8HV00062F61000000000006 /* Home */,
 				C8ST00062F63000000000006 /* Settings */,
+				C8PR00012F2D000000000001 /* PrivacyInfo.xcprivacy */,
 				C8LC00112F4F000000000011 /* Localizable.xcstrings */,
 			);
 			path = iosApp;
@@ -422,6 +425,7 @@
 			files = (
 				058557D9273AAEEB004C7B11 /* Preview Assets.xcassets in Resources */,
 				058557BB273AAA24004C7B11 /* Assets.xcassets in Resources */,
+				C8PR00022F2D000000000002 /* PrivacyInfo.xcprivacy in Resources */,
 				C8LC00012F4F000000000001 /* Localizable.xcstrings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

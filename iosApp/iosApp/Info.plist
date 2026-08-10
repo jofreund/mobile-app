@@ -42,11 +42,11 @@
 		<string>_mass._tcp</string>
 	</array>
 	<key>NSCameraUsageDescription</key>
-	<string>Music Assistant uses the camera to scan a QR code when setting up a WebRTC remote connection.</string>
+	<string>Taktgeber uses the camera to scan a QR code when setting up a WebRTC remote connection.</string>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>Music Assistant connects to your Music Assistant server on your local network to browse and play your music library.</string>
+	<string>Taktgeber connects to your Music Assistant server on your local network to browse and play your music library.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Music Assistant does not access the microphone. This description is required because an included framework (WebRTC) references microphone APIs that this app does not use.</string>
+	<string>Taktgeber does not access the microphone. This description is required because an included framework (WebRTC) references microphone APIs that this app does not use.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
