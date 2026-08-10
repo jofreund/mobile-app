@@ -56,6 +56,14 @@ class MediaItemRepository(
             answer.resultAs<List<ServerMediaItem>>()
                 ?.let(factory::createList)
                 ?: error("Missing or undecodable media list payload")
+        }.onFailure { error ->
+            // Most callers reduce this to `getOrNull() ?: emptyList()`, which renders a failed
+            // request as an empty section — indistinguishable from a genuinely empty one, in the
+            // UI *and* in the log. Logging here rather than at each of those call sites keeps the
+            // reason recoverable wherever the failure happened.
+            if (error !is CancellationException) {
+                Logger.w(error) { "fetchMediaItems(${request.command}) failed" }
+            }
         }
 
     suspend fun fetchMediaItems(request: Request, observer: (List<AppMediaItem>) -> Unit) {
