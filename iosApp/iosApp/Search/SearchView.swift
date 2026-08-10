@@ -12,9 +12,18 @@ import MusicAssistantKit
 struct SearchView: View {
 
     @State private var query = ""
-    @State private var selectedTypes: Set<MediaType> = []
-    @State private var libraryOnly = false
-    @State private var showFilterSheet = false
+
+    /// Which result group the chips are narrowing to; nil is "All".
+    ///
+    /// A section id rather than a `MediaType` because the chips filter what is already on
+    /// screen — they never change the query, so they have nothing to say to the server and the
+    /// selection only has to name one of the sections `nonEmptySections` produced.
+    @State private var selectedSectionId: String?
+
+    /// The one filter that *is* part of the query, so it lives in the search field's own scope
+    /// bar rather than among the chips. Apple Music splits these the same way: source beside the
+    /// field, type chips beneath it.
+    @State private var source: SearchSource = .everywhere
 
     @State private var results: SearchResultData?
     @State private var isSearching = false
@@ -22,7 +31,10 @@ struct SearchView: View {
 
     @FocusState private var isSearchFieldFocused: Bool
 
-    private let selectableTypes: [MediaType] = [.track, .artist, .album, .playlist, .podcast, .audiobook, .radio]
+    private enum SearchSource: Hashable {
+        case everywhere
+        case library
+    }
 
     var body: some View {
         content
@@ -38,6 +50,17 @@ struct SearchView: View {
                 prompt: String(localized: "search_prompt_types")
             )
             .searchFocused($isSearchFieldFocused)
+            // Kept visible for as long as the search UI is, not just while typing: after
+            // submitting, the scope is the thing most likely to be wrong, and a control that
+            // vanishes on the results screen cannot be corrected without refocusing the field.
+            .searchScopes($source, activation: .onSearchPresentation) {
+                Text(String(localized: "search_scope_everywhere")).tag(SearchSource.everywhere)
+                Text(String(localized: "search_scope_library")).tag(SearchSource.library)
+            }
+            .onChange(of: source) {
+                guard !query.isEmpty else { return }
+                Task { await performSearch() }
+            }
             .onSubmit(of: .search) {
                 Task { await performSearch() }
             }
@@ -47,35 +70,6 @@ struct SearchView: View {
                     searchFailed = false
                 }
             }
-            .toolbar {
-                ToolbarItem(placement: .primaryAction) { filterButton }
-            }
-            .sheet(isPresented: $showFilterSheet) {
-                SearchFilterSheet(
-                    selectableTypes: selectableTypes,
-                    selectedTypes: selectedTypes,
-                    libraryOnly: libraryOnly
-                ) { types, onlyLibrary in
-                    selectedTypes = types
-                    libraryOnly = onlyLibrary
-                    if !query.isEmpty {
-                        Task { await performSearch() }
-                    }
-                }
-            }
-    }
-
-    private var filterButton: some View {
-        Button {
-            showFilterSheet = true
-        } label: {
-            Image(
-                systemName: !selectedTypes.isEmpty || libraryOnly
-                    ? "line.3.horizontal.decrease.circle.fill"
-                    : "line.3.horizontal.decrease.circle"
-            )
-        }
-        .accessibilityLabel(String(localized: "cd_filter"))
     }
 
     @ViewBuilder
@@ -84,22 +78,15 @@ struct SearchView: View {
             let sections = nonEmptySections(results)
             if sections.isEmpty {
                 ContentUnavailableView(String(localized: "search_no_results"), systemImage: "magnifyingglass")
-            } else if sections.count == 1 {
-                List(sections[0].items) { item in
-                    SearchResultRow(item: item)
-                }
-                .listStyle(.plain)
             } else {
-                List {
-                    ForEach(sections) { section in
-                        Section(section.title) {
-                            ForEach(section.items) { item in
-                                SearchResultRow(item: item)
-                            }
-                        }
+                VStack(spacing: 0) {
+                    // Only worth showing when there is a choice to make: with one group, "All"
+                    // and that group's chip do the same thing.
+                    if sections.count > 1 {
+                        chipBar(sections)
                     }
+                    resultList(visibleSections(sections))
                 }
-                .listStyle(.plain)
             }
         } else if searchFailed {
             ContentUnavailableView(String(localized: "search_error"), systemImage: "wifi.exclamationmark")
@@ -107,6 +94,70 @@ struct SearchView: View {
             ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             ContentUnavailableView(String(localized: "search_start"), systemImage: "magnifyingglass")
+        }
+    }
+
+    /// The chosen group, or all of them — falling back to all when a chip's group has vanished
+    /// under a newer search rather than showing an empty screen for a selection that no longer
+    /// names anything.
+    private func visibleSections(_ sections: [SearchSection]) -> [SearchSection] {
+        guard let selectedSectionId,
+              let chosen = sections.first(where: { $0.id == selectedSectionId })
+        else { return sections }
+        return [chosen]
+    }
+
+    private func chipBar(_ sections: [SearchSection]) -> some View {
+        ScrollView(.horizontal) {
+            HStack(spacing: 8) {
+                chip(String(localized: "search_filter_all"), isSelected: selectedSectionId == nil) {
+                    selectedSectionId = nil
+                }
+                ForEach(sections) { section in
+                    chip(section.title, isSelected: selectedSectionId == section.id) {
+                        selectedSectionId = section.id
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+        }
+        .scrollIndicators(.hidden)
+    }
+
+    private func chip(_ title: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(isSelected ? Color.white : Color.primary)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 7)
+                .background(isSelected ? AnyShapeStyle(.tint) : AnyShapeStyle(.quaternary), in: .capsule)
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+    }
+
+    @ViewBuilder
+    private func resultList(_ sections: [SearchSection]) -> some View {
+        // One group needs no header — either there is only one kind of result, or a chip is
+        // already naming it.
+        if sections.count == 1 {
+            List(sections[0].items) { item in
+                SearchResultRow(item: item)
+            }
+            .listStyle(.plain)
+        } else {
+            List {
+                ForEach(sections) { section in
+                    Section(section.title) {
+                        ForEach(section.items) { item in
+                            SearchResultRow(item: item)
+                        }
+                    }
+                }
+            }
+            .listStyle(.plain)
         }
     }
 
@@ -155,8 +206,11 @@ struct SearchView: View {
         let result: SearchResultData? = await withCheckedContinuation { continuation in
             KmpHelper.shared.searchDetailed(
                 query: trimmed,
-                mediaTypes: Array(selectedTypes),
-                libraryOnly: libraryOnly
+                // Always every type. The chips narrow what is displayed, so narrowing the query
+                // too would make each chip a round trip — which on a slow server is exactly the
+                // lag the chips exist to avoid.
+                mediaTypes: [],
+                libraryOnly: source == .library
             ) { continuation.resume(returning: $0) }
         }
         isSearching = false
@@ -165,6 +219,8 @@ struct SearchView: View {
             return
         }
         results = result
+        // A chip naming a group from the previous query would silently hide most of this one.
+        selectedSectionId = nil
     }
 }
 
@@ -217,82 +273,5 @@ private struct SearchResultRow: View {
             Spacer(minLength: 0)
         }
         .contentShape(.rect)
-    }
-}
-
-/// Working-copy-plus-explicit-Apply, same shape as `LibraryFilterSheet` — but simpler: just the
-/// media-type multi-select and the library-only toggle, no provider/genre pickers.
-private struct SearchFilterSheet: View {
-
-    let selectableTypes: [MediaType]
-    let onApply: (Set<MediaType>, Bool) -> Void
-
-    @Environment(\.dismiss) private var dismiss
-    @State private var workingTypes: Set<MediaType>
-    @State private var workingLibraryOnly: Bool
-
-    init(selectableTypes: [MediaType], selectedTypes: Set<MediaType>, libraryOnly: Bool, onApply: @escaping (Set<MediaType>, Bool) -> Void) {
-        self.selectableTypes = selectableTypes
-        self.onApply = onApply
-        _workingTypes = State(initialValue: selectedTypes)
-        _workingLibraryOnly = State(initialValue: libraryOnly)
-    }
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section {
-                    Toggle(String(localized: "search_in_library_only"), isOn: $workingLibraryOnly)
-                }
-                Section(String(localized: "genre_filter_media_type")) {
-                    ForEach(selectableTypes, id: \.self) { type in
-                        Button {
-                            if workingTypes.contains(type) {
-                                workingTypes.remove(type)
-                            } else {
-                                workingTypes.insert(type)
-                            }
-                        } label: {
-                            HStack {
-                                Text(type.searchFilterLabel).foregroundStyle(.primary)
-                                Spacer()
-                                if workingTypes.contains(type) {
-                                    Image(systemName: "checkmark").foregroundStyle(.tint)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            .navigationTitle(String(localized: "filter_sheet_title"))
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(String(localized: "common_cancel")) { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(String(localized: "common_apply")) {
-                        onApply(workingTypes, workingLibraryOnly)
-                        dismiss()
-                    }
-                }
-            }
-        }
-    }
-}
-
-private extension MediaType {
-    var searchFilterLabel: String {
-        switch self {
-        case .artist: String(localized: "media_type_artists")
-        case .album: String(localized: "media_type_albums")
-        case .track: String(localized: "media_type_tracks")
-        case .playlist: String(localized: "media_type_playlists")
-        case .audiobook: String(localized: "media_type_audiobooks")
-        case .podcast: String(localized: "media_type_podcasts")
-        case .radio: String(localized: "media_type_radio")
-        case .genre: String(localized: "media_type_genres")
-        default: ""
-        }
     }
 }

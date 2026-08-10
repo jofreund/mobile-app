@@ -7160,6 +7160,23 @@
         }
       }
     },
+    "search_filter_all": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alle"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All"
+          }
+        }
+      }
+    },
     "search_in_library_only": {
       "extractionState": "stale",
       "localizations": {
@@ -7248,6 +7265,40 @@
           "stringUnit": {
             "state": "translated",
             "value": "Zoekopdracht"
+          }
+        }
+      }
+    },
+    "search_scope_everywhere": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Überall"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Everywhere"
+          }
+        }
+      }
+    },
+    "search_scope_library": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bibliothek"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Library"
           }
         }
       }
