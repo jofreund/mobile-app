@@ -12,6 +12,7 @@
 		0B4C257E50350DDBF95D87D5 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA991F8C8A0917FDD5510709 /* Foundation.framework */; };
 		2152FB042600AC8F00CF470E /* iOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2152FB032600AC8F00CF470E /* iOSApp.swift */; };
 		7555FF83242A565900829871 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7555FF82242A565900829871 /* ContentView.swift */; };
+		C29F123E61DAA17B671EC95D /* LibraryListReconcilerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FE624765BDE4DC4138CA718 /* LibraryListReconcilerTests.swift */; };
 		C29F123E61DAA17B671EC95C /* SharedLoadRegistryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FE624765BDE4DC4138CA717 /* SharedLoadRegistryTests.swift */; };
 		C29F123E61DAA17B671EC95B /* ArtworkCacheKeyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FE624765BDE4DC4138CA716 /* ArtworkCacheKeyTests.swift */; };
 		C29F123E61DAA17B671EC95A /* ArtworkRetryPolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FE624765BDE4DC4138CA715 /* ArtworkRetryPolicyTests.swift */; };
@@ -44,6 +45,9 @@
 		C8SP00012F2D000000000001 /* MAWebRTCURLProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SP00112F2D000000000011 /* MAWebRTCURLProtocol.swift */; };
 		C8SP00022F2D000000000002 /* MediaItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SP00122F2D000000000012 /* MediaItem.swift */; };
 		C8SP00032F2D000000000003 /* ArtworkView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SP00132F2D000000000013 /* ArtworkView.swift */; };
+		C8SP00B82F2D0000000000B8 /* LibraryListReconciler.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SP00242F2D000000000024 /* LibraryListReconciler.swift */; };
+		C8SP00B92F2D0000000000B9 /* LibraryListReconciler.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SP00242F2D000000000024 /* LibraryListReconciler.swift */; };
+		C8SP00BA2F2D0000000000BA /* LibraryChangeObserver.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SP00252F2D000000000025 /* LibraryChangeObserver.swift */; };
 		C8SP00B62F2D0000000000B6 /* SharedLoadRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SP00232F2D000000000023 /* SharedLoadRegistry.swift */; };
 		C8SP00B72F2D0000000000B7 /* SharedLoadRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SP00232F2D000000000023 /* SharedLoadRegistry.swift */; };
 		C8SP00B42F2D0000000000B4 /* ArtworkCacheKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SP00222F2D000000000022 /* ArtworkCacheKey.swift */; };
@@ -68,6 +72,7 @@
 		058557BA273AAA24004C7B11 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		058557D8273AAEEB004C7B11 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		2152FB032600AC8F00CF470E /* iOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iOSApp.swift; sourceTree = "<group>"; };
+		2FE624765BDE4DC4138CA718 /* LibraryListReconcilerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LibraryListReconcilerTests.swift; sourceTree = "<group>"; };
 		2FE624765BDE4DC4138CA717 /* SharedLoadRegistryTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SharedLoadRegistryTests.swift; sourceTree = "<group>"; };
 		2FE624765BDE4DC4138CA716 /* ArtworkCacheKeyTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ArtworkCacheKeyTests.swift; sourceTree = "<group>"; };
 		2FE624765BDE4DC4138CA715 /* ArtworkRetryPolicyTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ArtworkRetryPolicyTests.swift; sourceTree = "<group>"; };
@@ -105,6 +110,8 @@
 		C8SP00112F2D000000000011 /* MAWebRTCURLProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MAWebRTCURLProtocol.swift; sourceTree = "<group>"; };
 		C8SP00122F2D000000000012 /* MediaItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaItem.swift; sourceTree = "<group>"; };
 		C8SP00132F2D000000000013 /* ArtworkView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtworkView.swift; sourceTree = "<group>"; };
+		C8SP00242F2D000000000024 /* LibraryListReconciler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryListReconciler.swift; sourceTree = "<group>"; };
+		C8SP00252F2D000000000025 /* LibraryChangeObserver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryChangeObserver.swift; sourceTree = "<group>"; };
 		C8SP00232F2D000000000023 /* SharedLoadRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedLoadRegistry.swift; sourceTree = "<group>"; };
 		C8SP00222F2D000000000022 /* ArtworkCacheKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtworkCacheKey.swift; sourceTree = "<group>"; };
 		C8SP00212F2D000000000021 /* ArtworkRetryPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtworkRetryPolicy.swift; sourceTree = "<group>"; };
@@ -158,6 +165,7 @@
 		6697875A889242950A65544F /* iosAppTests */ = {
 			isa = PBXGroup;
 			children = (
+				2FE624765BDE4DC4138CA718 /* LibraryListReconcilerTests.swift */,
 				2FE624765BDE4DC4138CA717 /* SharedLoadRegistryTests.swift */,
 				2FE624765BDE4DC4138CA716 /* ArtworkCacheKeyTests.swift */,
 				2FE624765BDE4DC4138CA715 /* ArtworkRetryPolicyTests.swift */,
@@ -287,6 +295,8 @@
 				C8SP00112F2D000000000011 /* MAWebRTCURLProtocol.swift */,
 				C8SP00122F2D000000000012 /* MediaItem.swift */,
 				C8SP00132F2D000000000013 /* ArtworkView.swift */,
+				C8SP00242F2D000000000024 /* LibraryListReconciler.swift */,
+				C8SP00252F2D000000000025 /* LibraryChangeObserver.swift */,
 				C8SP00232F2D000000000023 /* SharedLoadRegistry.swift */,
 				C8SP00222F2D000000000022 /* ArtworkCacheKey.swift */,
 				C8SP00212F2D000000000021 /* ArtworkRetryPolicy.swift */,
@@ -442,12 +452,14 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C29F123E61DAA17B671EC95D /* LibraryListReconcilerTests.swift in Sources */,
 				C29F123E61DAA17B671EC95C /* SharedLoadRegistryTests.swift in Sources */,
 				C29F123E61DAA17B671EC95B /* ArtworkCacheKeyTests.swift in Sources */,
 				C29F123E61DAA17B671EC95A /* ArtworkRetryPolicyTests.swift in Sources */,
 				C29F123E61DAA17B671EC959 /* ArtworkDiskCacheTests.swift in Sources */,
 				C29F123E61DAA17B671EC957 /* SVGRasterizerTests.swift in Sources */,
 				C29F123E61DAA17B671EC958 /* QueueMoveMathTests.swift in Sources */,
+				C8SP00B82F2D0000000000B8 /* LibraryListReconciler.swift in Sources */,
 				C8SP00B62F2D0000000000B6 /* SharedLoadRegistry.swift in Sources */,
 				C8SP00B42F2D0000000000B4 /* ArtworkCacheKey.swift in Sources */,
 				C8SP00B22F2D0000000000B2 /* ArtworkRetryPolicy.swift in Sources */,
@@ -464,8 +476,10 @@
 				2152FB042600AC8F00CF470E /* iOSApp.swift in Sources */,
 				7555FF83242A565900829871 /* ContentView.swift in Sources */,
 				C8SP00012F2D000000000001 /* MAWebRTCURLProtocol.swift in Sources */,
+				C8SP00BA2F2D0000000000BA /* LibraryChangeObserver.swift in Sources */,
 				C8SP00022F2D000000000002 /* MediaItem.swift in Sources */,
 				C8SP00032F2D000000000003 /* ArtworkView.swift in Sources */,
+				C8SP00B92F2D0000000000B9 /* LibraryListReconciler.swift in Sources */,
 				C8SP00B72F2D0000000000B7 /* SharedLoadRegistry.swift in Sources */,
 				C8SP00B52F2D0000000000B5 /* ArtworkCacheKey.swift in Sources */,
 				C8SP00B32F2D0000000000B3 /* ArtworkRetryPolicy.swift in Sources */,

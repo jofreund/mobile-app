@@ -1228,6 +1228,27 @@ object KmpHelper : KoinComponent {
     // transfer, and the rest of PlayerAction's cases stay unreached for now — the expanded
     // player's overflow menu and queue list aren't ported yet.
 
+    /**
+     * Library lifecycle changes — favourites, mark-played, add/remove from library — as they
+     * happen, so a list already on screen can reconcile in place instead of refetching.
+     *
+     * `setFavorite` and `setInLibrary` are fire-and-forget: they send the request and rely on the
+     * server echoing `MediaItemUpdatedEvent` / `MediaItemDeletedEvent`, which is what arrives
+     * here. `setMarkPlayed` additionally publishes an optimistic local change, because the server
+     * emits no event for it. Both paths merge into the same flow.
+     *
+     * A `SharedFlow` with no replay: subscribers see future changes only. That suits the caller —
+     * a list is reconciling something it already fetched, so anything older than its own fetch is
+     * already reflected in it.
+     *
+     * **`Deleted` carries a re-keyed item.** `MediaItemRepository` rewrites a deleted library
+     * record to its first provider mapping, because the underlying provider item outlives the
+     * library record. Swift has to match deletions against a row's provider mappings as well as
+     * its own id — see `LibraryListReconciler.removing`.
+     */
+    val itemChanges: NativeFlow<MediaItemChange>
+        get() = NativeFlow(mediaItemRepository.itemChanges, mainScope)
+
     val playerBarState: NativeStateFlow<PlayerBarState>
         get() = NativeStateFlow(mainDataSource.playerBarState, mainScope)
 

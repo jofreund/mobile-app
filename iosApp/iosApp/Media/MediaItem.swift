@@ -109,6 +109,17 @@ struct MediaItem: Identifiable, Hashable {
     func hash(into hasher: inout Hasher) { hasher.combine(id) }
 }
 
+extension MediaItem: ReconcilableRow {
+    /// The provider items behind a library record, in the same `provider:itemId` shape as `id`.
+    ///
+    /// Only a deletion needs these, and it needs them because the server's delete event is
+    /// re-keyed away from the library id — see `LibraryListReconciler.removing`.
+    var sourceIds: Set<String> {
+        guard let mappings = kotlin.providerMappings else { return [] }
+        return Set(mappings.map { "\($0.providerInstance):\($0.itemId)" })
+    }
+}
+
 extension Array where Element == AppMediaItem {
     var asMediaItems: [MediaItem] { map(MediaItem.init) }
 }

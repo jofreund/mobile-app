@@ -171,6 +171,7 @@ struct LibraryListView: View {
         .alert(String(localized: "toast_error_create_playlist"), isPresented: $createPlaylistFailed) {
             Button(String(localized: "common_cancel"), role: .cancel) {}
         }
+        .observingLibraryChanges($items)
         .task(id: loadKey) {
             // `.task` restarts on every *appearance*, not only when its id changes — including
             // when this screen is uncovered by a pop from a detail page. Reloading there was
