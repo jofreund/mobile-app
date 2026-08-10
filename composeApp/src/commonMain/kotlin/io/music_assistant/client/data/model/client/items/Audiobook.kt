@@ -35,8 +35,13 @@ data class Audiobook(
     ),
 ) : AppMediaItem(), PlayableItem, MarkableItem {
     override val mediaType: MediaType = MediaType.AUDIOBOOK
-    override val subtitle =
-        authors?.takeIf { it.isNotEmpty() }?.joinToString(", ") ?: "Audiobook"
+
+    // No fallback when there are no authors. Every other type leaves the second line off
+    // rather than naming its own kind — Album and Track give artists or nothing, Podcast never
+    // sets one at all — and a tile sitting in the "Audiobooks" row does not need to repeat that
+    // it is an audiobook. The literal was also untranslated, so it read as English inside an
+    // otherwise German screen.
+    override val subtitle = authors?.takeIf { it.isNotEmpty() }?.joinToString(", ")
     override val parentName: String? = authors?.firstOrNull()
     override fun withFavorite(favorite: Boolean?) = copy(favorite = favorite)
     override fun withPlayed(fullyPlayed: Boolean) = copy(fullyPlayed = fullyPlayed, resumePositionMs = 0)
