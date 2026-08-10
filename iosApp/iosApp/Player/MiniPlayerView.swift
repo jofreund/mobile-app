@@ -189,7 +189,7 @@ private struct MiniPlayerRow: View {
                 store.togglePlayPause(id: player.id)
                 haptic.fire(.impact(weight: .medium))
             } label: {
-                Image(systemName: player.isPlaying ? "pause.fill" : "play.fill")
+                PlayPauseIcon(isPlaying: player.isPlaying)
                     .font(.title3)
             }
             .buttonStyle(.plain)

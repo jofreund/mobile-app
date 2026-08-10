@@ -642,7 +642,10 @@ private struct ExpandedPlayerRow: View {
                 store.togglePlayPause(id: player.id)
                 haptic.fire(.impact(weight: .medium))
             } label: {
-                Image(systemName: player.isPlaying ? "pause.fill" : "play.fill")
+                // Constant-width by construction — see `PlayPauseIcon`. A plain Image here
+                // resized on every toggle, and this row is centred, so the shuffle, skip and
+                // repeat controls all slid sideways by half the difference.
+                PlayPauseIcon(isPlaying: player.isPlaying)
                     .font(.system(size: 44))
             }
             .buttonStyle(.plain)
