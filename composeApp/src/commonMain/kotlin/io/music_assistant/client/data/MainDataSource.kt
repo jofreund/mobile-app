@@ -47,6 +47,7 @@ import io.music_assistant.client.utils.DataConnectionState
 import io.music_assistant.client.utils.SessionState
 import io.music_assistant.client.utils.currentTimeMillis
 import io.music_assistant.client.utils.resultAs
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
@@ -68,6 +69,8 @@ import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlin.coroutines.CoroutineContext
 
 @OptIn(FlowPreview::class)
@@ -1366,53 +1369,124 @@ class MainDataSource(
         }
     }
 
+    /**
+     * Refresh one player's queue items, coalescing concurrent requests for the same queue.
+     *
+     * Two independent triggers converge on every play: the `(playersData, selectedPlayerId)`
+     * collector re-fires when `queueInfo` arrives, and the queue-updated event handler refreshes
+     * the affected queue. Both are deliberate — each has a bug behind it — so neither is going
+     * away, but starting playback tripped both and sent `player_queues/items` twice, about 60ms
+     * apart, for the same state.
+     *
+     * Simply dropping the second would be wrong: a queue that genuinely changes while a fetch is
+     * in flight would leave the stale result on screen. So a request arriving during a fetch is
+     * remembered instead, and the runner goes round once more when it finishes. The last request
+     * always gets a fetch that began after it, and a burst of events costs two round trips rather
+     * than one per event.
+     */
     private fun refreshPlayerQueueItems(
         fullData: PlayerData,
         forcedQueueData: QueueInfo? = null,
     ) {
         launch {
-            (forcedQueueData ?: fullData.queueInfo)?.let { queueInfo ->
-                val queueTracks = apiClient.sendRequest(Request.Queue.items(queueInfo.id))
-                    .resultAs<List<ServerQueueItem>>()?.let { queueFactory.createTrackList(it) }
+            val queueInfo = forcedQueueData ?: fullData.queueInfo ?: return@launch
+            if (!claimQueueItemFetch(queueInfo.id)) return@launch
+            try {
+                var runAgain: Boolean
+                do {
+                    fetchQueueItemsInto(fullData, queueInfo)
+                    runAgain = consumeOrReleaseQueueItemFetch(queueInfo.id)
+                } while (runAgain)
+            } catch (e: CancellationException) {
+                releaseQueueItemFetch(queueInfo.id)
+                throw e
+            }
+        }
+    }
 
-                _playersData.update { currentState ->
-                    when (currentState) {
-                        is DataState.Error,
-                        is DataState.Loading,
-                        is DataState.NoData,
-                        is DataState.Stale,
-                            -> currentState
+    /** Queue id -> "another refresh was asked for while this one was running". */
+    private val queueItemFetches = mutableMapOf<String, Boolean>()
+    private val queueItemFetchLock = Mutex()
 
-                        is DataState.Data -> DataState.Data(
-                            currentState.data.map { playerData ->
-                                if (playerData.player.id == fullData.player.id) {
-                                    // `info` is owned by the combine() over
-                                    // `_queueInfos`/`localData`; only swap in the
-                                    // freshly loaded items here. Writing `info`
-                                    // from this async snapshot would race the
-                                    // combine and revert optimistic state (e.g.
-                                    // the shuffle toggle). Fall back to the loaded
-                                    // `queueInfo` only when no info exists yet.
-                                    playerData.copy(
-                                        queue = DataState.Data(
-                                            Queue(
-                                                info = playerData.queueInfo ?: queueInfo,
-                                                items = queueTracks?.let { list ->
-                                                    DataState.Data(
-                                                        list,
-                                                    )
-                                                }
-                                                    ?: DataState.Error(),
-                                            ),
-                                        ),
-                                    )
-                                } else {
-                                    playerData
-                                }
-                            },
-                        )
-                    }
-                }
+    /** True if the caller now owns fetching for [queueId]; false if someone else already does. */
+    private suspend fun claimQueueItemFetch(queueId: String): Boolean =
+        queueItemFetchLock.withLock {
+            if (queueId in queueItemFetches) {
+                queueItemFetches[queueId] = true
+                false
+            } else {
+                queueItemFetches[queueId] = false
+                true
+            }
+        }
+
+    /**
+     * Whether to fetch again, releasing the claim when not.
+     *
+     * Both halves happen under one lock deliberately. Checking and releasing separately leaves a
+     * gap in which a request can arrive, see the claim still held, decline to start, and then
+     * have its flag dropped by the release — that refresh would simply never happen.
+     */
+    private suspend fun consumeOrReleaseQueueItemFetch(queueId: String): Boolean =
+        queueItemFetchLock.withLock {
+            if (queueItemFetches[queueId] == true) {
+                queueItemFetches[queueId] = false
+                true
+            } else {
+                queueItemFetches.remove(queueId)
+                false
+            }
+        }
+
+    /**
+     * Drops the claim after a cancellation. Not done in a `finally`: on the normal path
+     * [consumeOrReleaseQueueItemFetch] has already released, and another coroutine may have
+     * claimed the queue since — a blanket release would take theirs.
+     */
+    private suspend fun releaseQueueItemFetch(queueId: String) {
+        queueItemFetchLock.withLock { queueItemFetches.remove(queueId) }
+    }
+
+    private suspend fun fetchQueueItemsInto(fullData: PlayerData, queueInfo: QueueInfo) {
+        val queueTracks = apiClient.sendRequest(Request.Queue.items(queueInfo.id))
+            .resultAs<List<ServerQueueItem>>()?.let { queueFactory.createTrackList(it) }
+
+        _playersData.update { currentState ->
+            when (currentState) {
+                is DataState.Error,
+                is DataState.Loading,
+                is DataState.NoData,
+                is DataState.Stale,
+                    -> currentState
+
+                is DataState.Data -> DataState.Data(
+                    currentState.data.map { playerData ->
+                        if (playerData.player.id == fullData.player.id) {
+                            // `info` is owned by the combine() over
+                            // `_queueInfos`/`localData`; only swap in the
+                            // freshly loaded items here. Writing `info`
+                            // from this async snapshot would race the
+                            // combine and revert optimistic state (e.g.
+                            // the shuffle toggle). Fall back to the loaded
+                            // `queueInfo` only when no info exists yet.
+                            playerData.copy(
+                                queue = DataState.Data(
+                                    Queue(
+                                        info = playerData.queueInfo ?: queueInfo,
+                                        items = queueTracks?.let { list ->
+                                            DataState.Data(
+                                                list,
+                                            )
+                                        }
+                                            ?: DataState.Error(),
+                                    ),
+                                ),
+                            )
+                        } else {
+                            playerData
+                        }
+                    },
+                )
             }
         }
     }
