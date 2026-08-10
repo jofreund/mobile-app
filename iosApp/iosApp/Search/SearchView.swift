@@ -175,6 +175,8 @@ private struct SearchResultRow: View {
 
     let item: MediaItem
 
+    @State private var isPressed = false
+
     var body: some View {
         Group {
             if item.kind.isBrowsable {
@@ -191,9 +193,10 @@ private struct SearchResultRow: View {
                 } label: {
                     row
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(PressReportingButtonStyle { isPressed = $0 })
             }
         }
+        .pressHighlight(isPressed)
         .itemContextMenu(item: item)
     }
 

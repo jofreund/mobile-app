@@ -50,6 +50,7 @@
 		C8SP00032F2D000000000003 /* ArtworkView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SP00132F2D000000000013 /* ArtworkView.swift */; };
 		C8SP00B82F2D0000000000B8 /* LibraryListReconciler.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SP00242F2D000000000024 /* LibraryListReconciler.swift */; };
 		C8SP00B92F2D0000000000B9 /* LibraryListReconciler.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SP00242F2D000000000024 /* LibraryListReconciler.swift */; };
+		C8SP00BB2F2D0000000000BB /* RowPressHighlight.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SP00262F2D000000000026 /* RowPressHighlight.swift */; };
 		C8SP00BA2F2D0000000000BA /* LibraryChangeObserver.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SP00252F2D000000000025 /* LibraryChangeObserver.swift */; };
 		C8SP00B62F2D0000000000B6 /* SharedLoadRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SP00232F2D000000000023 /* SharedLoadRegistry.swift */; };
 		C8SP00B72F2D0000000000B7 /* SharedLoadRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SP00232F2D000000000023 /* SharedLoadRegistry.swift */; };
@@ -116,6 +117,7 @@
 		C8SP00122F2D000000000012 /* MediaItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaItem.swift; sourceTree = "<group>"; };
 		C8SP00132F2D000000000013 /* ArtworkView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtworkView.swift; sourceTree = "<group>"; };
 		C8SP00242F2D000000000024 /* LibraryListReconciler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryListReconciler.swift; sourceTree = "<group>"; };
+		C8SP00262F2D000000000026 /* RowPressHighlight.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RowPressHighlight.swift; sourceTree = "<group>"; };
 		C8SP00252F2D000000000025 /* LibraryChangeObserver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryChangeObserver.swift; sourceTree = "<group>"; };
 		C8SP00232F2D000000000023 /* SharedLoadRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedLoadRegistry.swift; sourceTree = "<group>"; };
 		C8SP00222F2D000000000022 /* ArtworkCacheKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtworkCacheKey.swift; sourceTree = "<group>"; };
@@ -303,6 +305,7 @@
 				C8SP00122F2D000000000012 /* MediaItem.swift */,
 				C8SP00132F2D000000000013 /* ArtworkView.swift */,
 				C8SP00242F2D000000000024 /* LibraryListReconciler.swift */,
+				C8SP00262F2D000000000026 /* RowPressHighlight.swift */,
 				C8SP00252F2D000000000025 /* LibraryChangeObserver.swift */,
 				C8SP00232F2D000000000023 /* SharedLoadRegistry.swift */,
 				C8SP00222F2D000000000022 /* ArtworkCacheKey.swift */,
@@ -482,6 +485,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C8SP00BB2F2D0000000000BB /* RowPressHighlight.swift in Sources */,
 				2152FB042600AC8F00CF470E /* iOSApp.swift in Sources */,
 				7555FF83242A565900829871 /* ContentView.swift in Sources */,
 				C8SP00012F2D000000000001 /* MAWebRTCURLProtocol.swift in Sources */,

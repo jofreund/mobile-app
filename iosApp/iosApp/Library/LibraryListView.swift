@@ -456,6 +456,10 @@ private struct LibraryItemCell: View {
     let item: MediaItem
     let viewMode: ViewMode
 
+    /// Only ever true for the playable branch — a `NavigationLink` brings its own highlight, and
+    /// a second one on top of it would double the tint.
+    @State private var isPressed = false
+
     var body: some View {
         Group {
             if item.kind.isBrowsable {
@@ -471,10 +475,12 @@ private struct LibraryItemCell: View {
                 Button { _ = KmpHelper.shared.playOnSelectedPlayer(item: item.kotlin, option: .replace, radio: false) } label: {
                     content
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(PressReportingButtonStyle { isPressed = $0 })
             }
         }
         .itemContextMenu(item: item)
+        // A no-op in grid mode, where there is no list row to paint.
+        .pressHighlight(isPressed)
     }
 
     @ViewBuilder
