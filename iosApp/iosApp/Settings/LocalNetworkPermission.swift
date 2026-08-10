@@ -33,7 +33,7 @@ final class LocalNetworkPermissionPrimer {
     private static let probeDuration = Duration.seconds(3)
 
     private let log = Logger(
-        subsystem: Bundle.main.bundleIdentifier ?? "io.music-assistant.client",
+        subsystem: Bundle.main.bundleIdentifier ?? "com.jofreund.taktgeber",
         category: "LocalNetworkPermission"
     )
 

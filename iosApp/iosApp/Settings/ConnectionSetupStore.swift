@@ -6,7 +6,7 @@ import os
 /// stalled sign-in indistinguishable from one still in flight. Kermit's own logs already
 /// reach this same unified log through `OsLogSinkImpl`, so these land alongside them.
 private let connectionLog = Logger(
-    subsystem: Bundle.main.bundleIdentifier ?? "io.music-assistant.client",
+    subsystem: Bundle.main.bundleIdentifier ?? "com.jofreund.taktgeber",
     category: "ConnectionSetup"
 )
 

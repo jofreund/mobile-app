@@ -3,7 +3,7 @@ import MusicAssistantKit
 import os
 
 private let playerLog = Logger(
-    subsystem: Bundle.main.bundleIdentifier ?? "io.music-assistant.client",
+    subsystem: Bundle.main.bundleIdentifier ?? "com.jofreund.taktgeber",
     category: "ExpandedPlayer"
 )
 

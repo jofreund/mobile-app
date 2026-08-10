@@ -1,5 +1,8 @@
 TEAM_ID=5J5R9QK64D
-PRODUCT_BUNDLE_IDENTIFIER=io.music-assistant.client
+// The app target used to override this, which made the line here dead and misleading — the
+// shipping id was com.jofreund.music-assistant-client, set in the pbxproj. The override is gone,
+// so this is the one place the bundle id lives again, as the build docs already claimed.
+PRODUCT_BUNDLE_IDENTIFIER=com.jofreund.taktgeber
 APP_NAME=Taktgeber
 IPHONEOS_DEPLOYMENT_TARGET = 26.0
 
