@@ -85,7 +85,9 @@ struct SearchView: View {
         if let results {
             let sections = nonEmptySections(results)
             if sections.isEmpty {
-                ContentUnavailableView(String(localized: "search_no_results"), systemImage: "magnifyingglass")
+                SearchPlaceholder(closesSearch: false) { isSearchFieldFocused = false } content: {
+                    ContentUnavailableView(String(localized: "search_no_results"), systemImage: "magnifyingglass")
+                }
             } else {
                 VStack(spacing: 0) {
                     // Only worth showing when there is a choice to make: with one group, "All"
@@ -97,11 +99,17 @@ struct SearchView: View {
                 }
             }
         } else if searchFailed {
-            ContentUnavailableView(String(localized: "search_error"), systemImage: "wifi.exclamationmark")
+            SearchPlaceholder(closesSearch: false) { isSearchFieldFocused = false } content: {
+                ContentUnavailableView(String(localized: "search_error"), systemImage: "wifi.exclamationmark")
+            }
         } else if isSearching {
             ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
-            ContentUnavailableView(String(localized: "search_start"), systemImage: "magnifyingglass")
+            // Nothing typed yet, so there is nothing to preserve — a tap here leaves search
+            // altogether rather than only lowering the keyboard.
+            SearchPlaceholder(closesSearch: true) { isSearchFieldFocused = false } content: {
+                ContentUnavailableView(String(localized: "search_start"), systemImage: "magnifyingglass")
+            }
         }
     }
 
@@ -281,5 +289,40 @@ private struct SearchResultRow: View {
             Spacer(minLength: 0)
         }
         .contentShape(.rect)
+    }
+}
+
+/// An empty-state panel that gets out of the way when tapped.
+///
+/// With no results on screen there is nothing to scroll, so `.scrollDismissesKeyboard` has
+/// nothing to act on and the keyboard sat over half the screen with only the field's own Cancel
+/// to remove it. Tapping the empty middle is what people try first.
+///
+/// A child view rather than a modifier on the parent because of `dismissSearch`: the environment
+/// value is only populated *inside* the searchable container, so reading it on the same view that
+/// applies `.searchable` would silently do nothing.
+private struct SearchPlaceholder<Content: View>: View {
+
+    /// Whether to leave search entirely, or only lower the keyboard.
+    ///
+    /// True only for the nothing-typed-yet state. Behind the other placeholders there is a query
+    /// and its results, and closing search would throw both away for a tap that was probably
+    /// meant to reach past the keyboard.
+    let closesSearch: Bool
+    let onTap: () -> Void
+    @ViewBuilder let content: () -> Content
+
+    @Environment(\.dismissSearch) private var dismissSearch
+
+    var body: some View {
+        content()
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // `ContentUnavailableView` only draws its glyph and text; without this the tappable
+            // area would be the label, not the empty space around it, which is where people aim.
+            .contentShape(.rect)
+            .onTapGesture {
+                onTap()
+                if closesSearch { dismissSearch() }
+            }
     }
 }
