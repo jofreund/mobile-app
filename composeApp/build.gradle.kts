@@ -106,11 +106,13 @@ kotlin {
 // all — is no longer a dependency. A network-bound task feeding a resource system that does not
 // exist is worse than no task, so it's removed.
 //
-// The generated assets are deliberately left in place (`composeResources/font/mdi_webfont.ttf`,
-// `composeResources/files/mdi_codepoints.json`, both committed). Restoring provider icons is an
-// open question, and if it's answered yes the font is exactly what a native renderer needs —
-// added to the Xcode target via `UIAppFonts`, which was the original Phase D plan. Regenerating
-// it is `git show` away in any case; re-deriving the codepoint table is not.
+// The generated assets went too, in `ac16fa52`, along with the rest of the provider-icon chain —
+// as did `composeResources/values*/strings.xml`, the source the `.xcstrings` catalog was
+// exported from. Nothing under `composeResources/` is tracked any more; anything still on disk
+// there is stale build output.
 //
-// `composeResources/values*/strings.xml` are likewise still on disk. They were the source the
-// `.xcstrings` catalog was exported from in Phase D; nothing reads them now.
+// If provider icons are ever revived, the font is what a native renderer would want, added to
+// the Xcode target via `UIAppFonts` — that was the original Phase D plan. Recover both files
+// with `git show 213f695a:composeApp/src/commonMain/composeResources/font/mdi_webfont.ttf` and
+// the sibling `files/mdi_codepoints.json`. Re-deriving the codepoint table from upstream is the
+// expensive half, and that is exactly what the file preserves.
