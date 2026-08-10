@@ -23,6 +23,7 @@ struct HomeView: View {
     @State private var loadFailed = false
     @State private var reloadTrigger = UUID()
     @State private var sessionSubscription: Cancellable?
+    @State private var wasReady = false
 
     @State private var homeRowsConfig: [SettingsRepository.HomeRowPref] = []
     @State private var isEditing = false
@@ -58,10 +59,20 @@ struct HomeView: View {
                 // before there was a server to talk to. Retry when a connection actually
                 // arrives; a load that already succeeded is left alone.
                 guard sessionSubscription == nil else { return }
-                sessionSubscription = KmpHelper.shared.sessionState.subscribe { state in
-                    guard loadFailed || recommendations == nil else { return }
-                    let connected = state as? SessionState.Connected
-                    guard connected?.dataConnectionState is DataConnectionStateAuthenticated else { return }
+                // Seeded before subscribing: `observeReadiness` replays the current value, and
+                // without this that replay looks like an arrival and restarts a load that is
+                // already in flight.
+                wasReady = KmpHelper.shared.readyForCommands
+                sessionSubscription = KmpHelper.shared.observeReadiness { isReady in
+                    // Kotlin's `Boolean` crosses as `KotlinBoolean` for a lambda parameter.
+                    let ready = isReady.boolValue
+                    // Only the not-ready → ready edge. Reacting to every emission meant each one
+                    // bumped `reloadTrigger`, and since `.task(id:)` cancels the running task on
+                    // a new id, a burst of them could keep cancelling the load that was about to
+                    // populate the screen.
+                    let justBecameReady = ready && !wasReady
+                    wasReady = ready
+                    guard justBecameReady, loadFailed || recommendations == nil else { return }
                     reloadTrigger = UUID()
                 }
             }
@@ -239,7 +250,17 @@ struct HomeView: View {
         }
         let (loadedRecommendations, loadedShortcuts) = await (recommendationsResult, shortcutsResult)
         guard !Task.isCancelled else { return }
-        guard let loadedRecommendations else {
+        // Nil means the round trip exceeded KmpHelper's timeout. An RPC *failure* does not
+        // arrive that way: `launchFetch` reduces it with `getOrNull() ?: emptyList()`, so a
+        // server that refused and a server with nothing to recommend both hand back an empty
+        // list. `readyForCommands` is what separates them.
+        //
+        // This is why Home stayed blank after a fresh install: `sendRequest` gates on
+        // `ensureReadyForCommands`, which gives up after 10s — inside the 30s fetch timeout — so
+        // the first load returned [] rather than nil, `loadFailed` stayed false, and the retry
+        // below never fired once credentials were finally entered.
+        let unreachable = loadedRecommendations?.isEmpty != false && !KmpHelper.shared.readyForCommands
+        guard let loadedRecommendations, !unreachable else {
             // Leaves whatever is on screen in place. With content already showing, `content`
             // takes the `rows` branch and this flag never reaches the error view — a failed
             // refresh keeps the stale carousels rather than throwing them away, and the RPC

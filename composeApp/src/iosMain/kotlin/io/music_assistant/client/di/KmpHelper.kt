@@ -328,6 +328,19 @@ object KmpHelper : KoinComponent {
         return Cancellable { job.cancel() }
     }
 
+    /**
+     * Command-readiness right now, for a caller that needs to *judge* a result rather than watch
+     * for changes.
+     *
+     * Exists because the fetchers above cannot say why a list is empty. `sendRequest` gates on
+     * `ensureReadyForCommands` and returns a failed Result when the transport never came up, and
+     * [launchFetch] flattens that to an empty list — so "server answered with nothing" and "we
+     * never reached the server" arrive at Swift as the same value. Reading this at the moment a
+     * fetch resolves is what tells them apart.
+     */
+    val readyForCommands: Boolean
+        get() = serviceClient.isReadyForCommands.value
+
     // MARK: - Now Playing channels
     //
     // Per-concern state for the system media UI (lock screen / Control Center /
