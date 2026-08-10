@@ -4,8 +4,9 @@ import Foundation
 ///
 /// The server sends curated rows with both an English `name` and a stable `translation_key`, and
 /// leaves the translating to whoever is displaying them — which is why the web frontend is
-/// consistently in one language and this app was not. Newer servers do the resolving themselves
-/// (see `KmpHelper.declareLocaleOnConnect`); until then, the client has to.
+/// consistently in one language and this app was not. Servers newer than 2.9.11 resolve it
+/// themselves for a connection that declares a locale, but that is unreleased and asking costs
+/// an error in the log every launch (see the note in `iOSApp.init`), so the client does it.
 ///
 /// **Deliberately only the library's own rows.** Providers define their own keys —
 /// `recommendations.global_top_artists` from lastfm, and so on for every provider installed — so

@@ -106,17 +106,12 @@ struct iOSApp: App {
         MainViewControllerKt.bootstrapKmp()
         KmpState.isReady = true
 
-        // Music Assistant localizes *server-side*: curated names — the home screen's
-        // recommendation rows, browse folders, genres — carry a translation key that the server
-        // resolves to the connection's locale as it serializes the response. A connection that
-        // never declares one gets the English source, while artist and album names arrive in
-        // whatever language the content is, which is what makes the home screen look
-        // half-translated. The web frontend declares a locale; this client never has, and
-        // neither does upstream's.
-        //
-        // Only registers a collector — nothing is sent until a connection is ready, and it
-        // resends on every reconnect because the server scopes the locale to the connection.
-        KmpHelper.shared.declareLocaleOnConnect(locale: Locale.preferredLanguages.first ?? "")
+        // No `translations/set_locale` here. Music Assistant does localize server-side — the
+        // server resolves curated names to the connection's locale — but that landed after
+        // 2.9.11 and is unreleased, so asking produces an `Invalid command` answer, which
+        // `RpcEngine` logs at error level on every launch. `RecommendationRowTitle` covers the
+        // rows that matter meanwhile. Recover the probe with `git show 844a2c0d` when a server
+        // that answers it ships.
 
         // Makes `mawebrtc://` artwork URLs resolvable through the standard URL
         // loading system (and therefore AsyncImage/URLSession). Must follow
