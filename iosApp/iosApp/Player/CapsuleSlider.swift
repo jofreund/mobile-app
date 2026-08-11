@@ -1,4 +1,18 @@
 import SwiftUI
+import os
+
+/// Temporary. Answers one question: when a finger lands on a slider and stays still, how long
+/// until the gesture is delivered? Logged for both sliders so the two can be compared directly —
+/// the volume bar responds only once a drag starts, while the seek bar responds to the press
+/// itself, and no amount of reading the view tree has explained the difference.
+///
+/// A late "touch-down" line means the touch is being withheld before it ever reaches the app
+/// (arbitration or the system gesture gate). A prompt one means delivery is fine and the delay is
+/// in rendering. Those are different bugs; remove this once it is clear which.
+private let sliderLog = Logger(
+    subsystem: Bundle.main.bundleIdentifier ?? "com.jofreund.taktgeber",
+    category: "CapsuleSlider"
+)
 
 /// A slider in the shape Apple Music uses: a bare capsule with no handle, which swells while a
 /// finger is on it and settles back when the finger lifts. Used for both the seek bar and the
@@ -41,6 +55,9 @@ struct CapsuleSlider: View {
     /// `true` when a touch takes hold, `false` when it lifts. Mirrors `Slider`'s
     /// `onEditingChanged` so the call site's seek bookkeeping did not have to change.
     let onEditingChanged: (Bool) -> Void
+
+    /// Temporary, for the delivery-latency logging above.
+    var debugLabel: String = "?"
 
     @State private var isScrubbing = false
 
@@ -138,6 +155,12 @@ struct CapsuleSlider: View {
             .onChanged { gesture in
                 guard isEnabled else { return }
                 if !isScrubbing {
+                    // `gesture.time` is when the touch actually happened; the gap to now is how
+                    // long it was withheld before reaching us.
+                    let latencyMs = Int(Date().timeIntervalSince(gesture.time) * 1000)
+                    sliderLog.info(
+                        "[\(debugLabel, privacy: .public)] touch-down, delivered after \(latencyMs, privacy: .public)ms"
+                    )
                     // A touch arriving during a held-open swell takes it over rather than
                     // letting the old collapse fire underneath the new gesture.
                     pendingCollapse?.cancel()

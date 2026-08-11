@@ -74,6 +74,7 @@ struct VolumeSlider: View {
                 },
                 // Less than the seek bar's: that one spans the full width with nothing beside
                 // it, while this has to grow into a 14pt gap without touching the glyphs.
+                debugLabel: "volume",
                 activeOverhang: 6
             )
             .disabled(!enabled)

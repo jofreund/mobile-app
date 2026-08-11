@@ -612,7 +612,8 @@ private struct ExpandedPlayerRow: View {
                     releasedSeekPosition = seekPosition
                     store.seek(id: player.id, seconds: seekPosition)
                     userDragPosition = nil
-                }
+                },
+                debugLabel: "seek"
             )
             .disabled(!player.canPlay || player.isPoweredOff)
             .accessibilityLabel(String(localized: "cd_playback_position"))
