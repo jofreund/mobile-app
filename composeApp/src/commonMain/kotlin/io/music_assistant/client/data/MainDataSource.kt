@@ -71,7 +71,9 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.coroutines.CoroutineContext
+import kotlin.math.abs
 
 @OptIn(FlowPreview::class)
 class MainDataSource(
@@ -916,17 +918,37 @@ class MainDataSource(
      * track is repositioning it, not asking to hear it, and having it start is both surprising
      * and — on a shared speaker — occasionally embarrassing.
      *
-     * Sent after the seek's answer rather than alongside it: two requests fired together are two
-     * tasks server-side with no ordering between them, and a pause that overtakes its seek does
-     * nothing at all. That does mean the server may play for a moment before this lands. There
-     * is no seek-without-resuming command to ask for instead; the alternative would be holding
-     * the position locally and applying it on the next play, which desyncs every other client.
+     * **Waits for the seek to take hold first, and this is load-bearing.** The seek's own answer
+     * only says the command was accepted: server-side it becomes `play_index` at the new
+     * position, which flushes and restarts the stream. A pause arriving during that setup tore it
+     * down before it applied, and the queue went back to reporting the position it had before —
+     * a seek on a paused player that visibly reverted a few seconds later.
+     *
+     * So this watches the queue's own elapsed time until it reflects the target, then pauses.
+     * Bounded, because a server that never applies the seek must not leave a player that was
+     * paused sitting there playing.
      *
      * `isPlaying` is the snapshot from when the action was dispatched — deliberately, since the
      * question is what the player was doing when the user grabbed the bar.
      */
     private suspend fun restorePauseAfterSeek(data: PlayerData, resolved: PlayerAction) {
         if (resolved !is PlayerAction.SeekTo || data.player.isPlaying) return
+
+        val target = resolved.position.toDouble()
+        val applied = withTimeoutOrNull(SEEK_SETTLE_TIMEOUT_MS) {
+            playersData
+                .mapNotNull { state ->
+                    (state as? DataState.Data)?.data
+                        ?.firstOrNull { it.playerId == data.playerId }
+                        ?.queueInfo
+                        ?.elapsedTime
+                }
+                .first { elapsed -> abs(elapsed - target) <= SEEK_SETTLE_TOLERANCE_SECONDS }
+        }
+        if (applied == null) {
+            log.w { "Seek to ${target}s never took hold for ${data.player.name}; pausing anyway" }
+        }
+
         val request = playerRequestFactory.buildRequest(data, PlayerAction.Pause) ?: return
         val result = apiClient.sendRequest(request)
         if (result.isFailure) {
@@ -1531,6 +1553,16 @@ class MainDataSource(
     }
 
     internal companion object {
+        /**
+         * How long to wait for a seek to show up in the queue's own elapsed time before pausing
+         * regardless. Generous: the server flushes and restarts the stream to seek, and a player
+         * that was paused must not be left playing just because that took a while.
+         */
+        private const val SEEK_SETTLE_TIMEOUT_MS = 5_000L
+
+        /** The queue reports elapsed time in whole-ish seconds; this is "close enough to be it". */
+        private const val SEEK_SETTLE_TOLERANCE_SECONDS = 2.0
+
         /**
          * Resolves the effective selected player from the current state.
          * Pure function; re-evaluates on every input change.
