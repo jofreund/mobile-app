@@ -1,19 +1,5 @@
 import SwiftUI
 import UIKit
-import os
-
-/// Temporary. Answers one question: when a finger lands on a slider and stays still, how long
-/// until the gesture is delivered? Logged for both sliders so the two can be compared directly —
-/// the volume bar responds only once a drag starts, while the seek bar responds to the press
-/// itself, and no amount of reading the view tree has explained the difference.
-///
-/// A late "touch-down" line means the touch is being withheld before it ever reaches the app
-/// (arbitration or the system gesture gate). A prompt one means delivery is fine and the delay is
-/// in rendering. Those are different bugs; remove this once it is clear which.
-private let sliderLog = Logger(
-    subsystem: Bundle.main.bundleIdentifier ?? "com.jofreund.taktgeber",
-    category: "CapsuleSlider"
-)
 
 /// A slider in the shape Apple Music uses: a bare capsule with no handle, which swells while a
 /// finger is on it and settles back when the finger lifts. Used for both the seek bar and the
@@ -56,9 +42,6 @@ struct CapsuleSlider: View {
     /// `true` when a touch takes hold, `false` when it lifts. Mirrors `Slider`'s
     /// `onEditingChanged` so the call site's seek bookkeeping did not have to change.
     let onEditingChanged: (Bool) -> Void
-
-    /// Temporary, for the delivery-latency logging above.
-    var debugLabel: String = "?"
 
     @State private var isScrubbing = false
 
@@ -130,15 +113,12 @@ struct CapsuleSlider: View {
             // amount of rearranging this view was going to help.
             //
             // `UIScrollView` withholds touches from its content while it works out whether a
-            // scroll is starting, and `touchesShouldCancel(in:)` then steals them back mid-drag.
-            // `UIControl` is exempt from both by default, which is exactly why the stock
-            // `Slider` this replaced never had the problem. Borrowing that exemption is the
-            // whole trick: UIKit owns the touch, SwiftUI still draws every pixel.
+            // scroll is starting; `UIControl` is exempt, which is exactly why the stock `Slider`
+            // this replaced never had the problem. UIKit owns the touch, SwiftUI draws every
+            // pixel. See `SliderTouchTracker` for why owning touch-down is only half the job.
             .overlay {
                 SliderTouchTracker(
-                    onBegan: { location, timestamp in
-                        began(at: location, timestamp: timestamp)
-                    },
+                    onBegan: { location in began(at: location) },
                     onMoved: { location in moved(to: location, width: width) },
                     onEnded: { ended() }
                 )
@@ -164,15 +144,8 @@ struct CapsuleSlider: View {
         return width * CGFloat(min(max(fraction, 0), 1))
     }
 
-    private func began(at location: CGPoint, timestamp: TimeInterval) {
+    private func began(at location: CGPoint) {
         guard isEnabled else { return }
-        // `UITouch.timestamp` and `systemUptime` are the same clock, so this is the real gap
-        // between the finger landing and the app hearing about it. Temporary.
-        let latencyMs = Int((ProcessInfo.processInfo.systemUptime - timestamp) * 1000)
-        sliderLog.info(
-            "[\(debugLabel, privacy: .public)] down latency=\(latencyMs, privacy: .public)ms"
-        )
-
         touchStartX = location.x
         dragStartX = nil
         dragAnchorValue = nil
@@ -246,21 +219,20 @@ struct CapsuleSlider: View {
 
 /// Hands the slider its touches through UIKit rather than a SwiftUI gesture.
 ///
-/// A `UIControl` gets two things a plain view does not, both of them the reason the stock
-/// `Slider` behaved and a `DragGesture` did not:
+/// `UIControl` is exempt from the delay `UIScrollView` imposes on ordinary content while it works
+/// out whether a scroll is starting — measured at up to 780ms inside the expanded player's pager,
+/// and the reason the stock `Slider` this replaced always felt immediate.
 ///
-/// - **Touches arrive immediately.** `UIScrollView` withholds touches from ordinary content while
-///   it decides whether a scroll is beginning. Measured at up to 780ms inside the expanded
-///   player's pager.
-/// - **They are not taken back.** `touchesShouldCancel(in:)` returns false for `UIControl` by
-///   default, so a scroll view will not steal a drag mid-scrub the way it would from a plain view.
+/// Owning the touch-down is only half of it. The pager's pan recognizer will still *cancel* a
+/// touch it wants, turning a horizontal scrub into a page swipe, so scrolling is switched off for
+/// as long as a finger is on the slider and switched back on when it lifts. `touchesShouldCancel`
+/// is not the lever here: that governs the scroll view's own cancellation path, while a gesture
+/// recognizer cancels touches in views by a different route entirely.
 ///
 /// Draws nothing — the capsule underneath is entirely SwiftUI. This exists only to own the touch.
 private struct SliderTouchTracker: UIViewRepresentable {
 
-    /// Location within the control, and `UITouch.timestamp` — the same clock as `systemUptime`,
-    /// which is what makes the delivery latency measurable at all.
-    let onBegan: (CGPoint, TimeInterval) -> Void
+    let onBegan: (CGPoint) -> Void
     let onMoved: (CGPoint) -> Void
     let onEnded: () -> Void
 
@@ -279,13 +251,35 @@ private struct SliderTouchTracker: UIViewRepresentable {
     }
 
     final class TrackingControl: UIControl {
-        var onBegan: ((CGPoint, TimeInterval) -> Void)?
+        var onBegan: ((CGPoint) -> Void)?
         var onMoved: ((CGPoint) -> Void)?
         var onEnded: (() -> Void)?
 
+        /// The scroll view paused for the duration of a touch, held so it can be restored.
+        private weak var pausedScrollView: UIScrollView?
+
+        private var enclosingScrollView: UIScrollView? {
+            var view = superview
+            while let current = view {
+                if let scrollView = current as? UIScrollView { return scrollView }
+                view = current.superview
+            }
+            return nil
+        }
+
         override func beginTracking(_ touch: UITouch, with event: UIEvent?) -> Bool {
-            onBegan?(touch.location(in: self), touch.timestamp)
+            // A drag that starts on a slider is for the slider, never for the page behind it.
+            if let scrollView = enclosingScrollView, scrollView.isScrollEnabled {
+                scrollView.isScrollEnabled = false
+                pausedScrollView = scrollView
+            }
+            onBegan?(touch.location(in: self))
             return true
+        }
+
+        private func resumeScrolling() {
+            pausedScrollView?.isScrollEnabled = true
+            pausedScrollView = nil
         }
 
         override func continueTracking(_ touch: UITouch, with event: UIEvent?) -> Bool {
@@ -294,12 +288,16 @@ private struct SliderTouchTracker: UIViewRepresentable {
         }
 
         override func endTracking(_ touch: UITouch?, with event: UIEvent?) {
+            resumeScrolling()
             onEnded?()
         }
 
-        /// Fires when the system takes the touch away — a call arriving, or a scroll that does
-        /// win. Without it the bar would stay swollen with no finger on it.
+        deinit { pausedScrollView?.isScrollEnabled = true }
+
+        /// Fires when the system takes the touch away — an incoming call, for instance. Without
+        /// it the bar would stay swollen with no finger on it, and the pager would stay frozen.
         override func cancelTracking(with event: UIEvent?) {
+            resumeScrolling()
             onEnded?()
         }
     }

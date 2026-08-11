@@ -51,9 +51,9 @@ struct ExpandedPlayerView: View {
             guard scrollID == nil else { return }
             scrollID = currentPlayerID
         }
-        // Deliberately does NOT defer system gestures. That silences the gate, but the price is
-        // needing a second swipe to reach the Home screen from here, which is not a trade worth
-        // making for a slider.
+        // Deliberately does NOT defer system gestures: the price is a second swipe to reach the
+        // Home screen from here. It was tried while chasing the sliders' touch latency and was
+        // not the cause anyway — see `CapsuleSlider`, which takes its touches through UIKit.
     }
 
     private var pager: some View {
@@ -149,13 +149,9 @@ private struct ExpandedPlayerRow: View {
         }
         .padding(.horizontal, 24)
         .padding(.top, 16)
-        // Keeps the volume row — the bottom-most control — clear of the screen edge, where the
-        // system gesture gate withholds touches until it has ruled out a swipe of its own.
-        //
-        // Only bites when the layout is tight: with the queue closed the trailing Spacer already
-        // leaves roughly 100pt below the row and simply absorbs this instead. With the queue
-        // open there is no Spacer, the row sits flush against the bottom, and this is what lifts
-        // it off the edge.
+        // Breathing room under the volume row when the queue is open, where the layout drops the
+        // trailing Spacer and the row would otherwise sit against the bottom safe area. With the
+        // queue closed the Spacer absorbs this and nothing moves.
         .padding(.bottom, 24)
         .onAppear { updatePositionSubscription() }
         .onDisappear { positionSub?.cancel() }
@@ -613,7 +609,6 @@ private struct ExpandedPlayerRow: View {
                     store.seek(id: player.id, seconds: seekPosition)
                     userDragPosition = nil
                 },
-                debugLabel: "seek"
             )
             .disabled(!player.canPlay || player.isPoweredOff)
             .accessibilityLabel(String(localized: "cd_playback_position"))
@@ -720,7 +715,9 @@ private struct ExpandedPlayerRow: View {
                 VolumeSlider(
                     volume: volume,
                     isMuted: player.isMuted,
+                    canMute: player.canMute,
                     enabled: true,
+                    onMuteToggle: { store.toggleMute(id: player.id) },
                     onVolumeSet: { store.setVolume(id: player.id, level: $0) }
                 )
             }

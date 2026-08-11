@@ -8,19 +8,19 @@ import SwiftUI
 /// numeric readout. The value is legible from the track itself, and a percentage invites reading
 /// a slider as a number to hit rather than a level to feel.
 ///
-/// The left glyph used to double as a mute toggle. It is a plain indicator now — still
-/// struck-through while muted, but not tappable. As a `Button` it shared the row with the slider
-/// and was a candidate for touches meant for the bar, which is being ruled out as the cause of
-/// the bar's delayed response to a tap. `PlayerBarStore.toggleMute`/`toggleGroupMute`/
-/// `toggleMemberMute` and their Kotlin bridges are all still in place, so restoring this is a
-/// matter of putting the Button back.
+/// The left glyph doubles as the mute toggle where the player supports muting ([canMute]),
+/// switching to a struck-through speaker when muted. That keeps mute reachable without adding a
+/// third control to a row that is meant to read as two icons and a track. Where a player can't
+/// mute, the same glyph stays as a plain indicator.
 struct VolumeSlider: View {
 
     /// Already 0...100 — `Player.currentVolume`'s own scale, which Compose's slider used
     /// directly too. Nothing here divides or multiplies by 100.
     let volume: Float?
     let isMuted: Bool
+    let canMute: Bool
     let enabled: Bool
+    let onMuteToggle: () -> Void
     let onVolumeSet: (Float) -> Void
 
     /// Held locally so the fill tracks the finger, then handed over on release. Server echoes
@@ -74,7 +74,6 @@ struct VolumeSlider: View {
                 },
                 // Less than the seek bar's: that one spans the full width with nothing beside
                 // it, while this has to grow into a 14pt gap without touching the glyphs.
-                debugLabel: "volume",
                 activeOverhang: 6
             )
             .disabled(!enabled)
@@ -102,9 +101,23 @@ struct VolumeSlider: View {
         }
     }
 
+    @ViewBuilder
     private var leadingIcon: some View {
-        icon(muted: isMuted)
-            .accessibilityHidden(true)
+        if canMute {
+            Button(action: onMuteToggle) {
+                icon(muted: isMuted)
+                    // Pins the tappable area to the glyph. `.borderless` used to let the button's
+                    // hit region reach into the rest of the row — the same property that makes it
+                    // a hazard in list rows.
+                    .contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+            .disabled(!enabled)
+            .accessibilityLabel(String(localized: isMuted ? "cd_unmute" : "cd_mute"))
+        } else {
+            icon(muted: false)
+                .accessibilityHidden(true)
+        }
     }
 
     private func icon(muted: Bool) -> some View {
