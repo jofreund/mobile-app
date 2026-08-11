@@ -902,7 +902,37 @@ class MainDataSource(
                 log.e(
                     result.exceptionOrNull(),
                 ) { "Failed to send player action request for ${data.player.name}: $action" }
+                return@launch
             }
+            restorePauseAfterSeek(data, resolved)
+        }
+    }
+
+    /**
+     * Puts a paused player back to paused after a seek.
+     *
+     * Seeking starts playback server-side: `players/cmd/seek` becomes a `play_index` at the new
+     * position, so moving the playhead resumes as a side effect. A listener who scrubs a paused
+     * track is repositioning it, not asking to hear it, and having it start is both surprising
+     * and — on a shared speaker — occasionally embarrassing.
+     *
+     * Sent after the seek's answer rather than alongside it: two requests fired together are two
+     * tasks server-side with no ordering between them, and a pause that overtakes its seek does
+     * nothing at all. That does mean the server may play for a moment before this lands. There
+     * is no seek-without-resuming command to ask for instead; the alternative would be holding
+     * the position locally and applying it on the next play, which desyncs every other client.
+     *
+     * `isPlaying` is the snapshot from when the action was dispatched — deliberately, since the
+     * question is what the player was doing when the user grabbed the bar.
+     */
+    private suspend fun restorePauseAfterSeek(data: PlayerData, resolved: PlayerAction) {
+        if (resolved !is PlayerAction.SeekTo || data.player.isPlaying) return
+        val request = playerRequestFactory.buildRequest(data, PlayerAction.Pause) ?: return
+        val result = apiClient.sendRequest(request)
+        if (result.isFailure) {
+            log.e(
+                result.exceptionOrNull(),
+            ) { "Failed to restore pause after seek for ${data.player.name}" }
         }
     }
 
