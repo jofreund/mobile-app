@@ -182,10 +182,18 @@ private struct ExpandedPlayerRow: View {
         Button {
             withAnimation(.easeInOut(duration: 0.2)) { showQueue.toggle() }
         } label: {
-            Image(systemName: showQueue ? "list.bullet.circle.fill" : "list.bullet.circle")
+            // Bare glyph, no enclosing circle — Apple Music draws its queue button this way, and
+            // the circle was the only thing here wearing one.
+            //
+            // Losing the circle loses the filled variant that carried the on state with it, so
+            // colour does that work instead: tinted while the queue is showing, quiet when it is
+            // not. Same vocabulary as the group toggle in `PlayerPickerSheet`.
+            Image(systemName: "list.bullet")
                 .font(.title3)
+                .foregroundStyle(showQueue ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
         }
         .accessibilityLabel(String(localized: "cd_toggle_queue"))
+        .accessibilityAddTraits(showQueue ? [.isSelected] : [])
     }
 
     // MARK: - Hero subtitle

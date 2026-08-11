@@ -290,9 +290,16 @@ struct LibraryListView: View {
         Button {
             showFilterSheet = true
         } label: {
-            Image(systemName: filters.hasActive ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
+            // Bare glyph, no enclosing circle. The plain symbol has no filled counterpart, so
+            // colour carries "filters are on" instead: tinted when something is filtering the
+            // list, quiet when nothing is. Deliberately unlike the sort and view-mode buttons
+            // beside it, which are always live and always tinted — this one is reporting state,
+            // not just offering an action.
+            Image(systemName: "line.3.horizontal.decrease")
+                .foregroundStyle(filters.hasActive ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
         }
         .accessibilityLabel(String(localized: "cd_filter"))
+        .accessibilityAddTraits(filters.hasActive ? [.isSelected] : [])
     }
 
     private var sortMenu: some View {

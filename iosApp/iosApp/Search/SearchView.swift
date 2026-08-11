@@ -71,13 +71,14 @@ struct SearchView: View {
         Menu {
             Toggle(String(localized: "search_in_library_only"), isOn: $libraryOnly)
         } label: {
-            Image(
-                systemName: libraryOnly
-                    ? "line.3.horizontal.decrease.circle.fill"
-                    : "line.3.horizontal.decrease.circle"
-            )
+            // Bare glyph, no enclosing circle — matching the library's filter button, and for the
+            // same reason: the plain symbol has no filled counterpart, so colour reports whether
+            // anything is filtering.
+            Image(systemName: "line.3.horizontal.decrease")
+                .foregroundStyle(libraryOnly ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
         }
         .accessibilityLabel(String(localized: "cd_filter"))
+        .accessibilityAddTraits(libraryOnly ? [.isSelected] : [])
     }
 
     @ViewBuilder
