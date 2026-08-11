@@ -226,6 +226,16 @@ private struct ExpandedPlayerRow: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
+        } else {
+            // An idle player has no artist, album or subtitle to show, but dropping the line
+            // shortens the hero and shunts everything below it upward — so switching between a
+            // playing player and a silent one made the whole column jump. A space holds the line
+            // at its natural height; `.hidden()` would too, but this keeps the same
+            // subheadline metrics as the two branches above without repeating them.
+            Text(" ")
+                .font(.subheadline)
+                .lineLimit(1)
+                .accessibilityHidden(true)
         }
     }
 
