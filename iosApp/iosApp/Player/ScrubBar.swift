@@ -8,6 +8,10 @@ import SwiftUI
 /// the touch landed — it has to carry the whole of that feedback, which is why the growth is
 /// noticeable rather than subtle.
 ///
+/// **A tap does not seek.** Touching the bar swells it and nothing else; only movement moves the
+/// playhead, and it moves *relative* to where the playhead already was. Seeking on touch makes
+/// every accidental brush of a bar this wide throw away your place in a track.
+///
 /// Three things here are less obvious than they look:
 ///
 /// - **The row's height never changes.** The capsule grows inside a container of constant height
@@ -38,7 +42,17 @@ struct ScrubBar: View {
 
     @State private var isScrubbing = false
 
+    /// Non-nil once the touch has travelled far enough to count as a drag. Until then the bar is
+    /// swollen but the value is untouched, which is what keeps a tap from seeking.
+    @State private var dragOrigin: CGFloat?
+    /// The position the drag is measured from — captured when dragging starts, not when the
+    /// finger lands.
+    @State private var dragAnchorValue: Double?
+
     @Environment(\.isEnabled) private var isEnabled
+
+    /// How far a touch must travel before it counts as a drag rather than a tap.
+    private let dragActivation: CGFloat = 3
 
     private let idleHeight: CGFloat = 6
     private let activeHeight: CGFloat = 14
@@ -89,7 +103,8 @@ struct ScrubBar: View {
     }
 
     private func scrub(width: CGFloat) -> some Gesture {
-        // Zero minimum distance so a tap seeks too, rather than only a drag.
+        // Zero minimum distance so the bar responds to the touch itself, not only to movement —
+        // but see below: responding is not the same as seeking.
         DragGesture(minimumDistance: 0)
             .onChanged { gesture in
                 guard isEnabled else { return }
@@ -99,23 +114,47 @@ struct ScrubBar: View {
                     }
                     onEditingChanged(true)
                 }
+
+                let travel = gesture.translation.width
+                if dragOrigin == nil {
+                    // Still just a touch. Nothing is written to `value`, so a tap that never
+                    // becomes a drag leaves the position exactly where it was.
+                    guard abs(travel) >= dragActivation else { return }
+                    // Anchor on the position as it stands *now*, not as it stood when the finger
+                    // landed — a finger resting on a playing track would otherwise drag from a
+                    // stale point. Recording the travel so far cancels it out, so crossing the
+                    // threshold doesn't jolt the playhead by those first few points.
+                    dragAnchorValue = value
+                    dragOrigin = travel
+                }
+
                 // Deliberately unanimated: the fill must sit under the finger, and easing it
                 // there would read as lag.
-                value = valueAt(x: gesture.location.x, width: width)
+                value = draggedValue(travel: travel, width: width)
             }
-            .onEnded { gesture in
+            .onEnded { _ in
                 guard isEnabled else { return }
-                value = valueAt(x: gesture.location.x, width: width)
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                     isScrubbing = false
                 }
+                dragOrigin = nil
+                dragAnchorValue = nil
                 onEditingChanged(false)
             }
     }
 
-    private func valueAt(x: CGFloat, width: CGFloat) -> Double {
-        guard width > 0 else { return range.lowerBound }
-        let fraction = min(max(x / width, 0), 1)
-        return range.lowerBound + Double(fraction) * (range.upperBound - range.lowerBound)
+    /// Movement is applied *relative* to where the playhead already was, rather than jumping to
+    /// wherever the finger is.
+    ///
+    /// Absolute mapping would satisfy "a tap must not seek" only in the letter: the first few
+    /// points of movement would still fling the playhead across the track, which is the jump the
+    /// tap rule exists to prevent. Relative also makes small corrections possible — a fine
+    /// adjustment near the end of a long audiobook is a short finger movement, not an attempt to
+    /// land a fingertip on the right pixel.
+    private func draggedValue(travel: CGFloat, width: CGFloat) -> Double {
+        guard width > 0, let anchor = dragAnchorValue, let origin = dragOrigin else { return value }
+        let span = range.upperBound - range.lowerBound
+        let moved = Double((travel - origin) / width) * span
+        return min(max(anchor + moved, range.lowerBound), range.upperBound)
     }
 }
