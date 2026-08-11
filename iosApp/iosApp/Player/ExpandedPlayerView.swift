@@ -7,12 +7,16 @@ private let playerLog = Logger(
     category: "ExpandedPlayer"
 )
 
-/// Native expanded (full-screen) player — Phase 1: hero, seek, full transport, volume,
-/// swipe-between-players (plus a quick-switch popover from tapping the player name), and
-/// swipe-down-to-dismiss. Reuses the exact `PlayerBarStore` `AppTabView` already owns and
-/// passes to `MiniPlayerView` — Compose's own `ExpandedPlayerPage` and `CollapsedPlayerPage`
-/// share one `HorizontalPager`/state too, just a richer per-page composable, so there's no
-/// separate player list/selection to bridge here.
+/// Native expanded (full-screen) player — hero, seek, full transport, volume, a player picker,
+/// and swipe-down-to-dismiss. Reuses the exact `PlayerBarStore` `AppTabView` already owns and
+/// passes to `MiniPlayerView`.
+///
+/// **There is no swipe between players.** It used to be a paging `ScrollView` spanning the whole
+/// screen, which meant a horizontal pan anywhere — including on the seek and volume bars — was a
+/// candidate for changing player, and the pager kept winning those. Sliders that cannot be
+/// dragged are a worse trade than a swipe that saves a tap, so switching player is now the picker
+/// under the controls, within thumb reach. Compose's `ExpandedPlayerPage` did use a
+/// `HorizontalPager`; this deliberately diverges.
 ///
 /// The queue list (tap-to-play, drag-to-reorder via native `List.onMove`, long-press via the
 /// shared `ItemContextMenu.swift` plus a queue-specific "Delete", chapter rows nested under the
@@ -34,65 +38,23 @@ struct ExpandedPlayerView: View {
     let onNavigateToItem: (ItemDetailsRoute) -> Void
     let onCollapse: () -> Void
 
-    /// Fresh per presentation — matches Compose's own "fresh `PagerState` per mount, seeded
-    /// from the current selection" behavior (a `.fullScreenCover` is a new view every time).
-    @State private var scrollID: String?
-
-    @State private var pagerHaptic = HapticSignal()
-
     var body: some View {
         ZStack {
             Color(.systemBackground).ignoresSafeArea()
-            if !store.players.isEmpty {
-                pager
+            if let player = currentPlayer {
+                ExpandedPlayerRow(
+                    player: player,
+                    store: store,
+                    onNavigateToItem: onNavigateToItem,
+                    onCollapse: onCollapse
+                )
             }
-        }
-        .onAppear {
-            guard scrollID == nil else { return }
-            scrollID = currentPlayerID
         }
     }
 
-    private var pager: some View {
-        ScrollView(.horizontal) {
-            LazyHStack(spacing: 0) {
-                ForEach(store.players) { player in
-                    ExpandedPlayerRow(
-                        player: player,
-                        store: store,
-                        isSelected: player.id == scrollID,
-                        onNavigateToItem: onNavigateToItem,
-                        onCollapse: onCollapse
-                    )
-                    .containerRelativeFrame(.horizontal)
-                }
-            }
-            .scrollTargetLayout()
-        }
-        .scrollTargetBehavior(.paging)
-        .scrollIndicators(.hidden)
-        .scrollPosition(id: $scrollID)
-        .onChange(of: store.selectedIndex) { _, _ in syncScrollToSelection() }
-        .onChange(of: scrollID) { _, newID in
-            guard let newID, newID != currentPlayerID else { return }
-            store.selectPlayer(id: newID)
-            pagerHaptic.fire(.selection)
-        }
-        .haptics(pagerHaptic)
-    }
-
-    private var currentPlayerID: String? {
+    private var currentPlayer: PlayerBarItemView? {
         guard store.players.indices.contains(store.selectedIndex) else { return nil }
-        return store.players[store.selectedIndex].id
-    }
-
-    /// Picking a player from the popover list only calls `store.selectPlayer` — this pushes
-    /// that Kotlin-driven change into the scroll position, the counterpart to `MiniPlayerView`'s
-    /// own `syncScrollToSelection` (a swipe here calls `selectPlayer` too, but that round-trips
-    /// back to the same `selectedIndex` it just set, so the guard below no-ops for that path).
-    private func syncScrollToSelection() {
-        guard let targetID = currentPlayerID, targetID != scrollID else { return }
-        withAnimation(.easeOut(duration: 0.25)) { scrollID = targetID }
+        return store.players[store.selectedIndex]
     }
 }
 
@@ -101,9 +63,6 @@ private struct ExpandedPlayerRow: View {
 
     let player: PlayerBarItemView
     let store: PlayerBarStore
-    /// Whether this page is the one currently on screen — gates the live position
-    /// subscription so only the visible page's ticker runs, not one per connected player.
-    let isSelected: Bool
     let onNavigateToItem: (ItemDetailsRoute) -> Void
     let onCollapse: () -> Void
 
@@ -117,7 +76,7 @@ private struct ExpandedPlayerRow: View {
 
 
     @State private var showQueue = false
-    @State private var showGroupSettings = false
+    @State private var showPlayerPicker = false
     /// Optimistic local reorder — reset to `nil` (falling back to `player.queueItems`' own
     /// order) whenever the Kotlin-driven order changes, mirroring Compose's
     /// `remember(items) { mutableStateOf(items) }` reset-on-server-echo.
@@ -135,61 +94,75 @@ private struct ExpandedPlayerRow: View {
                 hero
                     .gesture(dismissGesture)
             }
-            if player.title != nil {
-                seekSection
-            }
+            seekSection
             transportRow
             volumeRow
+            playerPicker
             if !showQueue {
                 Spacer(minLength: 0)
             }
         }
         .padding(.horizontal, 24)
         .padding(.top, 16)
+        // Breathing room under the volume row when the queue is open, where the layout drops the
+        // trailing Spacer and the row would otherwise sit against the bottom safe area. With the
+        // queue closed the Spacer absorbs this and nothing moves.
+        .padding(.bottom, 24)
         .onAppear { updatePositionSubscription() }
+        // Follows the player, not just the appearance. The pager used to re-subscribe via
+        // `isSelected` whenever the visible page changed; with the pager gone that signal went
+        // with it, and the subscription stayed bound to whichever player was current when the
+        // screen opened — so the playhead sat still for every other one.
+        .onChange(of: player.id) { _, _ in updatePositionSubscription() }
         .onDisappear { positionSub?.cancel() }
-        .onChange(of: isSelected) { _, _ in updatePositionSubscription() }
         .onChange(of: displayPosition) { _, newValue in
             guard let released = releasedSeekPosition else { return }
             if abs(newValue - released) < 0.5 { releasedSeekPosition = nil }
         }
+        // Backstop for the same value. It is held to stop the playhead snapping back while the
+        // seek is in flight, and released above once the server's position agrees — but if the
+        // server settles somewhere else entirely, or the seek never lands, nothing above ever
+        // clears it and the playhead sits frozen for the rest of the session.
+        .task(id: releasedSeekPosition) {
+            guard releasedSeekPosition != nil else { return }
+            try? await Task.sleep(for: .seconds(3))
+            guard !Task.isCancelled else { return }
+            releasedSeekPosition = nil
+        }
         .onChange(of: player.queueItems.map(\.id)) { _, _ in displayOrder = nil }
-        .sheet(isPresented: $showGroupSettings) {
-            GroupSettingsView(player: player, store: store)
-                .presentationDetents([.medium, .large])
+        .sheet(isPresented: $showPlayerPicker) {
+            PlayerPickerSheet(player: player, store: store)
         }
     }
 
     // MARK: - Header
 
-    /// Three slots with equal flexible sides, not a pair of `Spacer()`s. Spacers split only the
-    /// *leftover* space, so they centre the middle item only when both sides are the same width
-    /// — and here they never are: one button leads, two trail, and the group-settings one is
-    /// conditional, so the player name sat left of centre and shifted sideways as that button
-    /// came and went. Equal-width sides centre the name against the screen instead. Compose hit
-    /// this too and solved it with its own `CenteredThreeSlotRow`.
+    /// Collapse on one side, the queue toggle on the other, and nothing between them: the player
+    /// name moved to the picker at the bottom. The elaborate equal-width-sides centring this used
+    /// to need went with it — there is no longer a middle item to keep centred.
     private var header: some View {
-        HStack(spacing: 8) {
+        HStack {
             Button(action: onCollapse) {
                 Image(systemName: "chevron.down")
                     .font(.title3.weight(.semibold))
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-
-            playerPicker
-                // Keeps a long player name from squeezing itself instead of the empty sides.
-                .layoutPriority(1)
-
+            Spacer(minLength: 0)
             headerActions
-                .frame(maxWidth: .infinity, alignment: .trailing)
         }
     }
 
+    /// Lives under the controls rather than in the header, where a thumb can actually reach it.
+    ///
+    /// It also replaces the swipe between players. That swipe was a horizontal pan on a paging
+    /// `ScrollView` wrapping the whole screen, and it kept claiming drags meant for the sliders —
+    /// which is what made them impossible to drag. A list you open deliberately is both easier to
+    /// hit one-handed and incapable of stealing a gesture from anything else.
     private var playerPicker: some View {
-        Menu {
-            PlayerPickerMenu(store: store, currentId: player.id)
+        Button {
+            showPlayerPicker = true
         } label: {
-            HStack(spacing: 4) {
+            HStack(spacing: 8) {
+                Image(systemName: player.symbolName)
                 Text(player.name)
                     .lineLimit(1)
                 Image(systemName: "chevron.up.chevron.down")
@@ -197,30 +170,22 @@ private struct ExpandedPlayerRow: View {
             }
             .font(.subheadline.weight(.semibold))
             .foregroundStyle(.secondary)
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity)
+            // The whole row is the target, not just the text.
+            .contentShape(.rect)
         }
+        .buttonStyle(.plain)
     }
 
     private var headerActions: some View {
-        HStack(spacing: 16) {
-            // Only shown when there's anything to manage — a bound group or at least one
-            // groupable candidate (mirrors when Compose's dialog had content to offer).
-            if player.isGrouped || !player.groupMembers.isEmpty {
-                Button {
-                    showGroupSettings = true
-                } label: {
-                    Image(systemName: "hifispeaker.2")
-                        .font(.title3)
-                }
-                .accessibilityLabel(String(localized: "players_group_settings"))
-            }
-            Button {
-                withAnimation(.easeInOut(duration: 0.2)) { showQueue.toggle() }
-            } label: {
-                Image(systemName: showQueue ? "list.bullet.circle.fill" : "list.bullet.circle")
-                    .font(.title3)
-            }
-            .accessibilityLabel(String(localized: "cd_toggle_queue"))
+        Button {
+            withAnimation(.easeInOut(duration: 0.2)) { showQueue.toggle() }
+        } label: {
+            Image(systemName: showQueue ? "list.bullet.circle.fill" : "list.bullet.circle")
+                .font(.title3)
         }
+        .accessibilityLabel(String(localized: "cd_toggle_queue"))
     }
 
     // MARK: - Hero subtitle
@@ -261,6 +226,16 @@ private struct ExpandedPlayerRow: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
+        } else {
+            // An idle player has no artist, album or subtitle to show, but dropping the line
+            // shortens the hero and shunts everything below it upward — so switching between a
+            // playing player and a silent one made the whole column jump. A space holds the line
+            // at its natural height; `.hidden()` would too, but this keeps the same
+            // subheadline metrics as the two branches above without repeating them.
+            Text(" ")
+                .font(.subheadline)
+                .lineLimit(1)
+                .accessibilityHidden(true)
         }
     }
 
@@ -572,8 +547,14 @@ private struct ExpandedPlayerRow: View {
         livePosition ?? player.elapsedTime ?? 0
     }
 
+    /// Whether there is anything to seek through. A player sitting idle still gets a bar — see
+    /// `seekSection` — it just has no position in it.
+    private var hasTrack: Bool { player.title != nil }
+
     private var sliderValue: Double {
-        guard !player.isPoweredOff else { return 0 }
+        // Pinned to zero with no track, so a position left over from the player selected a moment
+        // ago cannot briefly draw a fill on an idle one.
+        guard hasTrack, !player.isPoweredOff else { return 0 }
         return userDragPosition ?? releasedSeekPosition ?? displayPosition
     }
 
@@ -604,7 +585,12 @@ private struct ExpandedPlayerRow: View {
                 }
             )
             .disabled(!player.canPlay || player.isPoweredOff)
+            // Inert rather than disabled when there is nothing to seek through. `.disabled` would
+            // fade the bar to 40%, and the point of keeping it is that an idle player still shows
+            // a visible grey track rather than a gap.
+            .allowsHitTesting(hasTrack)
             .accessibilityLabel(String(localized: "cd_playback_position"))
+            .accessibilityHidden(!hasTrack)
 
             HStack {
                 Text(formattedDuration(sliderValue))
@@ -616,16 +602,20 @@ private struct ExpandedPlayerRow: View {
             // where you are actually going to land, so it stops being secondary information.
             .foregroundStyle(isScrubbing ? .primary : .secondary)
             .animation(.easeOut(duration: 0.2), value: isScrubbing)
+            // Invisible rather than absent: the space is kept, which is the whole reason this
+            // section stays on screen for an idle player. Showing 0:00 / 0:00 would be worse than
+            // showing nothing — it reads as a loaded track that has not started.
+            .opacity(hasTrack ? 1 : 0)
+            .accessibilityHidden(!hasTrack)
         }
     }
 
+    /// Re-pointed whenever the player changes. Only one row exists at a time now, so there is no
+    /// longer a set of off-screen pages whose tickers need gating — but there is still exactly one
+    /// subscription that has to follow the player currently on screen.
     private func updatePositionSubscription() {
         positionSub?.cancel()
         positionSub = nil
-        guard isSelected else {
-            livePosition = nil
-            return
-        }
         positionSub = KmpHelper.shared.observePlayerBarPosition(playerId: player.id).subscribe(
             onEach: { value in livePosition = value?.doubleValue },
             // A dead position flow just looks like a stuck playhead, with nothing else to go on.

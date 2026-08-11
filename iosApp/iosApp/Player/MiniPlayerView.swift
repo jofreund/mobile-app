@@ -123,6 +123,7 @@ private struct MiniPlayerRow: View {
     let onExpand: () -> Void
 
     @State private var haptic = HapticSignal()
+    @State private var showPicker = false
 
     /// The player's name leads, ahead of the artist: in a multi-room app that's what tells you
     /// which speaker you're about to control.
@@ -133,18 +134,48 @@ private struct MiniPlayerRow: View {
     }
 
     var body: some View {
-        // Only worth a long press when there's a choice to make. An unconditional
-        // `.contextMenu` would still trigger on a single-player setup and open an empty menu.
-        if store.players.count > 1 {
-            // Long press *is* the context menu gesture on iOS, so this brings the press-and-hold
-            // haptic and the lifted preview with it, and needs no gesture of its own to fight
-            // the pager's horizontal drag. Same content as the expanded player's header menu.
-            card.contextMenu { PlayerPickerMenu(store: store, currentId: player.id) }
-        } else {
+        // Only worth a long press when there's a choice to make.
+        //
+        // This was a `contextMenu` — long press *is* the context-menu gesture, so it came with
+        // the press haptic and the lifted preview for free. The preview was the problem: it
+        // renders the row outside the tab accessory it is laid out for, at a size that does not
+        // match the bar, so the content visibly jumped as it lifted. Shrinking what the preview
+        // sees helped and did not cure it.
+        //
+        // A long press opening the same sheet the expanded player uses has no preview to get
+        // wrong, and makes one list the single answer to "which player" everywhere.
+        inAccessory(
             card
+                .onLongPressGesture(minimumDuration: 0.4) {
+                    guard store.players.count > 1 else { return }
+                    haptic.fire(.impact(weight: .medium))
+                    showPicker = true
+                }
+        )
+        .sheet(isPresented: $showPicker) {
+            PlayerPickerSheet(player: player, store: store)
         }
     }
 
+    /// Wraps whichever of the two the body picked. Filling the height is what actually centres
+    /// the row: given a frame the size of the accessory, the content sits in the middle of it
+    /// rather than wherever a smaller child happens to be placed. The content shape then makes a
+    /// tap anywhere on the pill expand, not only one on the content itself.
+    private func inAccessory(_ content: some View) -> some View {
+        content
+            .frame(maxHeight: .infinity)
+            .contentShape(.rect)
+            .onTapGesture { onExpand() }
+            .haptics(haptic)
+    }
+
+    /// What the context menu lifts, and deliberately *not* the full-height frame below it.
+    ///
+    /// A context-menu preview renders its view outside the accessory it normally lives in, so a
+    /// `maxHeight: .infinity` in here has nothing left to resolve against and the row re-lays
+    /// itself out as it lifts — which is the content visibly jumping on long press. Height is
+    /// intrinsic here; filling the accessory happens one level up, where the preview never sees
+    /// it.
     private var card: some View {
         mainRow
             .padding(.horizontal, 18)
@@ -156,15 +187,9 @@ private struct MiniPlayerRow: View {
             // an earlier 40pt artwork with 12pt of padding overran the accessory and cut off
             // the second line of text.
             .padding(.vertical, 4)
-            // Filling the height is what actually centres the row: given a frame the size of
-            // the accessory, the content sits in the middle of it rather than wherever a
-            // smaller child happens to be placed.
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            // Fills the accessory, so a tap anywhere on the pill expands rather than only on
-            // the content itself.
-            .contentShape(.rect)
-            .onTapGesture { onExpand() }
-            .haptics(haptic)
+            // Width only. The row still spans the pill, and a preview can resolve this against
+            // whatever width it is given.
+            .frame(maxWidth: .infinity)
     }
 
     private var mainRow: some View {

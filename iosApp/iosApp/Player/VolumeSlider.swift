@@ -59,14 +59,11 @@ struct VolumeSlider: View {
                 step: 5,
                 valueDescription: { (($0) / 100).formatted(.percent.precision(.fractionLength(0))) },
                 onEditingChanged: { editing in
-                    // Plain assignment, with the animation scoped to the glyphs below.
-                    //
-                    // Wrapping this in `withAnimation` made the volume bar visibly slower to
-                    // swell than the seek bar. The transaction is open while this state change
-                    // re-renders the whole subtree — `CapsuleSlider` included — so the bar's own
-                    // spring was being overridden by the caller's, on a value the bar knows
-                    // nothing about. The seek bar never had the problem because its parent
-                    // animates with a scoped `.animation(_:value:)` instead.
+                    // Plain assignment, with the animation scoped to the glyphs below, so the
+                    // caller's transaction cannot re-time `CapsuleSlider`'s own spring. This was
+                    // once believed to be why the bar swelled late; it was not — the seek bar's
+                    // caller uses `withAnimation` and has never been slow. Kept because scoping
+                    // an animation to the views it applies to is right regardless.
                     isAdjusting = editing
                     guard !editing, let level = dragValue else { return }
                     // Order matters: hand over to `pendingValue` before clearing `dragValue`, or
@@ -109,8 +106,12 @@ struct VolumeSlider: View {
         if canMute {
             Button(action: onMuteToggle) {
                 icon(muted: isMuted)
+                    // Pins the tappable area to the glyph. `.borderless` used to let the button's
+                    // hit region reach into the rest of the row — the same property that makes it
+                    // a hazard in list rows.
+                    .contentShape(.rect)
             }
-            .buttonStyle(.borderless)
+            .buttonStyle(.plain)
             .disabled(!enabled)
             .accessibilityLabel(String(localized: isMuted ? "cd_unmute" : "cd_mute"))
         } else {
