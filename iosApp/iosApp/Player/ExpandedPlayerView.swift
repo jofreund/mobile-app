@@ -7,12 +7,16 @@ private let playerLog = Logger(
     category: "ExpandedPlayer"
 )
 
-/// Native expanded (full-screen) player — Phase 1: hero, seek, full transport, volume,
-/// swipe-between-players (plus a quick-switch popover from tapping the player name), and
-/// swipe-down-to-dismiss. Reuses the exact `PlayerBarStore` `AppTabView` already owns and
-/// passes to `MiniPlayerView` — Compose's own `ExpandedPlayerPage` and `CollapsedPlayerPage`
-/// share one `HorizontalPager`/state too, just a richer per-page composable, so there's no
-/// separate player list/selection to bridge here.
+/// Native expanded (full-screen) player — hero, seek, full transport, volume, a player picker,
+/// and swipe-down-to-dismiss. Reuses the exact `PlayerBarStore` `AppTabView` already owns and
+/// passes to `MiniPlayerView`.
+///
+/// **There is no swipe between players.** It used to be a paging `ScrollView` spanning the whole
+/// screen, which meant a horizontal pan anywhere — including on the seek and volume bars — was a
+/// candidate for changing player, and the pager kept winning those. Sliders that cannot be
+/// dragged are a worse trade than a swipe that saves a tap, so switching player is now the picker
+/// under the controls, within thumb reach. Compose's `ExpandedPlayerPage` did use a
+/// `HorizontalPager`; this deliberately diverges.
 ///
 /// The queue list (tap-to-play, drag-to-reorder via native `List.onMove`, long-press via the
 /// shared `ItemContextMenu.swift` plus a queue-specific "Delete", chapter rows nested under the
@@ -36,66 +40,23 @@ struct ExpandedPlayerView: View {
 
     /// Fresh per presentation — matches Compose's own "fresh `PagerState` per mount, seeded
     /// from the current selection" behavior (a `.fullScreenCover` is a new view every time).
-    @State private var scrollID: String?
-
-    @State private var pagerHaptic = HapticSignal()
-
     var body: some View {
         ZStack {
             Color(.systemBackground).ignoresSafeArea()
-            if !store.players.isEmpty {
-                pager
+            if let player = currentPlayer {
+                ExpandedPlayerRow(
+                    player: player,
+                    store: store,
+                    onNavigateToItem: onNavigateToItem,
+                    onCollapse: onCollapse
+                )
             }
         }
-        .onAppear {
-            guard scrollID == nil else { return }
-            scrollID = currentPlayerID
-        }
-        // Deliberately does NOT defer system gestures: the price is a second swipe to reach the
-        // Home screen from here. It was tried while chasing the sliders' touch latency and was
-        // not the cause anyway — see `CapsuleSlider`, which takes its touches through UIKit.
     }
 
-    private var pager: some View {
-        ScrollView(.horizontal) {
-            LazyHStack(spacing: 0) {
-                ForEach(store.players) { player in
-                    ExpandedPlayerRow(
-                        player: player,
-                        store: store,
-                        isSelected: player.id == scrollID,
-                        onNavigateToItem: onNavigateToItem,
-                        onCollapse: onCollapse
-                    )
-                    .containerRelativeFrame(.horizontal)
-                }
-            }
-            .scrollTargetLayout()
-        }
-        .scrollTargetBehavior(.paging)
-        .scrollIndicators(.hidden)
-        .scrollPosition(id: $scrollID)
-        .onChange(of: store.selectedIndex) { _, _ in syncScrollToSelection() }
-        .onChange(of: scrollID) { _, newID in
-            guard let newID, newID != currentPlayerID else { return }
-            store.selectPlayer(id: newID)
-            pagerHaptic.fire(.selection)
-        }
-        .haptics(pagerHaptic)
-    }
-
-    private var currentPlayerID: String? {
+    private var currentPlayer: PlayerBarItemView? {
         guard store.players.indices.contains(store.selectedIndex) else { return nil }
-        return store.players[store.selectedIndex].id
-    }
-
-    /// Picking a player from the popover list only calls `store.selectPlayer` — this pushes
-    /// that Kotlin-driven change into the scroll position, the counterpart to `MiniPlayerView`'s
-    /// own `syncScrollToSelection` (a swipe here calls `selectPlayer` too, but that round-trips
-    /// back to the same `selectedIndex` it just set, so the guard below no-ops for that path).
-    private func syncScrollToSelection() {
-        guard let targetID = currentPlayerID, targetID != scrollID else { return }
-        withAnimation(.easeOut(duration: 0.25)) { scrollID = targetID }
+        return store.players[store.selectedIndex]
     }
 }
 
@@ -104,9 +65,6 @@ private struct ExpandedPlayerRow: View {
 
     let player: PlayerBarItemView
     let store: PlayerBarStore
-    /// Whether this page is the one currently on screen — gates the live position
-    /// subscription so only the visible page's ticker runs, not one per connected player.
-    let isSelected: Bool
     let onNavigateToItem: (ItemDetailsRoute) -> Void
     let onCollapse: () -> Void
 
@@ -143,6 +101,7 @@ private struct ExpandedPlayerRow: View {
             }
             transportRow
             volumeRow
+            playerPicker
             if !showQueue {
                 Spacer(minLength: 0)
             }
@@ -155,7 +114,6 @@ private struct ExpandedPlayerRow: View {
         .padding(.bottom, 24)
         .onAppear { updatePositionSubscription() }
         .onDisappear { positionSub?.cancel() }
-        .onChange(of: isSelected) { _, _ in updatePositionSubscription() }
         .onChange(of: displayPosition) { _, newValue in
             guard let released = releasedSeekPosition else { return }
             if abs(newValue - released) < 0.5 { releasedSeekPosition = nil }
@@ -183,20 +141,25 @@ private struct ExpandedPlayerRow: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            playerPicker
-                // Keeps a long player name from squeezing itself instead of the empty sides.
-                .layoutPriority(1)
+            Spacer(minLength: 0)
 
             headerActions
                 .frame(maxWidth: .infinity, alignment: .trailing)
         }
     }
 
+    /// Lives under the controls rather than in the header, where a thumb can actually reach it.
+    ///
+    /// It also replaces the swipe between players. That swipe was a horizontal pan on a paging
+    /// `ScrollView` wrapping the whole screen, and it kept claiming drags meant for the sliders —
+    /// which is what made them impossible to drag. A list you open deliberately is both easier to
+    /// hit one-handed and incapable of stealing a gesture from anything else.
     private var playerPicker: some View {
         Menu {
             PlayerPickerMenu(store: store, currentId: player.id)
         } label: {
-            HStack(spacing: 4) {
+            HStack(spacing: 8) {
+                Image(systemName: player.symbolName)
                 Text(player.name)
                     .lineLimit(1)
                 Image(systemName: "chevron.up.chevron.down")
@@ -204,6 +167,10 @@ private struct ExpandedPlayerRow: View {
             }
             .font(.subheadline.weight(.semibold))
             .foregroundStyle(.secondary)
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity)
+            // The whole row is the target, not just the text.
+            .contentShape(.rect)
         }
     }
 
@@ -626,13 +593,11 @@ private struct ExpandedPlayerRow: View {
         }
     }
 
+    /// Only one player's row exists at a time now, so there is no longer a set of off-screen
+    /// pages whose tickers need gating — this just follows the row's own lifetime.
     private func updatePositionSubscription() {
         positionSub?.cancel()
         positionSub = nil
-        guard isSelected else {
-            livePosition = nil
-            return
-        }
         positionSub = KmpHelper.shared.observePlayerBarPosition(playerId: player.id).subscribe(
             onEach: { value in livePosition = value?.doubleValue },
             // A dead position flow just looks like a stuck playhead, with nothing else to go on.
