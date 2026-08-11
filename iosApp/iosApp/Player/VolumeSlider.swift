@@ -109,8 +109,16 @@ struct VolumeSlider: View {
         if canMute {
             Button(action: onMuteToggle) {
                 icon(muted: isMuted)
+                    // Pins the tappable area to the glyph itself. Without it the button's hit
+                    // region reaches past its label into the rest of the row — the same reason
+                    // `.borderless` is a hazard in list rows — and the slider's drag then had to
+                    // wait for the button's gesture to fail before it could start. That wait is
+                    // the delay: a tap on the bar resolved too late to look like a response, and
+                    // only a drag, which the button loses outright, felt immediate.
+                    .contentShape(.rect)
             }
-            .buttonStyle(.borderless)
+            // `.plain` rather than `.borderless` for the same reason.
+            .buttonStyle(.plain)
             .disabled(!enabled)
             .accessibilityLabel(String(localized: isMuted ? "cd_unmute" : "cd_mute"))
         } else {
