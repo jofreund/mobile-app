@@ -112,6 +112,8 @@ private struct ExpandedPlayerRow: View {
 
     @State private var userDragPosition: Double?
     @State private var releasedSeekPosition: Double?
+    /// Drives the timestamps' emphasis alongside `ScrubBar`'s own swell.
+    @State private var isScrubbing = false
 
 
     @State private var showQueue = false
@@ -579,17 +581,30 @@ private struct ExpandedPlayerRow: View {
 
     private var seekSection: some View {
         VStack(spacing: 4) {
-            Slider(
+            ScrubBar(
                 value: Binding(get: { sliderValue }, set: { userDragPosition = $0 }),
-                in: 0...duration,
+                range: 0...duration,
+                // A minute per VoiceOver step. `Slider`'s default would be a fraction of the
+                // range, which on a three-minute track and on a six-hour audiobook are wildly
+                // different amounts of listening.
+                step: 60,
+                valueDescription: { formattedDuration($0) },
                 onEditingChanged: { editing in
-                    guard !editing, let seekPosition = userDragPosition else { return }
+                    withAnimation(.easeOut(duration: 0.2)) { isScrubbing = editing }
+                    guard !editing else {
+                        // The bar has no handle, so this is half of the confirmation that a
+                        // touch landed — the swell is the other half.
+                        haptic.fire(.selection)
+                        return
+                    }
+                    guard let seekPosition = userDragPosition else { return }
                     releasedSeekPosition = seekPosition
                     store.seek(id: player.id, seconds: seekPosition)
                     userDragPosition = nil
                 }
             )
             .disabled(!player.canPlay || player.isPoweredOff)
+            .accessibilityLabel(String(localized: "cd_playback_position"))
 
             HStack {
                 Text(formattedDuration(sliderValue))
@@ -597,7 +612,10 @@ private struct ExpandedPlayerRow: View {
                 Text(formattedDuration(duration))
             }
             .font(.caption)
-            .foregroundStyle(.secondary)
+            // Brighten with the bar. While scrubbing the left-hand figure is the only readout of
+            // where you are actually going to land, so it stops being secondary information.
+            .foregroundStyle(isScrubbing ? .primary : .secondary)
+            .animation(.easeOut(duration: 0.2), value: isScrubbing)
         }
     }
 

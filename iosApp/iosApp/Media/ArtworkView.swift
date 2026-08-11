@@ -326,10 +326,31 @@ struct ArtworkView: View {
 
     private var reference: CGFloat { sizing.referenceSize }
 
+    /// Corner radii stop growing at 16pt.
+    ///
+    /// 11% of the edge is right for tiles and rows — 4pt at 36, 15pt at 140 — but it does not
+    /// keep being right as things get bigger. The expanded player's hero asks for a 340pt
+    /// reference, which came out at 37pt and ate visible corners of the cover.
+    ///
+    /// 16 rather than something derived: measured against Apple Music's now-playing artwork,
+    /// which rounds at roughly 3% of its edge, a hero here would want about 10pt. This app is
+    /// rounder than that everywhere else by design — its tiles sit at 11% — so matching the
+    /// reference exactly at the hero alone would make the hero the odd one out. 16 lands between
+    /// the two and is well clear of the corner-eating.
+    ///
+    /// Surfaces this moves: the player hero (37 → 16) and both detail headers (24 → 16 and
+    /// 20 → 16). Tiles at 140 and below keep the proportional rule untouched.
+    private static let maxCornerRadius: CGFloat = 16
+
     private var shape: AnyShape {
         kind.prefersCircularArtwork
             ? AnyShape(Circle())
-            : AnyShape(RoundedRectangle(cornerRadius: reference * 0.11, style: .continuous))
+            : AnyShape(
+                RoundedRectangle(
+                    cornerRadius: min(reference * 0.11, Self.maxCornerRadius),
+                    style: .continuous
+                )
+            )
     }
 
     var body: some View {

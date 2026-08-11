@@ -2695,6 +2695,29 @@
         }
       }
     },
+    "cd_playback_position": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wiedergabeposition"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Playback position"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Afspeelpositie"
+          }
+        }
+      }
+    },
     "cd_playing": {
       "extractionState": "stale",
       "localizations": {
