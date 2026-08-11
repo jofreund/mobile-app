@@ -51,6 +51,18 @@ struct ExpandedPlayerView: View {
             guard scrollID == nil else { return }
             scrollID = currentPlayerID
         }
+        // The volume bar's swell lagged its own touch, and the log said why:
+        // "Gesture: System gesture gate timed out" — logged for that bar and never for the seek
+        // bar. The window-level gate withholds touches near the home indicator until it has
+        // ruled out a system swipe, and the volume row is the bottom-most control here (flush
+        // against the edge with the queue open, since that layout drops the trailing Spacer).
+        // The seek bar sits mid-screen and is never gated, which is the whole asymmetry.
+        //
+        // The cost is that a swipe up from the very bottom edge of *this screen* is given to the
+        // app first, so going Home from here can take a second swipe. Contained to the expanded
+        // player rather than applied app-wide, and it buys back an interactive control that
+        // currently ignores the first half-second of every touch.
+        .defersSystemGestures(on: .bottom)
     }
 
     private var pager: some View {
