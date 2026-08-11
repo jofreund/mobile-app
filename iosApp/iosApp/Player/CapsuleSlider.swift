@@ -10,10 +10,12 @@ import UIKit
 /// the touch landed — it has to carry the whole of that feedback, which is why the growth is
 /// noticeable rather than subtle.
 ///
-/// **A tap does not change the value.** Touching the bar swells it and nothing else; the value
-/// only starts following the finger once the touch has travelled far enough to be a drag.
-/// Changing on touch means every accidental brush of a bar this wide throws away your place in a
-/// track, or puts the volume somewhere you did not ask for.
+/// **A tap does not change the value, and a drag moves it relatively.** Touching the bar swells it
+/// and nothing else; once the touch travels far enough to be a drag, the value moves by however
+/// far the finger has moved, from where it already was. Changing on touch means every accidental
+/// brush of a bar this wide throws away your place in a track, or puts the volume somewhere you
+/// did not ask for — and moving to sit under the fingertip means the playhead teleports the
+/// instant a drag begins.
 ///
 /// Three things here are less obvious than they look:
 ///
@@ -62,9 +64,11 @@ struct CapsuleSlider: View {
 
     /// Where the finger landed, in the control's own coordinates.
     @State private var touchStartX: CGFloat?
-    /// True once the touch has travelled far enough to count as a drag. Until then the bar is
-    /// swollen but the value is untouched, which is what keeps a press from changing it.
-    @State private var isDragging = false
+    /// Set once the touch has travelled far enough to count as a drag: where the drag began, and
+    /// the value it began from. Until then the bar is swollen but the value is untouched, which is
+    /// what keeps a press from changing it.
+    @State private var dragStartX: CGFloat?
+    @State private var dragAnchorValue: Double?
 
     @Environment(\.isEnabled) private var isEnabled
 
@@ -144,7 +148,8 @@ struct CapsuleSlider: View {
     private func began(at location: CGPoint) {
         guard isEnabled else { return }
         touchStartX = location.x
-        isDragging = false
+        dragStartX = nil
+        dragAnchorValue = nil
         // A touch arriving during a held-open swell takes it over rather than letting the old
         // collapse fire underneath the new one.
         pendingCollapse?.cancel()
@@ -159,38 +164,41 @@ struct CapsuleSlider: View {
     private func moved(to location: CGPoint, width: CGFloat) {
         guard isEnabled, let startX = touchStartX, width > 0 else { return }
 
-        let span = range.upperBound - range.lowerBound
-        let fraction = min(max(location.x / width, 0), 1)
-        let target = range.lowerBound + Double(fraction) * span
-
-        // The value follows the finger's *position*, not its travel. Relative tracking was tried
-        // and is wrong here: unless you happen to grab exactly on the playhead, the fill and your
-        // fingertip drift apart, and dragging to a place does not put playback in that place.
-        //
-        // Absolute has one problem of its own, and this is where it is dealt with. The moment a
-        // press becomes a drag, the value is somewhere else entirely — grabbing at 75% of a bar
-        // sitting at 33% means the fill has to cover that distance. Writing it straight teleports
-        // the playhead, which is what made a deliberate drag read as a glitch. Easing it across
-        // shows the same movement as movement.
-        if !isDragging {
+        if dragStartX == nil {
             // Still just a press. Nothing is written to `value`, so a touch that never becomes a
             // drag leaves the value exactly where it was — the whole point of the threshold, and
             // why a tap cannot seek.
             guard abs(location.x - startX) >= dragActivation else { return }
-            isDragging = true
-            withAnimation(.easeOut(duration: 0.2)) { value = target }
-            return
+            // Anchored on the value as it stands *now*, not as it stood when the finger landed: a
+            // finger resting on a playing track would otherwise drag from a stale point. Taking
+            // the x from here too means crossing the threshold does not jolt by those first
+            // few points.
+            dragStartX = location.x
+            dragAnchorValue = value
         }
 
-        // Unanimated from here on: the fill is already under the finger, and easing every update
-        // would read as lag.
-        value = target
+        guard let dragStartX, let anchor = dragAnchorValue else { return }
+
+        // Movement is *relative*: the value moves by however far the finger has moved, from where
+        // it already was, rather than jumping to sit under the fingertip. This is what Apple Music
+        // does, and it is the reason a scrubber can be adjusted precisely — a small correction is
+        // a small movement, wherever on the bar you happened to grab.
+        //
+        // Absolute tracking was tried in between and reverted. It does put the fill under your
+        // finger, but only by teleporting the playhead there the instant a press becomes a drag,
+        // and no amount of easing that jump made it read as anything but a glitch.
+        //
+        // Deliberately unanimated: the fill has to track the finger, and easing it reads as lag.
+        let span = range.upperBound - range.lowerBound
+        let travelled = Double((location.x - dragStartX) / width) * span
+        value = min(max(anchor + travelled, range.lowerBound), range.upperBound)
     }
 
     private func ended() {
         guard isEnabled else { return }
         touchStartX = nil
-        isDragging = false
+        dragStartX = nil
+        dragAnchorValue = nil
         // Immediately, so a committed seek or volume change is never held up by the animation.
         onEditingChanged(false)
 
