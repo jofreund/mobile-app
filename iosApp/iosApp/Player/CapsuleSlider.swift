@@ -159,30 +159,32 @@ struct CapsuleSlider: View {
     private func moved(to location: CGPoint, width: CGFloat) {
         guard isEnabled, let startX = touchStartX, width > 0 else { return }
 
-        if !isDragging {
-            // Still just a press. Nothing is written to `value`, so a touch that never becomes a
-            // drag leaves the value exactly where it was — which is the whole point of the
-            // threshold, and why a tap cannot seek.
-            guard abs(location.x - startX) >= dragActivation else { return }
-            isDragging = true
-        }
-
-        // The value follows the finger's *position*, not its travel.
-        //
-        // This was relative for a while — moving by however far the finger had moved, from
-        // wherever the value already was. That reads well in theory and badly in practice: unless
-        // you happen to grab exactly on the playhead, the fill and your fingertip drift apart, and
-        // dragging to a place does not put playback in that place.
-        //
-        // The cost is that the first movement past the threshold snaps the value to the finger.
-        // That is the honest trade for direct manipulation, and it is still not a tap: nothing
-        // moves until you have actually started dragging.
-        //
-        // Deliberately unanimated: the fill must sit under the finger, and easing it there reads
-        // as lag.
         let span = range.upperBound - range.lowerBound
         let fraction = min(max(location.x / width, 0), 1)
-        value = range.lowerBound + Double(fraction) * span
+        let target = range.lowerBound + Double(fraction) * span
+
+        // The value follows the finger's *position*, not its travel. Relative tracking was tried
+        // and is wrong here: unless you happen to grab exactly on the playhead, the fill and your
+        // fingertip drift apart, and dragging to a place does not put playback in that place.
+        //
+        // Absolute has one problem of its own, and this is where it is dealt with. The moment a
+        // press becomes a drag, the value is somewhere else entirely — grabbing at 75% of a bar
+        // sitting at 33% means the fill has to cover that distance. Writing it straight teleports
+        // the playhead, which is what made a deliberate drag read as a glitch. Easing it across
+        // shows the same movement as movement.
+        if !isDragging {
+            // Still just a press. Nothing is written to `value`, so a touch that never becomes a
+            // drag leaves the value exactly where it was — the whole point of the threshold, and
+            // why a tap cannot seek.
+            guard abs(location.x - startX) >= dragActivation else { return }
+            isDragging = true
+            withAnimation(.easeOut(duration: 0.2)) { value = target }
+            return
+        }
+
+        // Unanimated from here on: the fill is already under the finger, and easing every update
+        // would read as lag.
+        value = target
     }
 
     private func ended() {
