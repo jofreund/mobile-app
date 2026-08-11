@@ -46,6 +46,7 @@ struct VolumeSlider: View {
                 // The bar grows into the gap on both sides; the glyphs give it a little room
                 // rather than being crowded, which is what Apple Music does here too.
                 .offset(x: isAdjusting ? -4 : 0)
+                .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isAdjusting)
 
             CapsuleSlider(
                 value: Binding(
@@ -58,9 +59,15 @@ struct VolumeSlider: View {
                 step: 5,
                 valueDescription: { (($0) / 100).formatted(.percent.precision(.fractionLength(0))) },
                 onEditingChanged: { editing in
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                        isAdjusting = editing
-                    }
+                    // Plain assignment, with the animation scoped to the glyphs below.
+                    //
+                    // Wrapping this in `withAnimation` made the volume bar visibly slower to
+                    // swell than the seek bar. The transaction is open while this state change
+                    // re-renders the whole subtree — `CapsuleSlider` included — so the bar's own
+                    // spring was being overridden by the caller's, on a value the bar knows
+                    // nothing about. The seek bar never had the problem because its parent
+                    // animates with a scoped `.animation(_:value:)` instead.
+                    isAdjusting = editing
                     guard !editing, let level = dragValue else { return }
                     // Order matters: hand over to `pendingValue` before clearing `dragValue`, or
                     // `displayValue` falls through to the stale `volume` for a frame.
@@ -81,6 +88,7 @@ struct VolumeSlider: View {
                 // Decorative: it labels the loud end of a slider VoiceOver already describes.
                 .accessibilityHidden(true)
                 .offset(x: isAdjusting ? 4 : 0)
+                .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isAdjusting)
         }
         .opacity(enabled ? 1 : 0.4)
         // Any change to `volume` is the round trip closing: either the server took our value, or
