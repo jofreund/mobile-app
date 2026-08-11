@@ -51,18 +51,9 @@ struct ExpandedPlayerView: View {
             guard scrollID == nil else { return }
             scrollID = currentPlayerID
         }
-        // The volume bar's swell lagged its own touch, and the log said why:
-        // "Gesture: System gesture gate timed out" — logged for that bar and never for the seek
-        // bar. The window-level gate withholds touches near the home indicator until it has
-        // ruled out a system swipe, and the volume row is the bottom-most control here (flush
-        // against the edge with the queue open, since that layout drops the trailing Spacer).
-        // The seek bar sits mid-screen and is never gated, which is the whole asymmetry.
-        //
-        // The cost is that a swipe up from the very bottom edge of *this screen* is given to the
-        // app first, so going Home from here can take a second swipe. Contained to the expanded
-        // player rather than applied app-wide, and it buys back an interactive control that
-        // currently ignores the first half-second of every touch.
-        .defersSystemGestures(on: .bottom)
+        // Deliberately does NOT defer system gestures. That silences the gate, but the price is
+        // needing a second swipe to reach the Home screen from here, which is not a trade worth
+        // making for a slider.
     }
 
     private var pager: some View {
@@ -158,6 +149,14 @@ private struct ExpandedPlayerRow: View {
         }
         .padding(.horizontal, 24)
         .padding(.top, 16)
+        // Keeps the volume row — the bottom-most control — clear of the screen edge, where the
+        // system gesture gate withholds touches until it has ruled out a swipe of its own.
+        //
+        // Only bites when the layout is tight: with the queue closed the trailing Spacer already
+        // leaves roughly 100pt below the row and simply absorbs this instead. With the queue
+        // open there is no Spacer, the row sits flush against the bottom, and this is what lifts
+        // it off the edge.
+        .padding(.bottom, 24)
         .onAppear { updatePositionSubscription() }
         .onDisappear { positionSub?.cancel() }
         .onChange(of: isSelected) { _, _ in updatePositionSubscription() }
