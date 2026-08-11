@@ -351,54 +351,36 @@ class MainDataSource(
                         watchJob = watchApiEvents()
 
                         if (sessionState.dataConnectionState is DataConnectionState.Authenticated) {
-                            when (val currentState = _serverPlayers.value) {
-                                is DataState.Stale -> {
-                                    log.i { "Recovering from ${currentState.reason} stale state" }
-
-                                    when (currentState.reason) {
-                                        StaleReason.RECONNECTING -> {
-                                            // Brief disconnection — data is still fresh. Transition
-                                            // stale → Data without re-fetching to avoid a UI blink.
-                                            // This branch only runs when dataConnectionState is
-                                            // already Authenticated; if a reconnect requires re-auth,
-                                            // the else branch below preserves Stale data until
-                                            // AuthenticationManager finishes re-authorizing.
-                                            log.i { "Seamless recovery - reusing cached data" }
-                                            _serverPlayers.update {
-                                                DataState.Data(currentState.data)
-                                            }
-
-                                            // selectedPlayerIndex doesn't re-emit on stale-recovery
-                                            // (same value before/after), so refresh manually.
-                                            refreshSelectedPlayerQueueItems()
-
-                                            // Drain any commands queued while disconnected
-                                        }
-
-                                        StaleReason.PERSISTENT_ERROR -> {
-                                            // Long disconnection - fetch fresh data
-                                            log.i { "Recovery from persistent error - fetching fresh data" }
-                                            _serverPlayers.update {
-                                                DataState.Data(currentState.data)
-                                            }
-                                            updatePlayersAndQueues()
-                                        }
-                                    }
+                            log.i {
+                                val from = when (val current = _serverPlayers.value) {
+                                    is DataState.Stale -> "Stale(${current.reason})"
+                                    else -> current::class.simpleName
                                 }
-
-                                is DataState.Data -> {
-                                    // Already have data (shouldn't happen, but handle gracefully)
-                                    log.w { "Connected while already in Data state - refreshing anyway" }
-                                    updatePlayersAndQueues()
-                                    refreshSelectedPlayerQueueItems()
-                                }
-
-                                is DataState.Loading, is DataState.NoData, is DataState.Error -> {
-                                    // Fresh connection or error recovery - show loading
-                                    _serverPlayers.update { DataState.Loading() }
-                                    updatePlayersAndQueues()
-                                }
+                                "Authenticated — resyncing from $from"
                             }
+                            // Keep whatever we already hold on screen while the re-sync below
+                            // runs: the fetches replace it in place, so the player list never
+                            // blinks through "Loading players" on a reconnect.
+                            _serverPlayers.update { preserveThroughResync(it) }
+                            // Unconditional, and deliberately outside any branch on how we got
+                            // here. Every arrival at Connected/Authenticated follows a gap in the
+                            // event stream, and no server replays what was missed: `player_updated`
+                            // and `queue_updated` fire once, at the moment the now-playing item
+                            // changes, and only `queue_time_updated` keeps arriving afterwards —
+                            // which carries an elapsed time and nothing else.
+                            //
+                            // So a gap that straddles a track change leaves the cached player
+                            // showing the *previous* song, with a ticking playhead, until the
+                            // next track change happens to land. Backgrounding the app is the
+                            // easy way to reproduce that: tear-down on background, reconnect on
+                            // foreground, and a track boundary in between.
+                            //
+                            // This used to be skipped for Stale(RECONNECTING) on the grounds that
+                            // a brief disconnection leaves data "still fresh". Length was never
+                            // the relevant question — a one-second gap can straddle a track
+                            // boundary just as well as a one-minute one — and the blink that
+                            // reasoning was protecting against is handled by the line above.
+                            updatePlayersAndQueues()
                         } else {
                             // Not authenticated yet
                             val connState = sessionState.dataConnectionState
@@ -1357,23 +1339,6 @@ class MainDataSource(
     }
 
     /**
-     * Refresh queue items for the currently selected player.
-     * Used after reconnection when selectedPlayerIndex doesn't re-emit
-     * (same index value before and after reconnect).
-     */
-    private fun refreshSelectedPlayerQueueItems() {
-        val players = when (val pd = _playersData.value) {
-            is DataState.Data -> pd.data
-            is DataState.Stale -> pd.data
-            else -> return
-        }
-        _selectedPlayerId.value?.let { selectedId ->
-            players.firstOrNull { it.playerId == selectedId }
-                ?.let { refreshPlayerQueueItems(it, trigger = QueueItemsTrigger.RECONNECT) }
-        }
-    }
-
-    /**
      * Refresh one player's queue items, coalescing concurrent requests for the same queue.
      *
      * Two independent triggers converge on every play: the `(playersData, selectedPlayerId)`
@@ -1421,8 +1386,8 @@ class MainDataSource(
     }
 
     /**
-     * Which path asked for a queue-items refresh. Exists for the log line above: four call sites
-     * converge on one function, and "two requests went out" says nothing about which two.
+     * Which path asked for a queue-items refresh. Exists for the log line above: several call
+     * sites converge on one function, and "two requests went out" says nothing about which two.
      *
      * It has already earned its keep once. Starting a podcast issues two `player_queues/items`,
      * and the plausible explanations — coincident triggers, then a self-trigger via the `info`
@@ -1437,11 +1402,11 @@ class MainDataSource(
         /** A server queue update, carrying its own fresh `QueueInfo`. */
         QUEUE_EVENT("queueEvent"),
 
-        /** Fan-out across every player with queue metadata, so pager neighbours are not empty. */
+        /**
+         * Fan-out across every player with queue metadata, so pager neighbours are not empty.
+         * Also the post-reconnect catch-up, via [updatePlayersAndQueues].
+         */
         ALL_PLAYERS("allPlayers"),
-
-        /** Post-reconnect catch-up, where the selection itself does not re-emit. */
-        RECONNECT("reconnect"),
     }
 
     /** Queue id -> "another refresh was asked for while this one was running". */
@@ -1559,6 +1524,31 @@ class MainDataSource(
         ): String? {
             if (userChoice != null && userChoice in visiblePlayerIds) return userChoice
             return visiblePlayerIds.firstOrNull()
+        }
+
+        /**
+         * What to show while a newly-authenticated connection re-fetches everything.
+         * Pure function; the fetch itself is unconditional (see the call site).
+         *
+         * Any players we already hold — fresh or [DataState.Stale] from a disconnection of
+         * either flavour — stay on screen and are simply promoted back to [DataState.Data].
+         * The re-fetch overwrites them in place a moment later, so the only thing this
+         * decides is whether the user watches a populated list refresh itself or watches it
+         * disappear and come back. Only when there is genuinely nothing to show — a cold
+         * start, or data cleared by a logout — does [DataState.Loading] apply.
+         *
+         * [DataState.Data] is returned as-is rather than rebuilt, so an already-fresh state
+         * doesn't emit an equal-but-new value to every downstream collector.
+         */
+        internal fun preserveThroughResync(
+            current: DataState<List<Player>>,
+        ): DataState<List<Player>> = when (current) {
+            is DataState.Data -> current
+            is DataState.Stale -> DataState.Data(current.data)
+            is DataState.Loading,
+            is DataState.NoData,
+            is DataState.Error,
+                -> DataState.Loading()
         }
     }
 }
