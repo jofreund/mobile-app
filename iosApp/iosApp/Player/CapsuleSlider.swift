@@ -77,11 +77,13 @@ struct CapsuleSlider: View {
 
     private let minimumSwell: TimeInterval = 0.3
 
+    /// Where the finger landed, in the control's own coordinates.
+    @State private var touchStartX: CGFloat?
     /// Non-nil once the touch has travelled far enough to count as a drag. Until then the bar is
-    /// swollen but the value is untouched, which is what keeps a tap from seeking.
-    @State private var dragOrigin: CGFloat?
-    /// The position the drag is measured from — captured when dragging starts, not when the
-    /// finger lands.
+    /// swollen but the value is untouched, which is what keeps a press from changing it.
+    @State private var dragStartX: CGFloat?
+    /// The value the drag is measured from — captured when dragging starts, not when the finger
+    /// lands.
     @State private var dragAnchorValue: Double?
 
     @Environment(\.isEnabled) private var isEnabled
@@ -119,15 +121,28 @@ struct CapsuleSlider: View {
                 anchor: .center
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .contentShape(.rect)
-            // High priority, not plain `.gesture`. A plain gesture has to be arbitrated against
-            // every other recognizer that could claim the touch — the paging scroll view this
-            // sits inside, and, for the volume bar, the mute Button sharing its HStack. That
-            // arbitration is a wait, and the wait is visible: the volume bar swelled
-            // perceptibly later than the seek bar, which has no such sibling. Claiming the touch
-            // outright removes the wait, and there is nothing to lose by it — a drag that starts
-            // on a slider is meant for the slider, never for the page behind it.
-            .highPriorityGesture(scrub(width: width, frame: proxy.frame(in: .global)))
+            // Touches come from a real `UIControl`, not a `DragGesture`.
+            //
+            // Measured: a SwiftUI drag gesture here was handed the touch 378–780ms after it
+            // happened, against 26–110ms for the same control higher up the screen. Neither is
+            // near a screen edge — the volume bar sits 156pt off the bottom and is *further*
+            // from the sides than the seek bar — so the gate was never about position, and no
+            // amount of rearranging this view was going to help.
+            //
+            // `UIScrollView` withholds touches from its content while it works out whether a
+            // scroll is starting, and `touchesShouldCancel(in:)` then steals them back mid-drag.
+            // `UIControl` is exempt from both by default, which is exactly why the stock
+            // `Slider` this replaced never had the problem. Borrowing that exemption is the
+            // whole trick: UIKit owns the touch, SwiftUI still draws every pixel.
+            .overlay {
+                SliderTouchTracker(
+                    onBegan: { location, timestamp in
+                        began(at: location, timestamp: timestamp)
+                    },
+                    onMoved: { location in moved(to: location, width: width) },
+                    onEnded: { ended() }
+                )
+            }
         }
         .frame(height: rowHeight)
         .opacity(isEnabled ? 1 : 0.4)
@@ -149,72 +164,76 @@ struct CapsuleSlider: View {
         return width * CGFloat(min(max(fraction, 0), 1))
     }
 
-    private func scrub(width: CGFloat, frame: CGRect) -> some Gesture {
-        // Zero minimum distance so the bar responds to the touch itself, not only to movement —
-        // but see below: responding is not the same as seeking.
-        DragGesture(minimumDistance: 0)
-            .onChanged { gesture in
-                guard isEnabled else { return }
-                if !isScrubbing {
-                    // `gesture.time` is not wall-clock here: subtracting it from `Date()` gave
-                    // ~25 years, which is the span from Foundation's 2001 reference date, so it
-                    // counts from boot. Compared against the same clock now. Both raw values are
-                    // logged, so a wrong assumption shows as nonsense rather than as a
-                    // plausible-looking number — which is exactly how the first attempt failed.
-                    let event = gesture.time.timeIntervalSinceReferenceDate
-                    let now = ProcessInfo.processInfo.systemUptime
-                    let latencyMs = Int((now - event) * 1000)
-                    sliderLog.info(
-                        "[\(debugLabel, privacy: .public)] down latency=\(latencyMs, privacy: .public)ms y=\(Int(frame.minY), privacy: .public)...\(Int(frame.maxY), privacy: .public) x=\(Int(frame.minX), privacy: .public)...\(Int(frame.maxX), privacy: .public) screen=\(Int(UIScreen.main.bounds.height), privacy: .public)"
-                    )
-                    // A touch arriving during a held-open swell takes it over rather than
-                    // letting the old collapse fire underneath the new gesture.
-                    pendingCollapse?.cancel()
-                    pendingCollapse = nil
-                    touchBeganAt = Date()
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                        isScrubbing = true
-                    }
-                    onEditingChanged(true)
-                }
+    private func began(at location: CGPoint, timestamp: TimeInterval) {
+        guard isEnabled else { return }
+        // `UITouch.timestamp` and `systemUptime` are the same clock, so this is the real gap
+        // between the finger landing and the app hearing about it. Temporary.
+        let latencyMs = Int((ProcessInfo.processInfo.systemUptime - timestamp) * 1000)
+        sliderLog.info(
+            "[\(debugLabel, privacy: .public)] down latency=\(latencyMs, privacy: .public)ms"
+        )
 
-                let travel = gesture.translation.width
-                if dragOrigin == nil {
-                    // Still just a touch. Nothing is written to `value`, so a tap that never
-                    // becomes a drag leaves the position exactly where it was.
-                    guard abs(travel) >= dragActivation else { return }
-                    // Anchor on the position as it stands *now*, not as it stood when the finger
-                    // landed — a finger resting on a playing track would otherwise drag from a
-                    // stale point. Recording the travel so far cancels it out, so crossing the
-                    // threshold doesn't jolt the playhead by those first few points.
-                    dragAnchorValue = value
-                    dragOrigin = travel
-                }
+        touchStartX = location.x
+        dragStartX = nil
+        dragAnchorValue = nil
+        // A touch arriving during a held-open swell takes it over rather than letting the old
+        // collapse fire underneath the new one.
+        pendingCollapse?.cancel()
+        pendingCollapse = nil
+        touchBeganAt = Date()
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            isScrubbing = true
+        }
+        onEditingChanged(true)
+    }
 
-                // Deliberately unanimated: the fill must sit under the finger, and easing it
-                // there would read as lag.
-                value = draggedValue(travel: travel, width: width)
-            }
-            .onEnded { _ in
-                guard isEnabled else { return }
-                dragOrigin = nil
-                dragAnchorValue = nil
-                // Immediately, so a committed seek or volume change is never held up by the
-                // animation below.
-                onEditingChanged(false)
+    private func moved(to location: CGPoint, width: CGFloat) {
+        guard isEnabled, let startX = touchStartX, width > 0 else { return }
 
-                let held = touchBeganAt.map { Date().timeIntervalSince($0) } ?? minimumSwell
-                let remaining = minimumSwell - held
-                guard remaining > 0 else {
-                    settle()
-                    return
-                }
-                pendingCollapse = Task { @MainActor in
-                    try? await Task.sleep(for: .seconds(remaining))
-                    guard !Task.isCancelled else { return }
-                    settle()
-                }
-            }
+        if dragStartX == nil {
+            // Still just a press. Nothing is written to `value`, so a touch that never becomes a
+            // drag leaves the value exactly where it was.
+            guard abs(location.x - startX) >= dragActivation else { return }
+            // Anchor on the value as it stands *now*, not as it stood when the finger landed — a
+            // finger resting on a playing track would otherwise drag from a stale point. Anchoring
+            // the x here too means crossing the threshold doesn't jolt by those first few points.
+            dragStartX = location.x
+            dragAnchorValue = value
+        }
+
+        guard let dragStartX, let anchor = dragAnchorValue else { return }
+        // Movement is applied *relative* to where the value already was, rather than jumping to
+        // wherever the finger is. Absolute mapping would satisfy "a press must not change the
+        // value" only in the letter: the first few points of movement would still fling it across
+        // the range. Relative also makes fine adjustment possible — nudging the end of a long
+        // audiobook is a short movement, not an attempt to land a fingertip on the right pixel.
+        //
+        // Deliberately unanimated: the fill must sit under the finger, and easing it there reads
+        // as lag.
+        let span = range.upperBound - range.lowerBound
+        let travelled = Double((location.x - dragStartX) / width) * span
+        value = min(max(anchor + travelled, range.lowerBound), range.upperBound)
+    }
+
+    private func ended() {
+        guard isEnabled else { return }
+        touchStartX = nil
+        dragStartX = nil
+        dragAnchorValue = nil
+        // Immediately, so a committed seek or volume change is never held up by the animation.
+        onEditingChanged(false)
+
+        let held = touchBeganAt.map { Date().timeIntervalSince($0) } ?? minimumSwell
+        let remaining = minimumSwell - held
+        guard remaining > 0 else {
+            settle()
+            return
+        }
+        pendingCollapse = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(remaining))
+            guard !Task.isCancelled else { return }
+            settle()
+        }
     }
 
     @MainActor
@@ -223,19 +242,65 @@ struct CapsuleSlider: View {
             isScrubbing = false
         }
     }
+}
 
-    /// Movement is applied *relative* to where the playhead already was, rather than jumping to
-    /// wherever the finger is.
-    ///
-    /// Absolute mapping would satisfy "a tap must not seek" only in the letter: the first few
-    /// points of movement would still fling the playhead across the track, which is the jump the
-    /// tap rule exists to prevent. Relative also makes small corrections possible — a fine
-    /// adjustment near the end of a long audiobook is a short finger movement, not an attempt to
-    /// land a fingertip on the right pixel.
-    private func draggedValue(travel: CGFloat, width: CGFloat) -> Double {
-        guard width > 0, let anchor = dragAnchorValue, let origin = dragOrigin else { return value }
-        let span = range.upperBound - range.lowerBound
-        let moved = Double((travel - origin) / width) * span
-        return min(max(anchor + moved, range.lowerBound), range.upperBound)
+/// Hands the slider its touches through UIKit rather than a SwiftUI gesture.
+///
+/// A `UIControl` gets two things a plain view does not, both of them the reason the stock
+/// `Slider` behaved and a `DragGesture` did not:
+///
+/// - **Touches arrive immediately.** `UIScrollView` withholds touches from ordinary content while
+///   it decides whether a scroll is beginning. Measured at up to 780ms inside the expanded
+///   player's pager.
+/// - **They are not taken back.** `touchesShouldCancel(in:)` returns false for `UIControl` by
+///   default, so a scroll view will not steal a drag mid-scrub the way it would from a plain view.
+///
+/// Draws nothing — the capsule underneath is entirely SwiftUI. This exists only to own the touch.
+private struct SliderTouchTracker: UIViewRepresentable {
+
+    /// Location within the control, and `UITouch.timestamp` — the same clock as `systemUptime`,
+    /// which is what makes the delivery latency measurable at all.
+    let onBegan: (CGPoint, TimeInterval) -> Void
+    let onMoved: (CGPoint) -> Void
+    let onEnded: () -> Void
+
+    func makeUIView(context: Context) -> TrackingControl {
+        let control = TrackingControl()
+        control.backgroundColor = .clear
+        return control
+    }
+
+    func updateUIView(_ control: TrackingControl, context: Context) {
+        // Reassigned rather than captured once: the closures come from the SwiftUI view, which is
+        // a fresh value on every render, and a stale one would write to an old `value` binding.
+        control.onBegan = onBegan
+        control.onMoved = onMoved
+        control.onEnded = onEnded
+    }
+
+    final class TrackingControl: UIControl {
+        var onBegan: ((CGPoint, TimeInterval) -> Void)?
+        var onMoved: ((CGPoint) -> Void)?
+        var onEnded: (() -> Void)?
+
+        override func beginTracking(_ touch: UITouch, with event: UIEvent?) -> Bool {
+            onBegan?(touch.location(in: self), touch.timestamp)
+            return true
+        }
+
+        override func continueTracking(_ touch: UITouch, with event: UIEvent?) -> Bool {
+            onMoved?(touch.location(in: self))
+            return true
+        }
+
+        override func endTracking(_ touch: UITouch?, with event: UIEvent?) {
+            onEnded?()
+        }
+
+        /// Fires when the system takes the touch away — a call arriving, or a scroll that does
+        /// win. Without it the bar would stay swollen with no finger on it.
+        override func cancelTracking(with event: UIEvent?) {
+            onEnded?()
+        }
     }
 }
