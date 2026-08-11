@@ -38,8 +38,6 @@ struct ExpandedPlayerView: View {
     let onNavigateToItem: (ItemDetailsRoute) -> Void
     let onCollapse: () -> Void
 
-    /// Fresh per presentation — matches Compose's own "fresh `PagerState` per mount, seeded
-    /// from the current selection" behavior (a `.fullScreenCover` is a new view every time).
     var body: some View {
         ZStack {
             Color(.systemBackground).ignoresSafeArea()
@@ -101,7 +99,10 @@ private struct ExpandedPlayerRow: View {
             }
             transportRow
             volumeRow
-            playerPicker
+            HStack(spacing: 12) {
+                playerPicker
+                groupSettingsButton
+            }
             if !showQueue {
                 Spacer(minLength: 0)
             }
@@ -113,10 +114,25 @@ private struct ExpandedPlayerRow: View {
         // queue closed the Spacer absorbs this and nothing moves.
         .padding(.bottom, 24)
         .onAppear { updatePositionSubscription() }
+        // Follows the player, not just the appearance. The pager used to re-subscribe via
+        // `isSelected` whenever the visible page changed; with the pager gone that signal went
+        // with it, and the subscription stayed bound to whichever player was current when the
+        // screen opened — so the playhead sat still for every other one.
+        .onChange(of: player.id) { _, _ in updatePositionSubscription() }
         .onDisappear { positionSub?.cancel() }
         .onChange(of: displayPosition) { _, newValue in
             guard let released = releasedSeekPosition else { return }
             if abs(newValue - released) < 0.5 { releasedSeekPosition = nil }
+        }
+        // Backstop for the same value. It is held to stop the playhead snapping back while the
+        // seek is in flight, and released above once the server's position agrees — but if the
+        // server settles somewhere else entirely, or the seek never lands, nothing above ever
+        // clears it and the playhead sits frozen for the rest of the session.
+        .task(id: releasedSeekPosition) {
+            guard releasedSeekPosition != nil else { return }
+            try? await Task.sleep(for: .seconds(3))
+            guard !Task.isCancelled else { return }
+            releasedSeekPosition = nil
         }
         .onChange(of: player.queueItems.map(\.id)) { _, _ in displayOrder = nil }
         .sheet(isPresented: $showGroupSettings) {
@@ -127,24 +143,17 @@ private struct ExpandedPlayerRow: View {
 
     // MARK: - Header
 
-    /// Three slots with equal flexible sides, not a pair of `Spacer()`s. Spacers split only the
-    /// *leftover* space, so they centre the middle item only when both sides are the same width
-    /// — and here they never are: one button leads, two trail, and the group-settings one is
-    /// conditional, so the player name sat left of centre and shifted sideways as that button
-    /// came and went. Equal-width sides centre the name against the screen instead. Compose hit
-    /// this too and solved it with its own `CenteredThreeSlotRow`.
+    /// Collapse on one side, the queue toggle on the other, and nothing between them: the player
+    /// name moved to the picker at the bottom. The elaborate equal-width-sides centring this used
+    /// to need went with it — there is no longer a middle item to keep centred.
     private var header: some View {
-        HStack(spacing: 8) {
+        HStack {
             Button(action: onCollapse) {
                 Image(systemName: "chevron.down")
                     .font(.title3.weight(.semibold))
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-
             Spacer(minLength: 0)
-
             headerActions
-                .frame(maxWidth: .infinity, alignment: .trailing)
         }
     }
 
@@ -175,25 +184,33 @@ private struct ExpandedPlayerRow: View {
     }
 
     private var headerActions: some View {
-        HStack(spacing: 16) {
-            // Only shown when there's anything to manage — a bound group or at least one
-            // groupable candidate (mirrors when Compose's dialog had content to offer).
-            if player.isGrouped || !player.groupMembers.isEmpty {
-                Button {
-                    showGroupSettings = true
-                } label: {
-                    Image(systemName: "hifispeaker.2")
-                        .font(.title3)
-                }
-                .accessibilityLabel(String(localized: "players_group_settings"))
-            }
+        Button {
+            withAnimation(.easeInOut(duration: 0.2)) { showQueue.toggle() }
+        } label: {
+            Image(systemName: showQueue ? "list.bullet.circle.fill" : "list.bullet.circle")
+                .font(.title3)
+        }
+        .accessibilityLabel(String(localized: "cd_toggle_queue"))
+    }
+
+    /// Group settings sits beside the player picker rather than in the header: both answer
+    /// "which speakers is this coming out of", and both belong within thumb reach.
+    ///
+    /// Only shown when there is something to manage — a bound group, or at least one groupable
+    /// candidate (mirrors when Compose's dialog had content to offer).
+    @ViewBuilder
+    private var groupSettingsButton: some View {
+        if player.isGrouped || !player.groupMembers.isEmpty {
             Button {
-                withAnimation(.easeInOut(duration: 0.2)) { showQueue.toggle() }
+                showGroupSettings = true
             } label: {
-                Image(systemName: showQueue ? "list.bullet.circle.fill" : "list.bullet.circle")
+                Image(systemName: "hifispeaker.2")
                     .font(.title3)
+                    .foregroundStyle(.secondary)
+                    .padding(.vertical, 10)
+                    .contentShape(.rect)
             }
-            .accessibilityLabel(String(localized: "cd_toggle_queue"))
+            .accessibilityLabel(String(localized: "players_group_settings"))
         }
     }
 
@@ -593,8 +610,9 @@ private struct ExpandedPlayerRow: View {
         }
     }
 
-    /// Only one player's row exists at a time now, so there is no longer a set of off-screen
-    /// pages whose tickers need gating — this just follows the row's own lifetime.
+    /// Re-pointed whenever the player changes. Only one row exists at a time now, so there is no
+    /// longer a set of off-screen pages whose tickers need gating — but there is still exactly one
+    /// subscription that has to follow the player currently on screen.
     private func updatePositionSubscription() {
         positionSub?.cancel()
         positionSub = nil
