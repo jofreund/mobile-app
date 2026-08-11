@@ -155,11 +155,16 @@ struct CapsuleSlider: View {
             .onChanged { gesture in
                 guard isEnabled else { return }
                 if !isScrubbing {
-                    // `gesture.time` is when the touch actually happened; the gap to now is how
-                    // long it was withheld before reaching us.
-                    let latencyMs = Int(Date().timeIntervalSince(gesture.time) * 1000)
+                    // `gesture.time` is not wall-clock here: subtracting it from `Date()` gave
+                    // ~25 years, which is the span from Foundation's 2001 reference date, so it
+                    // counts from boot. Compared against the same clock now. Both raw values are
+                    // logged, so a wrong assumption shows as nonsense rather than as a
+                    // plausible-looking number — which is exactly how the first attempt failed.
+                    let event = gesture.time.timeIntervalSinceReferenceDate
+                    let now = ProcessInfo.processInfo.systemUptime
+                    let latencyMs = Int((now - event) * 1000)
                     sliderLog.info(
-                        "[\(debugLabel, privacy: .public)] touch-down, delivered after \(latencyMs, privacy: .public)ms"
+                        "[\(debugLabel, privacy: .public)] down latency=\(latencyMs, privacy: .public)ms event=\(event, privacy: .public) now=\(now, privacy: .public)"
                     )
                     // A touch arriving during a held-open swell takes it over rather than
                     // letting the old collapse fire underneath the new gesture.
