@@ -9,55 +9,80 @@ import SwiftUI
 /// past the handful of entries a menu stays readable at.
 ///
 /// Group settings rides in the toolbar because it answers the same question the list does —
-/// which speakers is this coming out of — and because a sheet has a top bar to put it in, where
-/// the bottom row it used to sit on did not.
+/// which speakers is this coming out of. It *replaces* the list rather than opening over it: two
+/// stacked sheets for two views of the same question is a lot of chrome, and swapping content
+/// under one title keeps the toggle reversible in a single tap. The button carries the selected
+/// state so it is obvious which of the two is showing.
 struct PlayerPickerSheet: View {
 
     /// The player currently being driven. Passed as a value, not looked up by id, for the reason
-    /// spelled out in `GroupSettingsView`: an id string never changes, so SwiftUI would have
+    /// spelled out in `GroupSettingsContent`: an id string never changes, so SwiftUI would have
     /// nothing to diff and would keep showing a stale group state after a join or leave.
     let player: PlayerBarItemView
     var store: PlayerBarStore
 
-    @State private var showGroupSettings = false
+    /// Which of the two the sheet is showing. Not a separate presentation — see the type doc.
+    private enum Mode { case players, group }
+
+    @State private var mode: Mode = .players
     @Environment(\.dismiss) private var dismiss
+
+    /// Only when there is something to manage — a bound group, or at least one groupable
+    /// candidate. Same rule as the button this replaces.
+    private var canManageGroup: Bool { player.isGrouped || !player.groupMembers.isEmpty }
 
     var body: some View {
         NavigationStack {
-            List {
-                ForEach(store.players) { candidate in
-                    PlayerPickerRow(
-                        candidate: candidate,
-                        isCurrent: candidate.id == player.id
-                    ) {
-                        store.selectPlayer(id: candidate.id)
-                        dismiss()
-                    }
+            Group {
+                switch mode {
+                case .players: playerList
+                case .group: GroupSettingsContent(player: player, store: store)
                 }
             }
-            .navigationTitle(String(localized: "players_title"))
+            .navigationTitle(String(localized: mode == .group ? "players_group_settings" : "players_title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(String(localized: "common_done")) { dismiss() }
                 }
-                // Only when there is something to manage — a bound group, or at least one
-                // groupable candidate. Same rule as the button this replaces.
-                if player.isGrouped || !player.groupMembers.isEmpty {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button { showGroupSettings = true } label: {
-                            Image(systemName: "hifispeaker.2")
-                        }
-                        .accessibilityLabel(String(localized: "players_group_settings"))
-                    }
+                if canManageGroup {
+                    ToolbarItem(placement: .topBarTrailing) { groupToggle }
                 }
-            }
-            .sheet(isPresented: $showGroupSettings) {
-                GroupSettingsView(player: player, store: store)
-                    .presentationDetents([.medium, .large])
             }
         }
         .presentationDetents([.medium, .large])
+        // A player leaving its last group while the group view is open would otherwise strand the
+        // sheet on a panel with nothing in it and no button left to leave by.
+        .onChange(of: canManageGroup) { _, canManage in
+            if !canManage { mode = .players }
+        }
+    }
+
+    private var playerList: some View {
+        List {
+            ForEach(store.players) { candidate in
+                PlayerPickerRow(
+                    candidate: candidate,
+                    isCurrent: candidate.id == player.id
+                ) {
+                    store.selectPlayer(id: candidate.id)
+                    dismiss()
+                }
+            }
+        }
+    }
+
+    private var groupToggle: some View {
+        Button {
+            mode = mode == .group ? .players : .group
+        } label: {
+            // Filled and tinted while its panel is showing, outlined and quiet otherwise — the
+            // same on/off vocabulary the queue button in the player header uses.
+            Image(systemName: mode == .group ? "hifispeaker.2.fill" : "hifispeaker.2")
+                .foregroundStyle(mode == .group ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
+        }
+        .accessibilityLabel(String(localized: "players_group_settings"))
+        .accessibilityAddTraits(mode == .group ? [.isSelected] : [])
     }
 }
 

@@ -1,8 +1,11 @@
 import SwiftUI
 
 /// Native port of Compose's `GroupSettingsDialog` (deleted in the dead-code cutover; original
-/// at commit `e2514156`) — group/ungroup players, per-member volume/mute, and group volume,
-/// presented as a sheet from the expanded player's header.
+/// at commit `e2514156`) — group/ungroup players, per-member volume/mute, and group volume.
+///
+/// Content only: no navigation stack, no title, no Done button. It is swapped into
+/// `PlayerPickerSheet` in place of the player list rather than presented over it, so the chrome
+/// belongs to that sheet and this supplies the list alone.
 ///
 /// Takes the player **value**, re-supplied by `ExpandedPlayerRow`'s own body on every store
 /// update, rather than looking it up from `store.players` by id. That lookup version didn't
@@ -21,27 +24,12 @@ import SwiftUI
 ///   players, whose "own" volume *is* the group volume.
 /// - The local (Sendspin) player's playback-delay row was deliberately not ported — that whole
 ///   feature is product-hidden right now.
-struct GroupSettingsView: View {
+struct GroupSettingsContent: View {
 
     let player: PlayerBarItemView
     var store: PlayerBarStore
 
-    @Environment(\.dismiss) private var dismiss
-
     var body: some View {
-        NavigationStack {
-            content
-                .navigationTitle(String(localized: "players_group_settings"))
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button(String(localized: "common_done")) { dismiss() }
-                    }
-                }
-        }
-    }
-
-    private var content: some View {
         List {
             if player.isGrouped {
                 Section {
