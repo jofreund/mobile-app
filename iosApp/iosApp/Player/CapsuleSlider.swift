@@ -102,7 +102,14 @@ struct CapsuleSlider: View {
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .contentShape(.rect)
-            .gesture(scrub(width: width))
+            // High priority, not plain `.gesture`. A plain gesture has to be arbitrated against
+            // every other recognizer that could claim the touch — the paging scroll view this
+            // sits inside, and, for the volume bar, the mute Button sharing its HStack. That
+            // arbitration is a wait, and the wait is visible: the volume bar swelled
+            // perceptibly later than the seek bar, which has no such sibling. Claiming the touch
+            // outright removes the wait, and there is nothing to lose by it — a drag that starts
+            // on a slider is meant for the slider, never for the page behind it.
+            .highPriorityGesture(scrub(width: width))
         }
         .frame(height: rowHeight)
         .opacity(isEnabled ? 1 : 0.4)
