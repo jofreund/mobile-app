@@ -11,11 +11,15 @@ import SwiftUI
 struct PlayerPickerMenu: View {
 
     let store: PlayerBarStore
-    /// Marked with a checkmark. The expanded player passes the page's own player, which is the
-    /// selected one by the time its header is on screen.
+    /// The player to mark as current.
     let currentId: String
 
     var body: some View {
+        // Still a menu, and still constrained by one, because this is the mini player's
+        // *context* menu — `contextMenu` takes menu content, so it cannot host the list
+        // `PlayerPickerSheet` uses in the expanded player. The two differ for that reason, not by
+        // oversight.
+        //
         // Selection is shown by grouping, not by a checkmark.
         //
         // A menu button has exactly one image slot and the checkmark owns it, so a row cannot

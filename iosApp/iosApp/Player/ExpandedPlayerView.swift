@@ -76,7 +76,7 @@ private struct ExpandedPlayerRow: View {
 
 
     @State private var showQueue = false
-    @State private var showGroupSettings = false
+    @State private var showPlayerPicker = false
     /// Optimistic local reorder — reset to `nil` (falling back to `player.queueItems`' own
     /// order) whenever the Kotlin-driven order changes, mirroring Compose's
     /// `remember(items) { mutableStateOf(items) }` reset-on-server-echo.
@@ -97,10 +97,7 @@ private struct ExpandedPlayerRow: View {
             seekSection
             transportRow
             volumeRow
-            HStack(spacing: 12) {
-                playerPicker
-                groupSettingsButton
-            }
+            playerPicker
             if !showQueue {
                 Spacer(minLength: 0)
             }
@@ -133,9 +130,8 @@ private struct ExpandedPlayerRow: View {
             releasedSeekPosition = nil
         }
         .onChange(of: player.queueItems.map(\.id)) { _, _ in displayOrder = nil }
-        .sheet(isPresented: $showGroupSettings) {
-            GroupSettingsView(player: player, store: store)
-                .presentationDetents([.medium, .large])
+        .sheet(isPresented: $showPlayerPicker) {
+            PlayerPickerSheet(player: player, store: store)
         }
     }
 
@@ -162,8 +158,8 @@ private struct ExpandedPlayerRow: View {
     /// which is what made them impossible to drag. A list you open deliberately is both easier to
     /// hit one-handed and incapable of stealing a gesture from anything else.
     private var playerPicker: some View {
-        Menu {
-            PlayerPickerMenu(store: store, currentId: player.id)
+        Button {
+            showPlayerPicker = true
         } label: {
             HStack(spacing: 8) {
                 Image(systemName: player.symbolName)
@@ -179,6 +175,7 @@ private struct ExpandedPlayerRow: View {
             // The whole row is the target, not just the text.
             .contentShape(.rect)
         }
+        .buttonStyle(.plain)
     }
 
     private var headerActions: some View {
@@ -189,27 +186,6 @@ private struct ExpandedPlayerRow: View {
                 .font(.title3)
         }
         .accessibilityLabel(String(localized: "cd_toggle_queue"))
-    }
-
-    /// Group settings sits beside the player picker rather than in the header: both answer
-    /// "which speakers is this coming out of", and both belong within thumb reach.
-    ///
-    /// Only shown when there is something to manage — a bound group, or at least one groupable
-    /// candidate (mirrors when Compose's dialog had content to offer).
-    @ViewBuilder
-    private var groupSettingsButton: some View {
-        if player.isGrouped || !player.groupMembers.isEmpty {
-            Button {
-                showGroupSettings = true
-            } label: {
-                Image(systemName: "hifispeaker.2")
-                    .font(.title3)
-                    .foregroundStyle(.secondary)
-                    .padding(.vertical, 10)
-                    .contentShape(.rect)
-            }
-            .accessibilityLabel(String(localized: "players_group_settings"))
-        }
     }
 
     // MARK: - Hero subtitle
