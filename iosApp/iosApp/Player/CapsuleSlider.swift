@@ -1,16 +1,18 @@
 import SwiftUI
 
-/// The expanded player's seek control, in the shape Apple Music uses: a bare capsule with no
-/// handle, which swells while a finger is on it and settles back when the finger lifts.
+/// A slider in the shape Apple Music uses: a bare capsule with no handle, which swells while a
+/// finger is on it and settles back when the finger lifts. Used for both the seek bar and the
+/// volume control in the expanded player.
 ///
 /// Replaces a stock `Slider`, whose thumb is the thing that makes it read as a *control* rather
-/// than as a position. Without a thumb there is nothing to aim at, so the swell is what tells you
+/// than as a level. Without a thumb there is nothing to aim at, so the swell is what tells you
 /// the touch landed — it has to carry the whole of that feedback, which is why the growth is
 /// noticeable rather than subtle.
 ///
-/// **A tap does not seek.** Touching the bar swells it and nothing else; only movement moves the
-/// playhead, and it moves *relative* to where the playhead already was. Seeking on touch makes
-/// every accidental brush of a bar this wide throw away your place in a track.
+/// **A tap does not change the value.** Touching the bar swells it and nothing else; only
+/// movement moves the value, and it moves *relative* to where the value already was. Changing on
+/// touch means every accidental brush of a bar this wide throws away your place in a track, or
+/// puts the volume somewhere you did not ask for.
 ///
 /// Three things here are less obvious than they look:
 ///
@@ -24,7 +26,7 @@ import SwiftUI
 /// - **The touch target is the whole container**, not the capsule. At rest the capsule is 6pt
 ///   tall; a 6pt target would be unusable, and the swell can only be triggered by a touch that
 ///   already landed.
-struct ScrubBar: View {
+struct CapsuleSlider: View {
 
     @Binding var value: Double
     let range: ClosedRange<Double>
@@ -54,10 +56,15 @@ struct ScrubBar: View {
     /// How far a touch must travel before it counts as a drag rather than a tap.
     private let dragActivation: CGFloat = 3
 
+    /// How far each end reaches past its resting position while held, in points.
+    ///
+    /// Configurable because the two uses have different room: the seek bar spans the full
+    /// content width with nothing beside it, while the volume bar sits between two speaker
+    /// glyphs and can only grow into the gap.
+    var activeOverhang: CGFloat = 8
+
     private let idleHeight: CGFloat = 6
     private let activeHeight: CGFloat = 14
-    /// How far each end reaches past its resting position while held, in points.
-    private let activeOverhang: CGFloat = 8
     /// Constant row height: the tallest the capsule ever gets, plus room to touch.
     private let rowHeight: CGFloat = 28
 

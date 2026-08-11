@@ -112,7 +112,7 @@ private struct ExpandedPlayerRow: View {
 
     @State private var userDragPosition: Double?
     @State private var releasedSeekPosition: Double?
-    /// Drives the timestamps' emphasis alongside `ScrubBar`'s own swell.
+    /// Drives the timestamps' emphasis alongside `CapsuleSlider`'s own swell.
     @State private var isScrubbing = false
 
 
@@ -581,7 +581,7 @@ private struct ExpandedPlayerRow: View {
 
     private var seekSection: some View {
         VStack(spacing: 4) {
-            ScrubBar(
+            CapsuleSlider(
                 value: Binding(get: { sliderValue }, set: { userDragPosition = $0 }),
                 range: 0...duration,
                 // A minute per VoiceOver step. `Slider`'s default would be a fraction of the
