@@ -117,6 +117,8 @@ final class PlayerBarStore {
 struct PlayerBarItemView: Identifiable {
     let id: String
     let name: String
+    /// The server's Material Design Icons name ("mdi-speaker"), unmapped. See `symbolName`.
+    let icon: String?
     let isPlaying: Bool
     let isPoweredOff: Bool
     let title: String?
@@ -160,6 +162,7 @@ struct PlayerBarItemView: Identifiable {
     init(_ item: PlayerBarItem) {
         self.id = item.playerId
         self.name = item.name
+        self.icon = item.icon
         self.isPlaying = item.isPlaying
         self.isPoweredOff = item.isPoweredOff
         self.title = item.title
@@ -187,6 +190,50 @@ struct PlayerBarItemView: Identifiable {
         self.ownVolumeMuted = item.ownVolumeMuted
         self.volumeSliderAccessible = item.volumeSliderAccessible
         self.groupMembers = item.groupMembers.map(GroupMemberBarItemView.init)
+    }
+
+    /// An SF Symbol for this player, translated from the server's Material Design Icons name.
+    ///
+    /// Music Assistant is a web-first project and names its player icons for Material — nothing
+    /// on iOS can draw those, so they have to be mapped rather than rendered. The table is
+    /// deliberately partial: it covers the kinds of device MA actually reports, and everything
+    /// else lands on a generic speaker, which is true of every player here by definition.
+    ///
+    /// Matching strips the `mdi-` prefix and then looks for a *contained* key rather than an
+    /// exact one, because MA's names are compounds of a base and qualifiers — `mdi-speaker`,
+    /// `mdi-speaker-wireless`, `mdi-cast-audio-variant`. Longest key first, so `speaker-multiple`
+    /// is not swallowed by `speaker`.
+    var symbolName: String {
+        let name = (icon ?? "")
+            .lowercased()
+            .replacingOccurrences(of: "mdi-", with: "")
+        guard !name.isEmpty else { return isGroup ? "hifispeaker.2" : "hifispeaker" }
+
+        let mappings: [(match: String, symbol: String)] = [
+            ("speaker-multiple", "hifispeaker.2"),
+            ("google-home", "homepod"),
+            ("home-assistant", "homepod"),
+            ("disc-player", "opticaldisc"),
+            ("desktop-tower", "desktopcomputer"),
+            ("cellphone", "iphone"),
+            ("television", "tv"),
+            ("headphones", "headphones"),
+            ("soundbar", "hifispeaker.fill"),
+            ("microphone", "mic"),
+            ("speaker", "hifispeaker"),
+            ("monitor", "desktopcomputer"),
+            ("laptop", "laptopcomputer"),
+            ("tablet", "ipad"),
+            ("radio", "radio"),
+            ("watch", "applewatch"),
+            ("cast", "airplayaudio"),
+            ("car", "car"),
+            ("web", "globe"),
+            ("tv", "tv"),
+        ]
+
+        return mappings.first { name.contains($0.match) }?.symbol
+            ?? (isGroup ? "hifispeaker.2" : "hifispeaker")
     }
 }
 

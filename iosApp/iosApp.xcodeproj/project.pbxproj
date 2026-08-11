@@ -28,7 +28,6 @@
 		C8HV00042F61000000000004 /* RecommendationRowTitle.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8HV00142F61000000000014 /* RecommendationRowTitle.swift */; };
 		C8HV00052F61000000000005 /* RecommendationRowTitle.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8HV00142F61000000000014 /* RecommendationRowTitle.swift */; };
 		C8ID00032F5A000000000003 /* ItemDetailsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8ID00132F5A000000000013 /* ItemDetailsView.swift */; };
-		C8PR00022F2D000000000002 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = C8PR00012F2D000000000001 /* PrivacyInfo.xcprivacy */; };
 		C8LC00012F4F000000000001 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = C8LC00112F4F000000000011 /* Localizable.xcstrings */; };
 		C8LL00032F5D000000000003 /* LibraryListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8LL00132F5D000000000013 /* LibraryListView.swift */; };
 		C8LV00032F62000000000003 /* LibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8LV00132F62000000000013 /* LibraryView.swift */; };
@@ -43,6 +42,7 @@
 		C8PL000A2F7000000000000A /* QueueMoveMath.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8PL001A2F7000000000001A /* QueueMoveMath.swift */; };
 		C8PL000B2F7000000000000B /* QueueMoveMath.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8PL001A2F7000000000001A /* QueueMoveMath.swift */; };
 		C8PL000C2F7000000000000C /* HapticSignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8PL001B2F7000000000001B /* HapticSignal.swift */; };
+		C8PR00022F2D000000000002 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = C8PR00012F2D000000000001 /* PrivacyInfo.xcprivacy */; };
 		C8SH00012F3E000000000001 /* AppRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SH00112F3E000000000011 /* AppRouter.swift */; };
 		C8SH00022F3E000000000002 /* AppShellRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SH00122F3E000000000012 /* AppShellRootView.swift */; };
 		C8SH00032F3E000000000003 /* AppTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SH00132F3E000000000013 /* AppTabView.swift */; };
@@ -100,7 +100,6 @@
 		C8HV00132F61000000000013 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		C8HV00142F61000000000014 /* RecommendationRowTitle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecommendationRowTitle.swift; sourceTree = "<group>"; };
 		C8ID00132F5A000000000013 /* ItemDetailsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ItemDetailsView.swift; sourceTree = "<group>"; };
-		C8PR00012F2D000000000001 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		C8LC00112F4F000000000011 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		C8LL00132F5D000000000013 /* LibraryListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryListView.swift; sourceTree = "<group>"; };
 		C8LV00132F62000000000013 /* LibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryView.swift; sourceTree = "<group>"; };
@@ -114,6 +113,7 @@
 		C8PL00192F70000000000019 /* PlayerPickerMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerPickerMenu.swift; sourceTree = "<group>"; };
 		C8PL001A2F7000000000001A /* QueueMoveMath.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QueueMoveMath.swift; sourceTree = "<group>"; };
 		C8PL001B2F7000000000001B /* HapticSignal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HapticSignal.swift; sourceTree = "<group>"; };
+		C8PR00012F2D000000000001 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		C8SH00112F3E000000000011 /* AppRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRouter.swift; sourceTree = "<group>"; };
 		C8SH00122F3E000000000012 /* AppShellRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppShellRootView.swift; sourceTree = "<group>"; };
 		C8SH00132F3E000000000013 /* AppTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTabView.swift; sourceTree = "<group>"; };
@@ -705,11 +705,14 @@
 					"$(SRCROOT)/Frameworks",
 				);
 				INFOPLIST_FILE = iosApp/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Taktgeber;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.music";
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				MARKETING_VERSION = 1.0;
 				PRODUCT_NAME = "${APP_NAME}";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_VERSION = 5.0;
@@ -735,11 +738,14 @@
 					"$(SRCROOT)/Frameworks",
 				);
 				INFOPLIST_FILE = iosApp/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Taktgeber;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.music";
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				MARKETING_VERSION = 1.0;
 				PRODUCT_NAME = "${APP_NAME}";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_VERSION = 5.0;

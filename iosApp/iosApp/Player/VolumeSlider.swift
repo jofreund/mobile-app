@@ -27,10 +27,18 @@ struct VolumeSlider: View {
     /// arriving mid-drag would otherwise yank it back.
     @State private var dragValue: Float?
 
+    /// The value just released, held until the server echoes it back.
+    ///
+    /// Without this the fill snapped to the *old* level for the round trip and then jumped to the
+    /// new one — `volume` is still the pre-change value at the moment the finger lifts, so
+    /// dropping `dragValue` right away falls back to it. The same reason the seek bar keeps a
+    /// `releasedSeekPosition`.
+    @State private var pendingValue: Float?
+
     /// Mirrors `CapsuleSlider`'s own swell so the glyphs can move aside for it.
     @State private var isAdjusting = false
 
-    private var displayValue: Float { dragValue ?? volume ?? 0 }
+    private var displayValue: Float { dragValue ?? pendingValue ?? volume ?? 0 }
 
     var body: some View {
         HStack(spacing: 14) {
@@ -54,6 +62,9 @@ struct VolumeSlider: View {
                         isAdjusting = editing
                     }
                     guard !editing, let level = dragValue else { return }
+                    // Order matters: hand over to `pendingValue` before clearing `dragValue`, or
+                    // `displayValue` falls through to the stale `volume` for a frame.
+                    pendingValue = level
                     onVolumeSet(level)
                     dragValue = nil
                 },
@@ -72,6 +83,17 @@ struct VolumeSlider: View {
                 .offset(x: isAdjusting ? 4 : 0)
         }
         .opacity(enabled ? 1 : 0.4)
+        // Any change to `volume` is the round trip closing: either the server took our value, or
+        // something else moved it and that reading should win. Either way stop overriding.
+        .onChange(of: volume) { _, _ in pendingValue = nil }
+        // Backstop. A server that clamps our value to what it already had emits no change at all,
+        // and the fill would sit on a level the player never reached until the next event.
+        .task(id: pendingValue) {
+            guard pendingValue != nil else { return }
+            try? await Task.sleep(for: .seconds(3))
+            guard !Task.isCancelled else { return }
+            pendingValue = nil
+        }
     }
 
     @ViewBuilder

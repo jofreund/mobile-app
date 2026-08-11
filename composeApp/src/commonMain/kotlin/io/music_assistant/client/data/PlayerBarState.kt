@@ -20,6 +20,12 @@ import io.music_assistant.client.ui.compose.common.DataState
 data class PlayerBarItem(
     val playerId: String,
     val name: String,
+    /**
+     * The server's own icon for this player, as a Material Design Icons name ("mdi-speaker",
+     * "mdi-cast"). Passed through unmapped: what an `mdi-` name should look like is a platform
+     * question, and Swift answers it in `PlayerBarItemView.symbolName`.
+     */
+    val icon: String?,
     val isPlaying: Boolean,
     val isPoweredOff: Boolean,
     val title: String?,
@@ -224,6 +230,7 @@ internal fun buildPlayerBarState(
             PlayerBarItem(
                 playerId = data.playerId,
                 name = player.nameAndSuffix,
+                icon = player.icon,
                 isPlaying = player.isPlaying,
                 isPoweredOff = player.isPoweredOff,
                 title = player.currentMedia?.title,

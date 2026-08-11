@@ -21,12 +21,17 @@ struct PlayerPickerMenu: View {
                 Button {
                     store.selectPlayer(id: candidate.id)
                 } label: {
-                    // A menu button renders its label's image where a checkmark goes, so this
-                    // is how "currently selected" is spelled in a menu — leading, not trailing.
+                    // A menu button renders its label's image where a checkmark goes — one slot,
+                    // and the checkmark owns it. So the device icon goes *inside* the title
+                    // instead, interpolated into the Text, which leaves the image slot free to
+                    // still mark the selected player. Putting the icon in the slot would have
+                    // meant the current player losing its icon, which is the one row where the
+                    // list would look broken.
+                    let label = Text("\(Image(systemName: candidate.symbolName))  \(candidate.name)")
                     if candidate.id == currentId {
-                        Label(candidate.name, systemImage: "checkmark")
+                        Label { label } icon: { Image(systemName: "checkmark") }
                     } else {
-                        Text(candidate.name)
+                        label
                     }
                 }
             }
