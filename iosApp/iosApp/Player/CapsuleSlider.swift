@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import os
 
 /// Temporary. Answers one question: when a finger lands on a slider and stays still, how long
@@ -126,7 +127,7 @@ struct CapsuleSlider: View {
             // perceptibly later than the seek bar, which has no such sibling. Claiming the touch
             // outright removes the wait, and there is nothing to lose by it — a drag that starts
             // on a slider is meant for the slider, never for the page behind it.
-            .highPriorityGesture(scrub(width: width))
+            .highPriorityGesture(scrub(width: width, frame: proxy.frame(in: .global)))
         }
         .frame(height: rowHeight)
         .opacity(isEnabled ? 1 : 0.4)
@@ -148,7 +149,7 @@ struct CapsuleSlider: View {
         return width * CGFloat(min(max(fraction, 0), 1))
     }
 
-    private func scrub(width: CGFloat) -> some Gesture {
+    private func scrub(width: CGFloat, frame: CGRect) -> some Gesture {
         // Zero minimum distance so the bar responds to the touch itself, not only to movement —
         // but see below: responding is not the same as seeking.
         DragGesture(minimumDistance: 0)
@@ -164,7 +165,7 @@ struct CapsuleSlider: View {
                     let now = ProcessInfo.processInfo.systemUptime
                     let latencyMs = Int((now - event) * 1000)
                     sliderLog.info(
-                        "[\(debugLabel, privacy: .public)] down latency=\(latencyMs, privacy: .public)ms event=\(event, privacy: .public) now=\(now, privacy: .public)"
+                        "[\(debugLabel, privacy: .public)] down latency=\(latencyMs, privacy: .public)ms y=\(Int(frame.minY), privacy: .public)...\(Int(frame.maxY), privacy: .public) x=\(Int(frame.minX), privacy: .public)...\(Int(frame.maxX), privacy: .public) screen=\(Int(UIScreen.main.bounds.height), privacy: .public)"
                     )
                     // A touch arriving during a held-open swell takes it over rather than
                     // letting the old collapse fire underneath the new gesture.
