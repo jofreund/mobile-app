@@ -16,25 +16,34 @@ struct PlayerPickerMenu: View {
     let currentId: String
 
     var body: some View {
-        Section(String(localized: "players_title")) {
-            ForEach(store.players) { candidate in
-                Button {
-                    store.selectPlayer(id: candidate.id)
-                } label: {
-                    // A menu button renders its label's image where a checkmark goes — one slot,
-                    // and the checkmark owns it. So the device icon goes *inside* the title
-                    // instead, interpolated into the Text, which leaves the image slot free to
-                    // still mark the selected player. Putting the icon in the slot would have
-                    // meant the current player losing its icon, which is the one row where the
-                    // list would look broken.
-                    let label = Text("\(Image(systemName: candidate.symbolName))  \(candidate.name)")
-                    if candidate.id == currentId {
-                        Label { label } icon: { Image(systemName: "checkmark") }
-                    } else {
-                        label
-                    }
-                }
+        // Selection is shown by grouping, not by a checkmark.
+        //
+        // A menu button has exactly one image slot and the checkmark owns it, so a row cannot
+        // carry both a checkmark and its device icon. Interpolating the icon into the title text
+        // instead was tried and silently renders nothing — menu rows are UIKit, and an image
+        // attachment in the title is not something they draw.
+        //
+        // So the checkmark goes, and the current player gets its own section. Every row keeps its
+        // icon, which was the point, and "which one am I on" is answered by a heading rather than
+        // by a mark the eye has to hunt for.
+        Section(String(localized: "players_current_section")) {
+            if let current = store.players.first(where: { $0.id == currentId }) {
+                row(for: current)
             }
+        }
+
+        Section(String(localized: "players_title")) {
+            ForEach(store.players.filter { $0.id != currentId }) { candidate in
+                row(for: candidate)
+            }
+        }
+    }
+
+    private func row(for candidate: PlayerBarItemView) -> some View {
+        Button {
+            store.selectPlayer(id: candidate.id)
+        } label: {
+            Label(candidate.name, systemImage: candidate.symbolName)
         }
     }
 }

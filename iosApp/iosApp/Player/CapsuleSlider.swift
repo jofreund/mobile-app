@@ -44,6 +44,21 @@ struct CapsuleSlider: View {
 
     @State private var isScrubbing = false
 
+    /// When the current touch landed, and the pending collapse it may have to wait for.
+    ///
+    /// A tap lifts within a few frames of landing, so swelling on touch-down and settling on
+    /// touch-up put both animations in the same moment and the swell could pass unseen — the
+    /// feedback the whole handle-less design rests on, lost precisely on the shortest gesture.
+    /// Holding it briefly makes a tap look like a tap on both sliders instead of depending on
+    /// how long a finger happened to linger.
+    ///
+    /// Only the *visual* settle waits. `onEditingChanged(false)` still fires immediately, so
+    /// nothing about committing a value is delayed by this.
+    @State private var touchBeganAt: Date?
+    @State private var pendingCollapse: Task<Void, Never>?
+
+    private let minimumSwell: TimeInterval = 0.3
+
     /// Non-nil once the touch has travelled far enough to count as a drag. Until then the bar is
     /// swollen but the value is untouched, which is what keeps a tap from seeking.
     @State private var dragOrigin: CGFloat?
@@ -116,6 +131,11 @@ struct CapsuleSlider: View {
             .onChanged { gesture in
                 guard isEnabled else { return }
                 if !isScrubbing {
+                    // A touch arriving during a held-open swell takes it over rather than
+                    // letting the old collapse fire underneath the new gesture.
+                    pendingCollapse?.cancel()
+                    pendingCollapse = nil
+                    touchBeganAt = Date()
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                         isScrubbing = true
                     }
@@ -141,13 +161,31 @@ struct CapsuleSlider: View {
             }
             .onEnded { _ in
                 guard isEnabled else { return }
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                    isScrubbing = false
-                }
                 dragOrigin = nil
                 dragAnchorValue = nil
+                // Immediately, so a committed seek or volume change is never held up by the
+                // animation below.
                 onEditingChanged(false)
+
+                let held = touchBeganAt.map { Date().timeIntervalSince($0) } ?? minimumSwell
+                let remaining = minimumSwell - held
+                guard remaining > 0 else {
+                    settle()
+                    return
+                }
+                pendingCollapse = Task { @MainActor in
+                    try? await Task.sleep(for: .seconds(remaining))
+                    guard !Task.isCancelled else { return }
+                    settle()
+                }
             }
+    }
+
+    @MainActor
+    private func settle() {
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            isScrubbing = false
+        }
     }
 
     /// Movement is applied *relative* to where the playhead already was, rather than jumping to
