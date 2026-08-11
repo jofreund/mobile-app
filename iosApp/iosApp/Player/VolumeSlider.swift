@@ -8,19 +8,19 @@ import SwiftUI
 /// numeric readout. The value is legible from the track itself, and a percentage invites reading
 /// a slider as a number to hit rather than a level to feel.
 ///
-/// The left glyph doubles as the mute toggle where the player supports muting ([canMute]),
-/// switching to a struck-through speaker when muted. That keeps mute reachable without adding a
-/// third control to a row that is meant to read as two icons and a track. Where a player can't
-/// mute, the same glyph stays as a plain indicator.
+/// The left glyph used to double as a mute toggle. It is a plain indicator now — still
+/// struck-through while muted, but not tappable. As a `Button` it shared the row with the slider
+/// and was a candidate for touches meant for the bar, which is being ruled out as the cause of
+/// the bar's delayed response to a tap. `PlayerBarStore.toggleMute`/`toggleGroupMute`/
+/// `toggleMemberMute` and their Kotlin bridges are all still in place, so restoring this is a
+/// matter of putting the Button back.
 struct VolumeSlider: View {
 
     /// Already 0...100 — `Player.currentVolume`'s own scale, which Compose's slider used
     /// directly too. Nothing here divides or multiplies by 100.
     let volume: Float?
     let isMuted: Bool
-    let canMute: Bool
     let enabled: Bool
-    let onMuteToggle: () -> Void
     let onVolumeSet: (Float) -> Void
 
     /// Held locally so the fill tracks the finger, then handed over on release. Server echoes
@@ -59,14 +59,11 @@ struct VolumeSlider: View {
                 step: 5,
                 valueDescription: { (($0) / 100).formatted(.percent.precision(.fractionLength(0))) },
                 onEditingChanged: { editing in
-                    // Plain assignment, with the animation scoped to the glyphs below.
-                    //
-                    // Wrapping this in `withAnimation` made the volume bar visibly slower to
-                    // swell than the seek bar. The transaction is open while this state change
-                    // re-renders the whole subtree — `CapsuleSlider` included — so the bar's own
-                    // spring was being overridden by the caller's, on a value the bar knows
-                    // nothing about. The seek bar never had the problem because its parent
-                    // animates with a scoped `.animation(_:value:)` instead.
+                    // Plain assignment, with the animation scoped to the glyphs below, so the
+                    // caller's transaction cannot re-time `CapsuleSlider`'s own spring. This was
+                    // once believed to be why the bar swelled late; it was not — the seek bar's
+                    // caller uses `withAnimation` and has never been slow. Kept because scoping
+                    // an animation to the views it applies to is right regardless.
                     isAdjusting = editing
                     guard !editing, let level = dragValue else { return }
                     // Order matters: hand over to `pendingValue` before clearing `dragValue`, or
@@ -104,27 +101,9 @@ struct VolumeSlider: View {
         }
     }
 
-    @ViewBuilder
     private var leadingIcon: some View {
-        if canMute {
-            Button(action: onMuteToggle) {
-                icon(muted: isMuted)
-                    // Pins the tappable area to the glyph itself. Without it the button's hit
-                    // region reaches past its label into the rest of the row — the same reason
-                    // `.borderless` is a hazard in list rows — and the slider's drag then had to
-                    // wait for the button's gesture to fail before it could start. That wait is
-                    // the delay: a tap on the bar resolved too late to look like a response, and
-                    // only a drag, which the button loses outright, felt immediate.
-                    .contentShape(.rect)
-            }
-            // `.plain` rather than `.borderless` for the same reason.
-            .buttonStyle(.plain)
-            .disabled(!enabled)
-            .accessibilityLabel(String(localized: isMuted ? "cd_unmute" : "cd_mute"))
-        } else {
-            icon(muted: false)
-                .accessibilityHidden(true)
-        }
+        icon(muted: isMuted)
+            .accessibilityHidden(true)
     }
 
     private func icon(muted: Bool) -> some View {

@@ -48,9 +48,7 @@ struct GroupSettingsView: View {
                     VolumeSlider(
                         volume: player.groupVolume,
                         isMuted: player.groupVolumeMuted,
-                        canMute: true,
                         enabled: player.groupVolume != nil,
-                        onMuteToggle: { store.toggleGroupMute(id: player.id, isMutedNow: player.groupVolumeMuted) },
                         onVolumeSet: { store.setGroupVolume(id: player.id, level: $0) }
                     )
                 } header: {
@@ -69,9 +67,7 @@ struct GroupSettingsView: View {
                             VolumeSlider(
                                 volume: player.groupVolume,
                                 isMuted: player.groupVolumeMuted,
-                                canMute: player.canMute,
                                 enabled: player.volumeSliderAccessible,
-                                onMuteToggle: { store.toggleGroupMute(id: player.id, isMutedNow: player.groupVolumeMuted) },
                                 onVolumeSet: { store.setGroupVolume(id: player.id, level: $0) }
                             )
                         }
@@ -79,9 +75,7 @@ struct GroupSettingsView: View {
                         VolumeSlider(
                             volume: player.ownVolume,
                             isMuted: player.ownVolumeMuted,
-                            canMute: player.canMute,
                             enabled: player.volumeSliderAccessible,
-                            onMuteToggle: { store.toggleMemberMute(id: player.id, isMutedNow: player.ownVolumeMuted) },
                             onVolumeSet: { store.setMemberVolume(id: player.id, level: $0) }
                         )
                     }
@@ -137,9 +131,7 @@ private struct GroupMemberRow: View {
             VolumeSlider(
                 volume: member.volume,
                 isMuted: member.isMuted,
-                canMute: member.canMute,
                 enabled: member.isBound && member.volumeSliderAccessible && member.volume != nil,
-                onMuteToggle: { store.toggleMemberMute(id: member.id, isMutedNow: member.isMuted) },
                 onVolumeSet: { store.setMemberVolume(id: member.id, level: $0) }
             )
         }

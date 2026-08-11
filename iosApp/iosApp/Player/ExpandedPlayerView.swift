@@ -708,9 +708,7 @@ private struct ExpandedPlayerRow: View {
                 VolumeSlider(
                     volume: volume,
                     isMuted: player.isMuted,
-                    canMute: player.canMute,
                     enabled: true,
-                    onMuteToggle: { store.toggleMute(id: player.id) },
                     onVolumeSet: { store.setVolume(id: player.id, level: $0) }
                 )
             }
