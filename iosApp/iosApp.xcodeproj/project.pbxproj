@@ -39,7 +39,6 @@
 		C8PL00052F70000000000005 /* ExpandedPlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8PL00152F70000000000015 /* ExpandedPlayerView.swift */; };
 		C8PL00072F70000000000007 /* GroupSettingsContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8PL00172F70000000000017 /* GroupSettingsContent.swift */; };
 		C8PL00082F70000000000008 /* VolumeSlider.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8PL00182F70000000000018 /* VolumeSlider.swift */; };
-		C8PL00092F70000000000009 /* PlayerPickerMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8PL00192F70000000000019 /* PlayerPickerMenu.swift */; };
 		C8PL000A2F7000000000000A /* QueueMoveMath.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8PL001A2F7000000000001A /* QueueMoveMath.swift */; };
 		C8PL000B2F7000000000000B /* QueueMoveMath.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8PL001A2F7000000000001A /* QueueMoveMath.swift */; };
 		C8PL000C2F7000000000000C /* HapticSignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8PL001B2F7000000000001B /* HapticSignal.swift */; };
@@ -112,7 +111,6 @@
 		C8PL00152F70000000000015 /* ExpandedPlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExpandedPlayerView.swift; sourceTree = "<group>"; };
 		C8PL00172F70000000000017 /* GroupSettingsContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupSettingsContent.swift; sourceTree = "<group>"; };
 		C8PL00182F70000000000018 /* VolumeSlider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VolumeSlider.swift; sourceTree = "<group>"; };
-		C8PL00192F70000000000019 /* PlayerPickerMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerPickerMenu.swift; sourceTree = "<group>"; };
 		C8PL001A2F7000000000001A /* QueueMoveMath.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QueueMoveMath.swift; sourceTree = "<group>"; };
 		C8PL001B2F7000000000001B /* HapticSignal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HapticSignal.swift; sourceTree = "<group>"; };
 		C8PR00012F2D000000000001 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
@@ -291,7 +289,6 @@
 				C8PL00152F70000000000015 /* ExpandedPlayerView.swift */,
 				C8PL00172F70000000000017 /* GroupSettingsContent.swift */,
 				C8PL00182F70000000000018 /* VolumeSlider.swift */,
-				C8PL00192F70000000000019 /* PlayerPickerMenu.swift */,
 				C8PL001A2F7000000000001A /* QueueMoveMath.swift */,
 				C8PL001B2F7000000000001B /* HapticSignal.swift */,
 			);
@@ -533,7 +530,6 @@
 				C8PL00052F70000000000005 /* ExpandedPlayerView.swift in Sources */,
 				C8PL00072F70000000000007 /* GroupSettingsContent.swift in Sources */,
 				C8PL00082F70000000000008 /* VolumeSlider.swift in Sources */,
-				C8PL00092F70000000000009 /* PlayerPickerMenu.swift in Sources */,
 				C8PL000A2F7000000000000A /* QueueMoveMath.swift in Sources */,
 				C8PL000C2F7000000000000C /* HapticSignal.swift in Sources */,
 				C8HV00042F61000000000004 /* RecommendationRowTitle.swift in Sources */,

@@ -123,6 +123,7 @@ private struct MiniPlayerRow: View {
     let onExpand: () -> Void
 
     @State private var haptic = HapticSignal()
+    @State private var showPicker = false
 
     /// The player's name leads, ahead of the artist: in a multi-room app that's what tells you
     /// which speaker you're about to control.
@@ -133,15 +134,26 @@ private struct MiniPlayerRow: View {
     }
 
     var body: some View {
-        // Only worth a long press when there's a choice to make. An unconditional
-        // `.contextMenu` would still trigger on a single-player setup and open an empty menu.
-        if store.players.count > 1 {
-            // Long press *is* the context menu gesture on iOS, so this brings the press-and-hold
-            // haptic and the lifted preview with it, and needs no gesture of its own. Same
-            // content as the expanded player's picker.
-            inAccessory(card.contextMenu { PlayerPickerMenu(store: store, currentId: player.id) })
-        } else {
-            inAccessory(card)
+        // Only worth a long press when there's a choice to make.
+        //
+        // This was a `contextMenu` — long press *is* the context-menu gesture, so it came with
+        // the press haptic and the lifted preview for free. The preview was the problem: it
+        // renders the row outside the tab accessory it is laid out for, at a size that does not
+        // match the bar, so the content visibly jumped as it lifted. Shrinking what the preview
+        // sees helped and did not cure it.
+        //
+        // A long press opening the same sheet the expanded player uses has no preview to get
+        // wrong, and makes one list the single answer to "which player" everywhere.
+        inAccessory(
+            card
+                .onLongPressGesture(minimumDuration: 0.4) {
+                    guard store.players.count > 1 else { return }
+                    haptic.fire(.impact(weight: .medium))
+                    showPicker = true
+                }
+        )
+        .sheet(isPresented: $showPicker) {
+            PlayerPickerSheet(player: player, store: store)
         }
     }
 
