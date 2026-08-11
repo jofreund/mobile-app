@@ -94,9 +94,7 @@ private struct ExpandedPlayerRow: View {
                 hero
                     .gesture(dismissGesture)
             }
-            if player.title != nil {
-                seekSection
-            }
+            seekSection
             transportRow
             volumeRow
             HStack(spacing: 12) {
@@ -563,8 +561,14 @@ private struct ExpandedPlayerRow: View {
         livePosition ?? player.elapsedTime ?? 0
     }
 
+    /// Whether there is anything to seek through. A player sitting idle still gets a bar — see
+    /// `seekSection` — it just has no position in it.
+    private var hasTrack: Bool { player.title != nil }
+
     private var sliderValue: Double {
-        guard !player.isPoweredOff else { return 0 }
+        // Pinned to zero with no track, so a position left over from the player selected a moment
+        // ago cannot briefly draw a fill on an idle one.
+        guard hasTrack, !player.isPoweredOff else { return 0 }
         return userDragPosition ?? releasedSeekPosition ?? displayPosition
     }
 
@@ -592,10 +596,15 @@ private struct ExpandedPlayerRow: View {
                     releasedSeekPosition = seekPosition
                     store.seek(id: player.id, seconds: seekPosition)
                     userDragPosition = nil
-                },
+                }
             )
             .disabled(!player.canPlay || player.isPoweredOff)
+            // Inert rather than disabled when there is nothing to seek through. `.disabled` would
+            // fade the bar to 40%, and the point of keeping it is that an idle player still shows
+            // a visible grey track rather than a gap.
+            .allowsHitTesting(hasTrack)
             .accessibilityLabel(String(localized: "cd_playback_position"))
+            .accessibilityHidden(!hasTrack)
 
             HStack {
                 Text(formattedDuration(sliderValue))
@@ -607,6 +616,11 @@ private struct ExpandedPlayerRow: View {
             // where you are actually going to land, so it stops being secondary information.
             .foregroundStyle(isScrubbing ? .primary : .secondary)
             .animation(.easeOut(duration: 0.2), value: isScrubbing)
+            // Invisible rather than absent: the space is kept, which is the whole reason this
+            // section stays on screen for an idle player. Showing 0:00 / 0:00 would be worse than
+            // showing nothing — it reads as a loaded track that has not started.
+            .opacity(hasTrack ? 1 : 0)
+            .accessibilityHidden(!hasTrack)
         }
     }
 
