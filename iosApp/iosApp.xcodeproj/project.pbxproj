@@ -73,6 +73,9 @@
 		C8ST00082F63000000000008 /* ConnectionValidation.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8ST00182F63000000000018 /* ConnectionValidation.swift */; };
 		C8ST00092F63000000000009 /* LocalNetworkPermission.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8ST00192F63000000000019 /* LocalNetworkPermission.swift */; };
 		C8SV00032F60000000000003 /* SearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SV00132F60000000000013 /* SearchView.swift */; };
+		C8SS00032F80000000000003 /* SearchSections.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SS00132F80000000000013 /* SearchSections.swift */; };
+		C8SS00042F80000000000004 /* SearchSections.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SS00132F80000000000013 /* SearchSections.swift */; };
+		C8SS00052F80000000000005 /* SearchSectionsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SS00232F80000000000023 /* SearchSectionsTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -138,6 +141,8 @@
 		C8ST00182F63000000000018 /* ConnectionValidation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionValidation.swift; sourceTree = "<group>"; };
 		C8ST00192F63000000000019 /* LocalNetworkPermission.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalNetworkPermission.swift; sourceTree = "<group>"; };
 		C8SV00132F60000000000013 /* SearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchView.swift; sourceTree = "<group>"; };
+		C8SS00132F80000000000013 /* SearchSections.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchSections.swift; sourceTree = "<group>"; };
+		C8SS00232F80000000000023 /* SearchSectionsTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SearchSectionsTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -179,6 +184,7 @@
 			isa = PBXGroup;
 			children = (
 				2FE624765BDE4DC4138CA719 /* RecommendationRowTitleTests.swift */,
+				C8SS00232F80000000000023 /* SearchSectionsTests.swift */,
 				2FE624765BDE4DC4138CA718 /* LibraryListReconcilerTests.swift */,
 				2FE624765BDE4DC4138CA717 /* SharedLoadRegistryTests.swift */,
 				2FE624765BDE4DC4138CA716 /* ArtworkCacheKeyTests.swift */,
@@ -343,6 +349,7 @@
 			isa = PBXGroup;
 			children = (
 				C8SV00132F60000000000013 /* SearchView.swift */,
+				C8SS00132F80000000000013 /* SearchSections.swift */,
 			);
 			path = Search;
 			sourceTree = "<group>";
@@ -474,6 +481,8 @@
 			files = (
 				C8HV00052F61000000000005 /* RecommendationRowTitle.swift in Sources */,
 				C29F123E61DAA17B671EC95E /* RecommendationRowTitleTests.swift in Sources */,
+				C8SS00052F80000000000005 /* SearchSectionsTests.swift in Sources */,
+				C8SS00042F80000000000004 /* SearchSections.swift in Sources */,
 				C29F123E61DAA17B671EC95D /* LibraryListReconcilerTests.swift in Sources */,
 				C29F123E61DAA17B671EC95C /* SharedLoadRegistryTests.swift in Sources */,
 				C29F123E61DAA17B671EC95B /* ArtworkCacheKeyTests.swift in Sources */,
@@ -525,6 +534,7 @@
 				C8BR00032F5E000000000003 /* BrowseView.swift in Sources */,
 				C8FS00032F5F000000000003 /* LibraryFilterSheet.swift in Sources */,
 				C8SV00032F60000000000003 /* SearchView.swift in Sources */,
+				C8SS00032F80000000000003 /* SearchSections.swift in Sources */,
 				C8PL00032F70000000000003 /* PlayerBarStore.swift in Sources */,
 				C8PL00042F70000000000004 /* MiniPlayerView.swift in Sources */,
 				C8PL00052F70000000000005 /* ExpandedPlayerView.swift in Sources */,
