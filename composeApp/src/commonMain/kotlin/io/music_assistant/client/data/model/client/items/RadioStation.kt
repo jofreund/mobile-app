@@ -18,6 +18,8 @@ data class RadioStation(
     override val images: Map<ImageType, ImageInfo>,
     override val version: String?,
     override val isPlayable: Boolean,
+    /** Server-derived: a dynamic station whose stream is generated per listener (2.10+). */
+    val isDynamic: Boolean,
 ) : AppMediaItem(), PlayableItem {
     override val mediaType: MediaType = MediaType.RADIO
     override val duration: Double? = null

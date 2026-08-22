@@ -152,6 +152,7 @@ class MediaItemFactory(
                 images = resolveImageInfo(image, metadata),
                 version = version,
                 isPlayable = isPlayable == true,
+                isDynamic = isDynamic == true,
             )
 
             MediaType.AUDIOBOOK -> Audiobook(

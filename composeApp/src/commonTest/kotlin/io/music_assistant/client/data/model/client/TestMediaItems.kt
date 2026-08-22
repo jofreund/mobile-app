@@ -42,6 +42,7 @@ internal fun testPlaylist(isDynamic: Boolean = false) = Playlist(
 internal fun testRadio(isPlayable: Boolean = true) = RadioStation(
     itemId = "id", provider = "test", name = "name", providerMappings = null, metadata = null,
     favorite = null, uri = null, images = emptyMap(), version = null, isPlayable = isPlayable,
+    isDynamic = false,
 )
 
 internal fun testPodcastEpisode(isPlayable: Boolean = true) = PodcastEpisode(
