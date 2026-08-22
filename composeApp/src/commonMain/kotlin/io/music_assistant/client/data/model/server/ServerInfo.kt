@@ -12,12 +12,18 @@ import kotlinx.serialization.Serializable
  * every connect, and a server whose `min_supported_schema_version` had passed 31 would have hit
  * CLIENT_INCOMPATIBLE, which is the terminal dialog that offers only Exit.
  *
- * 43 is defensible here for the same reason it is upstream: the 39→43 bump was a constant change
+ * 43 was defensible for the same reason it was upstream: the 39→43 bump was a constant change
  * with no accompanying code, so schemas 40-43 asked nothing of the client. The one capability
  * that did need gating — the recommendations rows/items split in schema 39 — is handled
  * separately by `RECOMMENDATION_ITEMS_SCHEMA` in `MediaItemRepository`, which is already correct.
+ *
+ * 54 (2026-08-22): Music Assistant 2.10.0rc4 reports schema 54 with min_supported 28, and the
+ * app was raising the dismissible "App-Update empfohlen" alert on every launch against it while
+ * playback, library, queue and recommendations all worked. Nothing in this client gates on a
+ * schema above 39 (`IMAGEPROXY_OPAQUE_SCHEMA` = 31, `RECOMMENDATION_ITEMS_SCHEMA` = 39), so
+ * 44-54 ask nothing of the client either; this is the tested-against value, not a capability.
  */
-const val LOCAL_SCHEMA_VERSION = 43
+const val LOCAL_SCHEMA_VERSION = 54
 
 @Serializable
 data class ServerInfo(
