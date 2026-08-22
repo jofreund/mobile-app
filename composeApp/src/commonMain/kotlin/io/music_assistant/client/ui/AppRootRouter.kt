@@ -173,6 +173,14 @@ class AppRootRouter(
                     AppRootDestination.MAIN
 
                 state.authProcessState is AuthProcessState.Failed -> AppRootDestination.SETTINGS
+
+                // Connected, but no token to auto-login with (e.g. the server revoked it and
+                // AuthenticationManager cleared it). AuthMgr logs "no saved token" and stops;
+                // without this the user stays on Main with every request timing out.
+                state.dataConnectionState is DataConnectionState.AwaitingAuth &&
+                    state.authProcessState is AuthProcessState.NotStarted &&
+                    !authManager.hasSavedTokenFor(state) -> AppRootDestination.SETTINGS
+
                 else -> null // other Connected sub-states don't force a screen
             }
 

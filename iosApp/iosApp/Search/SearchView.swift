@@ -3,12 +3,12 @@ import MusicAssistantKit
 
 /// The Search tab's root — Phase E3. Reimplements `SearchScreen.kt`/`SearchViewModel.kt`
 /// natively rather than wrapping the Kotlin ViewModel, the same approach E2 established for
-/// `LibraryListView`: explicit-trigger search (fires on submit or a filter Apply, not per
+/// `LibraryListView`: explicit-trigger search (fires on submit or a change of filter, not per
 /// keystroke — `SearchViewModel.onQueryChanged` only updates state, it doesn't itself trigger a
-/// search), a media-type filter sheet, and a flat list when exactly one type has results or a
-/// sectioned list when more than one does, matching `SearchContent`'s own branch. GENRE is
-/// excluded throughout, same as `SearchState.mediaTypes`' commented-out entry — the server
-/// doesn't return genres from this endpoint.
+/// search), a row of media-type chips over the results, and headers only when more than one type
+/// is on screen, matching `SearchContent`'s own branch. GENRE is excluded throughout, same as
+/// `SearchState.mediaTypes`' commented-out entry — the server doesn't return genres from this
+/// endpoint.
 struct SearchView: View {
 
     @State private var query = ""
@@ -17,7 +17,7 @@ struct SearchView: View {
     ///
     /// A section id rather than a `MediaType` because the chips filter what is already on
     /// screen — they never change the query, so they have nothing to say to the server and the
-    /// selection only has to name one of the sections `nonEmptySections` produced.
+    /// selection only has to name one of the sections a search produced.
     @State private var selectedSectionId: String?
 
     /// The one filter that *is* part of the query rather than a view over the results, so it
@@ -25,9 +25,27 @@ struct SearchView: View {
     /// design of its own.
     @State private var libraryOnly = false
 
-    @State private var results: SearchResultData?
+    /// The results, already grouped by type — nil until a search lands.
+    ///
+    /// Grouped once, when a reply arrives, rather than derived inside `content`: every group
+    /// holds a fresh `MediaItem` per row, and each of those reads title, subtitle and artwork
+    /// back across the Kotlin bridge in its `init`. `content` re-runs on every keystroke and on
+    /// every chip tap, so deriving it there rebuilt up to `SEARCH_RESULT_LIMIT` × 7 items — 1400
+    /// of them, several bridge calls each, on the main thread — to answer a tap that only changes
+    /// which of them to show. That is enough work to swallow a tap, and it is pure waste: the
+    /// items cannot have changed, only the selection has.
+    @State private var sections: [SearchSection<MediaItem>]?
+
     @State private var isSearching = false
     @State private var searchFailed = false
+
+    /// Which search the screen belongs to, so a slow reply cannot land on top of a newer one.
+    ///
+    /// Nothing cancels an in-flight `searchDetailed`, and two can easily be in the air at once —
+    /// toggling library-only starts one while a submitted query is still running. Whichever
+    /// replied last used to win, and since a landing reply also clears `selectedSectionId`, a
+    /// straggler both restored older results and threw away the chip the user had just tapped.
+    @State private var searchGeneration = 0
 
     @FocusState private var isSearchFieldFocused: Bool
 
@@ -55,7 +73,7 @@ struct SearchView: View {
             }
             .onChange(of: query) {
                 if query.isEmpty {
-                    results = nil
+                    sections = nil
                     searchFailed = false
                 }
             }
@@ -83,8 +101,7 @@ struct SearchView: View {
 
     @ViewBuilder
     private var content: some View {
-        if let results {
-            let sections = nonEmptySections(results)
+        if let sections {
             if sections.isEmpty {
                 SearchPlaceholder(closesSearch: false, searchFieldFocused: $isSearchFieldFocused) {
                     ContentUnavailableView(String(localized: "search_no_results"), systemImage: "magnifyingglass")
@@ -96,7 +113,7 @@ struct SearchView: View {
                     if sections.count > 1 {
                         chipBar(sections)
                     }
-                    resultList(visibleSections(sections))
+                    resultList(SearchSections.visible(sections, selection: selectedSectionId))
                 }
             }
         } else if searchFailed {
@@ -114,17 +131,7 @@ struct SearchView: View {
         }
     }
 
-    /// The chosen group, or all of them — falling back to all when a chip's group has vanished
-    /// under a newer search rather than showing an empty screen for a selection that no longer
-    /// names anything.
-    private func visibleSections(_ sections: [SearchSection]) -> [SearchSection] {
-        guard let selectedSectionId,
-              let chosen = sections.first(where: { $0.id == selectedSectionId })
-        else { return sections }
-        return [chosen]
-    }
-
-    private func chipBar(_ sections: [SearchSection]) -> some View {
+    private func chipBar(_ sections: [SearchSection<MediaItem>]) -> some View {
         ScrollView(.horizontal) {
             HStack(spacing: 8) {
                 chip(String(localized: "search_filter_all"), isSelected: selectedSectionId == nil) {
@@ -150,44 +157,49 @@ struct SearchView: View {
                 .padding(.horizontal, 14)
                 .padding(.vertical, 7)
                 .background(isSelected ? AnyShapeStyle(.tint) : AnyShapeStyle(.quaternary), in: .capsule)
+                // The padding is half the chip, and padding draws nothing — so without this the
+                // hit region is whatever the background style happens to paint. Stating the
+                // shape makes the whole capsule tappable, the same reason `SearchResultRow`
+                // states one for its row.
+                .contentShape(.capsule)
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
 
-    @ViewBuilder
-    private func resultList(_ sections: [SearchSection]) -> some View {
-        // One group needs no header — either there is only one kind of result, or a chip is
-        // already naming it.
-        if sections.count == 1 {
-            List(sections[0].items) { item in
-                SearchResultRow(item: item)
-            }
-            .listStyle(.plain)
-        } else {
-            List {
-                ForEach(sections) { section in
-                    Section(section.title) {
-                        ForEach(section.items) { item in
-                            SearchResultRow(item: item)
-                        }
-                    }
+    /// One `List`, whichever the chips are showing.
+    ///
+    /// It used to be two — a flat `List(items)` for a single group and a sectioned one for
+    /// several — which meant a chip tap swapped one view type for another in the same position.
+    /// SwiftUI cannot diff across that: it tears the whole list down and builds a new one, so a
+    /// tap that should have re-labelled a header and dropped some rows instead threw away the
+    /// scroll position and every row's identity. Same structure either way now; only the headers
+    /// come and go.
+    private func resultList(_ sections: [SearchSection<MediaItem>]) -> some View {
+        List {
+            ForEach(sections) { section in
+                // One group needs no header — either there is only one kind of result, or a
+                // chip is already naming it.
+                if sections.count > 1 {
+                    Section(section.title) { rows(section) }
+                } else {
+                    Section { rows(section) }
                 }
             }
-            .listStyle(.plain)
         }
+        .listStyle(.plain)
     }
 
-    private struct SearchSection: Identifiable {
-        let id: String
-        let title: String
-        let items: [MediaItem]
+    private func rows(_ section: SearchSection<MediaItem>) -> some View {
+        ForEach(section.items) { item in
+            SearchResultRow(item: item)
+        }
     }
 
     /// Fixed order — mirrors `SearchViewModel.SearchResults.nonEmptyLists`: Tracks, Artists,
     /// Albums, Playlists, Podcasts, Audiobooks, Radio.
-    private func nonEmptySections(_ result: SearchResultData) -> [SearchSection] {
-        [
+    private static func sections(from result: SearchResultData) -> [SearchSection<MediaItem>] {
+        SearchSections.nonEmpty([
             SearchSection(id: "tracks", title: String(localized: "media_type_tracks"), items: result.tracks.map(MediaItem.init)),
             SearchSection(id: "artists", title: String(localized: "media_type_artists"), items: result.artists.map(MediaItem.init)),
             SearchSection(id: "albums", title: String(localized: "media_type_albums"), items: result.albums.map(MediaItem.init)),
@@ -207,17 +219,19 @@ struct SearchView: View {
                 items: result.audiobooks.map(MediaItem.init)
             ),
             SearchSection(id: "radios", title: String(localized: "media_type_radio"), items: result.radios.map(MediaItem.init)),
-        ].filter { !$0.items.isEmpty }
+        ])
     }
 
     @MainActor
     private func performSearch() async {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
-            results = nil
+            sections = nil
             searchFailed = false
             return
         }
+        searchGeneration += 1
+        let generation = searchGeneration
         isSearching = true
         searchFailed = false
         let result: SearchResultData? = await withCheckedContinuation { continuation in
@@ -230,12 +244,16 @@ struct SearchView: View {
                 libraryOnly: libraryOnly
             ) { continuation.resume(returning: $0) }
         }
+        // A reply the screen has already moved past — a newer search is running, and it owns
+        // both the results and the chip selection. Leaving `isSearching` alone here is
+        // deliberate: that newer search is still in flight.
+        guard generation == searchGeneration else { return }
         isSearching = false
         guard let result else {
             searchFailed = true
             return
         }
-        results = result
+        sections = Self.sections(from: result)
         // A chip naming a group from the previous query would silently hide most of this one.
         selectedSectionId = nil
     }

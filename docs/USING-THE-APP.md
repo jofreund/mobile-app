@@ -50,8 +50,9 @@ library index.
 Spans artists, albums, tracks, playlists, podcasts, audiobooks and radio. Results arrive on submit
 rather than per keystroke — a search is a server round trip, not a local filter.
 
-The filter button narrows which types are searched and can restrict to your library. When several
-types match, results are grouped by type; when one does, they're a flat list.
+When several types match, a row of chips over the results narrows them to one type — that's a view
+over what already arrived, so it applies instantly without asking the server again. The filter
+button in the toolbar restricts the search itself to your library, which does re-run it.
 
 ## Playing something
 

@@ -75,6 +75,18 @@ import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.coroutines.CoroutineContext
 import kotlin.math.abs
 
+/** Preserve newer event/optimistic state when a delayed full snapshot arrives. */
+internal fun mergeFullQueueSnapshot(
+    retained: List<QueueInfo>,
+    incoming: List<QueueInfo>,
+): List<QueueInfo> {
+    val retainedById = retained.associateBy { it.id }
+    return incoming.map { candidate ->
+        val current = retainedById[candidate.id]
+        if (current != null && candidate.isBefore(current)) current else candidate
+    }
+}
+
 @OptIn(FlowPreview::class)
 class MainDataSource(
     private val settings: SettingsRepository,
@@ -1343,8 +1355,11 @@ class MainDataSource(
         launch {
             apiClient.sendRequest(Request.Queue.all())
                 .resultAs<List<ServerQueue>>()?.let { queueFactory.createList(it) }?.let { list ->
-                    _queueInfos.update { list }
-                    list.forEach { queueInfo ->
+                    var mergedSnapshot = list
+                    _queueInfos.update { retained ->
+                        mergeFullQueueSnapshot(retained, list).also { mergedSnapshot = it }
+                    }
+                    mergedSnapshot.forEach { queueInfo ->
                         queueInfo.elapsedTime?.let { elapsed ->
                             val player = (_serverPlayers.value as? DataState.Data)
                                 ?.data?.find { it.queueId == queueInfo.id }

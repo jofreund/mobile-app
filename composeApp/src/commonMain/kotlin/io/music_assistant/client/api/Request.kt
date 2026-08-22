@@ -781,11 +781,16 @@ data class Request @OptIn(ExperimentalUuidApi::class) constructor(
 
         fun logout() = Request(command = APICommands.AUTH_LOGOUT)
 
-        fun authorize(token: String, deviceName: String) = Request(
+        fun authorize(
+            token: String,
+            deviceName: String,
+            locale: String? = null,
+        ) = Request(
             command = APICommands.AUTH,
             args = buildJsonObject {
                 put("token", JsonPrimitive(token))
                 put("device_name", JsonPrimitive(deviceName))
+                locale?.let { put("locale", JsonPrimitive(it)) }
             },
         )
     }

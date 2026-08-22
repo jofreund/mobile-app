@@ -26,6 +26,8 @@ import io.music_assistant.client.utils.SessionState
 import io.music_assistant.client.utils.createPlatformHttpClient
 import io.music_assistant.client.utils.currentTimeMillis
 import io.music_assistant.client.utils.myJson
+import io.music_assistant.client.utils.platformLocale
+import io.music_assistant.client.utils.serverLocalizationLocale
 import io.music_assistant.client.utils.update
 import io.music_assistant.client.webrtc.model.RemoteId
 import kotlinx.coroutines.CancellationException
@@ -140,7 +142,6 @@ class KtorServiceClient(
     // --- Lifecycle / background state ---
     private var isInBackground = false
     private var hasActivePlayback = false
-    private var backgroundedAt = 0L
 
     private val silentReauth = SilentReauth(
         ReauthPolicy(
@@ -306,7 +307,6 @@ class KtorServiceClient(
      */
     override fun onAppBackground() {
         isInBackground = true
-        backgroundedAt = currentTimeMillis()
         logger.i { "App backgrounded (state=${stateLabel(_sessionState.value)})" }
     }
 
@@ -375,16 +375,6 @@ class KtorServiceClient(
 
         if (backgroundedConnectionInfo != null) {
             reconnectFromCurrent("was Backgrounded")
-            return
-        }
-
-        // Cheap probe for half-open TCP. Anything more invasive (re-auth, full
-        // reconnect) is request-driven via `ensureReadyForCommands` — see
-        // `feedback_request_driven_recovery` for the rationale.
-        val elapsed = currentTimeMillis() - backgroundedAt
-        if (elapsed > STALE_CONNECTION_THRESHOLD_MS && state is SessionState.Connected) {
-            logger.i { "App foregrounded: probing connection after ${elapsed}ms in background" }
-            transport?.verifyConnection(probeReason = "app_foreground")
         }
     }
 
@@ -824,7 +814,18 @@ class KtorServiceClient(
                             state.authProcessState != AuthProcessState.LoggedOut
                     },
                     onAttempt = { setAuthState(AuthProcessState.InProgress) },
-                    send = { sendRequestRaw(Request.Auth.authorize(token, settings.deviceName.value)) },
+                    send = {
+                        sendRequestRaw(
+                            Request.Auth.authorize(
+                                token,
+                                settings.deviceName.value,
+                                locale = serverLocalizationLocale(
+                                    (_sessionState.value as? HasConnectionData)?.serverInfo?.schemaVersion,
+                                    platformLocale(),
+                                ),
+                            ),
+                        )
+                    },
                 )
             ) {
                 AuthResolution.Aborted -> return
@@ -920,7 +921,7 @@ class KtorServiceClient(
         if (isReadyForCommands.value) return true
         recoveryMutex.withLock {
             if (isReadyForCommands.value) return true
-            kickRecovery()
+            if (!kickRecovery()) return false
         }
         return withTimeoutOrNull(timeoutMs) {
             isReadyForCommands.first { it }
@@ -928,7 +929,12 @@ class KtorServiceClient(
         } == true
     }
 
-    private fun kickRecovery() {
+    /**
+     * Returns false when the current state cannot recover on its own (no saved token — the
+     * user has to log in), so the caller can fail immediately instead of waiting out the
+     * timeout.
+     */
+    private fun kickRecovery(): Boolean {
         val state = _sessionState.value
         when (state) {
             is SessionState.Disconnected.Initial,
@@ -953,14 +959,18 @@ class KtorServiceClient(
                                     authProcessState = AuthProcessState.NotStarted,
                                 ) ?: it
                             }
+                        } else if (auth is AuthProcessState.NotStarted && !hasToken) {
+                            logger.i { "JIT: no saved token — user must log in (state=${stateLabel(state)})" }
+                            return false
                         }
-                        // NotStarted/InProgress/LoggedOut handled by AuthMgr or user; no-op.
+                        // InProgress/LoggedOut (and NotStarted with a token) handled by AuthMgr or user.
                     }
                     DataConnectionState.AwaitingServerInfo -> Unit // server/hello pending
                     is DataConnectionState.Authenticated -> Unit // ready
                 }
             }
         }
+        return true
     }
 
     private fun reconnectFromHistory(reason: String) {
@@ -1095,7 +1105,6 @@ class KtorServiceClient(
     private fun JsonObject.stringArg(name: String): String? = (this[name] as? JsonPrimitive)?.content
 
     companion object {
-        private const val STALE_CONNECTION_THRESHOLD_MS = 30_000L
         private const val ENSURE_READY_TIMEOUT_MS = 10_000L
 
         // Upper bound on a single connect attempt before it's declared stuck. Generous

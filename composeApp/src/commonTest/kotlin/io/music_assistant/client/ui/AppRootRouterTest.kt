@@ -273,6 +273,34 @@ class AppRootRouterTest {
     }
 
     @Test
+    fun `destination forces SETTINGS when connected with no saved token to auto-login with`() = runTest {
+        // Revoked-token dead end: the server rejected the token once, AuthenticationManager
+        // cleared it, and every later connect parks in AwaitingAuth(NotStarted) forever.
+        // Start from Connecting (an Authenticated initial state would make
+        // AuthenticationManager persist its token) and put the user on Main by hand.
+        val client = StubServiceClient(initial = SessionState.Connecting)
+        val router = AppRootRouter(client, managerWithoutSavedToken(client))
+        runCurrent()
+        router.requestHome()
+        assertEquals(AppRootDestination.MAIN, router.destination.value)
+
+        client.sessionState.value = awaitingAuth(AuthProcessState.NotStarted)
+        runCurrent()
+        assertEquals(AppRootDestination.SETTINGS, router.destination.value)
+    }
+
+    @Test
+    fun `destination is preserved in AwaitingAuth when a saved token means auto-login will run`() = runTest {
+        val client = StubServiceClient(initial = authenticated())
+        val router = AppRootRouter(client, managerWithSavedToken(client))
+        runCurrent()
+
+        client.sessionState.value = awaitingAuth(AuthProcessState.NotStarted)
+        runCurrent()
+        assertEquals(AppRootDestination.MAIN, router.destination.value)
+    }
+
+    @Test
     fun `requestSettings and requestHome override immediately regardless of session state`() {
         val client = StubServiceClient(initial = authenticated())
         val router = AppRootRouter(client, managerWithoutSavedToken(client))
