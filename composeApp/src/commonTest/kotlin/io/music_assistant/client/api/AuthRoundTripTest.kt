@@ -85,6 +85,22 @@ class AuthRoundTripTest {
     }
 
     @Test
+    fun serverErrorCodePrefersTheDetailsField() {
+        // This is the shape the real server sends for a revoked token.
+        val result = classifyAuthRoundTrip(
+            response = Result.success(
+                answer("""{"message_id":"m1","error_code":23,"details":"The access token is invalid or has expired."}"""),
+            ),
+            isAutoLogin = true,
+            priorSilentFailures = 0,
+            maxSilentFailures = 3,
+        )
+
+        assertTrue(result is AuthRoundTrip.Rejected)
+        assertEquals("The access token is invalid or has expired.", result.message)
+    }
+
+    @Test
     fun serverErrorCodeWithoutMessageFallsBack() {
         val result = classifyAuthRoundTrip(
             response = Result.success(answer("""{"message_id":"m1","error_code":20}""")),

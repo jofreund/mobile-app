@@ -920,7 +920,7 @@ class KtorServiceClient(
         if (isReadyForCommands.value) return true
         recoveryMutex.withLock {
             if (isReadyForCommands.value) return true
-            kickRecovery()
+            if (!kickRecovery()) return false
         }
         return withTimeoutOrNull(timeoutMs) {
             isReadyForCommands.first { it }
@@ -928,7 +928,12 @@ class KtorServiceClient(
         } == true
     }
 
-    private fun kickRecovery() {
+    /**
+     * Returns false when the current state cannot recover on its own (no saved token — the
+     * user has to log in), so the caller can fail immediately instead of waiting out the
+     * timeout.
+     */
+    private fun kickRecovery(): Boolean {
         val state = _sessionState.value
         when (state) {
             is SessionState.Disconnected.Initial,
@@ -953,14 +958,18 @@ class KtorServiceClient(
                                     authProcessState = AuthProcessState.NotStarted,
                                 ) ?: it
                             }
+                        } else if (auth is AuthProcessState.NotStarted && !hasToken) {
+                            logger.i { "JIT: no saved token — user must log in (state=${stateLabel(state)})" }
+                            return false
                         }
-                        // NotStarted/InProgress/LoggedOut handled by AuthMgr or user; no-op.
+                        // InProgress/LoggedOut (and NotStarted with a token) handled by AuthMgr or user.
                     }
                     DataConnectionState.AwaitingServerInfo -> Unit // server/hello pending
                     is DataConnectionState.Authenticated -> Unit // ready
                 }
             }
         }
+        return true
     }
 
     private fun reconnectFromHistory(reason: String) {

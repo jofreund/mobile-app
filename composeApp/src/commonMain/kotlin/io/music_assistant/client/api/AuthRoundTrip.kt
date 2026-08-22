@@ -59,8 +59,12 @@ internal fun classifyAuthRoundTrip(
 ): AuthRoundTrip = response.fold(
     onSuccess = { answer ->
         if (answer.json.containsKey("error_code")) {
+            // The server reports the reason in `details` ("The access token is invalid or
+            // has expired."); `error` is kept as a fallback for older payload shapes.
             AuthRoundTrip.Rejected(
-                answer.json["error"]?.jsonPrimitive?.contentOrNull ?: "Authentication failed",
+                answer.errorDetails
+                    ?: answer.json["error"]?.jsonPrimitive?.contentOrNull
+                    ?: "Authentication failed",
             )
         } else {
             AuthRoundTrip.Responded(answer)

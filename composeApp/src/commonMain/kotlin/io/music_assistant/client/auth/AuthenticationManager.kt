@@ -72,6 +72,15 @@ class AuthenticationManager(
         settings.getTokenForServer(identifier) != null
     }
 
+    /**
+     * Whether a token is stored for the server [state] is connected to. When this is false
+     * in `AwaitingAuth(NotStarted)`, nothing will ever advance the session — the user has to
+     * log in — so callers (router, request gate) must treat that state as terminal rather
+     * than "auto-login is about to run".
+     */
+    fun hasSavedTokenFor(state: SessionState.Connected): Boolean =
+        settings.getTokenForServer(settings.getServerIdentifier(state)) != null
+
     init {
         // Monitor session state to update auth UI state
         scope.launch {
