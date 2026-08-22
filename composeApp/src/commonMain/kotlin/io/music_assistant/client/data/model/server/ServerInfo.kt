@@ -17,8 +17,14 @@ import kotlinx.serialization.Serializable
  * (39, `RECOMMENDATION_ITEMS_SCHEMA` in `MediaItemRepository`), server-side localization of API
  * strings (32, `SERVER_LOCALIZATION_SCHEMA`), and the 2.10 queue-item `stream_metadata` payload,
  * which is simply optional in the DTO.
+ *
+ * 54 (2026-08-22): Music Assistant 2.10.0rc4 reports schema 54 with min_supported 28, and the
+ * app was raising the dismissible "App-Update empfohlen" alert on every launch against it while
+ * playback, library, queue and recommendations all worked. Nothing in this client gates on a
+ * schema above 39, so 54 asks nothing of the client either; this is the tested-against value,
+ * not a capability.
  */
-const val LOCAL_SCHEMA_VERSION = 53
+const val LOCAL_SCHEMA_VERSION = 54
 
 @Serializable
 data class ServerInfo(
