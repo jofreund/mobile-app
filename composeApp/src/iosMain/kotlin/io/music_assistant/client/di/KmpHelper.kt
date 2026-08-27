@@ -191,9 +191,9 @@ object KmpHelper : KoinComponent {
     // MARK: - Schema compatibility warning
     //
     // Same "shared Kotlin policy, thin Swift projection" shape as the app-root
-    // properties above. SchemaVersionWarningViewModel became a Koin single
-    // (see SharedModule.kt) specifically so this and App.kt's Compose dialog
-    // read the same instance rather than each getting their own.
+    // properties above. SchemaVersionWarningViewModel is a Koin single (see
+    // SharedModule.kt); it now emits only the terminal CLIENT_INCOMPATIBLE case,
+    // so this flow is null for every server this client can actually talk to.
 
     val schemaWarning: NativeStateFlow<SchemaWarning>
         get() = NativeStateFlow(schemaVersionWarningViewModel.warning, mainScope)

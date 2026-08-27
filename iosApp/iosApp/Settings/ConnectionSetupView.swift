@@ -42,8 +42,7 @@ struct ConnectionSetupView: View {
     }
 
     /// `.onChange` needs an `Equatable` key; Kotlin-bridged sealed-class instances aren't
-    /// automatically `Equatable` in Swift (same issue `AppShellRootView.swift`'s
-    /// `schemaWarningIdentity` works around). A type-name tag is coarse — it doesn't
+    /// automatically `Equatable` in Swift. A type-name tag is coarse — it doesn't
     /// distinguish `AwaitingAuth` sub-states (`NotStarted`/`InProgress`/`Failed`) that share
     /// the same outer `SessionState.ConnectedDirect`/`ConnectedWebRTC` class — but that's fine
     /// here: `onSessionStateChange`'s only state-dependent action (loading providers) needs to
