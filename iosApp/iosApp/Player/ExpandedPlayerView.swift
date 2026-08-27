@@ -69,8 +69,16 @@ private struct ExpandedPlayerRow: View {
     @State private var livePosition: Double?
     @State private var positionSub: Cancellable?
 
+    /// Chapter-relative while a chapter is presented, absolute otherwise — the coordinate
+    /// system the slider itself is drawn in.
     @State private var userDragPosition: Double?
+    /// Always absolute, even in chapter mode, so the reconciliation against `displayPosition`
+    /// below compares like with like.
     @State private var releasedSeekPosition: Double?
+    /// The chapter in force when the drag began. Held for the length of the gesture because a
+    /// boundary crossed mid-drag must not re-base the value under the user's finger — that
+    /// clamps the thumb to the new chapter's start, which reads as the drag being thrown away.
+    @State private var draggingChapter: ChapterBarItem?
     /// Drives the timestamps' emphasis alongside `CapsuleSlider`'s own swell.
     @State private var isScrubbing = false
 
@@ -118,6 +126,15 @@ private struct ExpandedPlayerRow: View {
         .onChange(of: displayPosition) { _, newValue in
             guard let released = releasedSeekPosition else { return }
             if abs(newValue - released) < 0.5 { releasedSeekPosition = nil }
+        }
+        // A queue-item change under an in-flight drag invalidates everything the gesture was
+        // aimed at: the latched chapter belongs to the item that just went away, and the
+        // released latch would hold the playhead at a position in the previous book. Drop all
+        // three rather than seek the new item to wherever the finger happened to be.
+        .onChange(of: player.currentQueueItemId) { _, _ in
+            userDragPosition = nil
+            draggingChapter = nil
+            releasedSeekPosition = nil
         }
         // Backstop for the same value. It is held to stop the playhead snapping back while the
         // seek is in flight, and released above once the server's position agrees — but if the
@@ -209,6 +226,22 @@ private struct ExpandedPlayerRow: View {
     /// radio stream has no track, and a track can have neither album nor artists.
     @ViewBuilder
     private var heroSubtitle: some View {
+        // In chapter mode the chapter name replaces the artist/album line: the book's author is
+        // already the title line's companion elsewhere, and while listening the useful "where am
+        // I" is the chapter. A blank chapter name falls through to the usual line rather than
+        // blanking it — some metadata ships empty names for every chapter.
+        if let chapterName = store.presentationChapter?.name, !chapterName.isEmpty {
+            Text(chapterName)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+        } else {
+            structuredHeroSubtitle
+        }
+    }
+
+    @ViewBuilder
+    private var structuredHeroSubtitle: some View {
         let track = player.trackItem as? Track
         let album = track?.album
         // Compose showed a "choose artist" dialog for multi-artist tracks. One tap target that
@@ -559,14 +592,27 @@ private struct ExpandedPlayerRow: View {
     /// `seekSection` — it just has no position in it.
     private var hasTrack: Bool { player.title != nil }
 
+    /// The chapter the scrubber is drawn against: the one latched at drag start while a drag
+    /// is in flight, otherwise whatever Kotlin currently presents. Nil means absolute time —
+    /// no chapters, not an audiobook, or the server preference is off.
+    private var activeChapter: ChapterBarItem? {
+        draggingChapter ?? store.presentationChapter
+    }
+
     private var sliderValue: Double {
         // Pinned to zero with no track, so a position left over from the player selected a moment
         // ago cannot briefly draw a fill on an idle one.
         guard hasTrack, !player.isPoweredOff else { return 0 }
-        return userDragPosition ?? releasedSeekPosition ?? displayPosition
+        if let dragging = userDragPosition { return dragging }
+        let absolute = releasedSeekPosition ?? displayPosition
+        guard let chapter = activeChapter else { return absolute }
+        return min(max(absolute - chapter.startSec, 0), chapter.durationSec)
     }
 
-    private var duration: Double { max(player.duration ?? 0, 1) }
+    /// The span of the scrubber: one chapter in chapter mode, the whole item otherwise.
+    private var duration: Double {
+        max(activeChapter?.durationSec ?? player.duration ?? 0, 1)
+    }
 
     private var seekSection: some View {
         VStack(spacing: 4) {
@@ -581,15 +627,31 @@ private struct ExpandedPlayerRow: View {
                 onEditingChanged: { editing in
                     withAnimation(.easeOut(duration: 0.2)) { isScrubbing = editing }
                     guard !editing else {
+                        // Latch the chapter for the whole gesture before anything can move it.
+                        draggingChapter = store.presentationChapter
                         // The bar has no handle, so this is half of the confirmation that a
                         // touch landed — the swell is the other half.
                         haptic.fire(.selection)
                         return
                     }
+                    defer {
+                        userDragPosition = nil
+                        draggingChapter = nil
+                    }
                     guard let seekPosition = userDragPosition else { return }
-                    releasedSeekPosition = seekPosition
-                    store.seek(id: player.id, seconds: seekPosition)
-                    userDragPosition = nil
+                    if let chapter = draggingChapter {
+                        // Kotlin owns the mapping back to absolute, and hands back the exact
+                        // position it asked for so the latch below matches what the server
+                        // will report.
+                        releasedSeekPosition = store.seekWithinChapter(
+                            id: player.id,
+                            chapter: chapter,
+                            relativeSeconds: seekPosition
+                        )
+                    } else {
+                        releasedSeekPosition = seekPosition
+                        store.seek(id: player.id, seconds: seekPosition)
+                    }
                 }
             )
             .disabled(!player.canPlay || player.isPoweredOff)

@@ -18,6 +18,11 @@ final class PlayerBarStore {
     private(set) var players: [PlayerBarItemView] = []
     private(set) var selectedIndex: Int = 0
 
+    /// The chapter the selected player's scrubber presents, or nil for absolute time. Kotlin
+    /// re-publishes this at each chapter boundary — nothing else announces the change — and
+    /// resolves it to nil when the book has no chapters or the server preference is off.
+    private(set) var presentationChapter: ChapterBarItem?
+
     private var stateSub: Cancellable?
 
     func start() {
@@ -50,6 +55,19 @@ final class PlayerBarStore {
 
     func seek(id: String, seconds: Double) {
         KmpHelper.shared.seekPlayerBar(playerId: id, seconds: seconds)
+    }
+
+    /// Seeks to a position read off a chapter-relative scrubber, returning the absolute
+    /// position actually requested so the caller can latch it.
+    ///
+    /// `chapter` is the one latched when the drag began, not `presentationChapter` as it
+    /// stands now: crossing a boundary mid-drag must not re-base the released value.
+    func seekWithinChapter(id: String, chapter: ChapterBarItem, relativeSeconds: Double) -> Double {
+        KmpHelper.shared.seekWithinChapter(
+            playerId: id,
+            chapter: chapter,
+            relativeSec: relativeSeconds
+        )
     }
 
     func toggleShuffle(id: String) {
@@ -104,10 +122,12 @@ final class PlayerBarStore {
         guard let data = state as? PlayerBarState.Data else {
             players = []
             selectedIndex = 0
+            presentationChapter = nil
             return
         }
         players = data.players.map(PlayerBarItemView.init)
         selectedIndex = Int(data.selectedIndex)
+        presentationChapter = data.presentationChapter
     }
 }
 

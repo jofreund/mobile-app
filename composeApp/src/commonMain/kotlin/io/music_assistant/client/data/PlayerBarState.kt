@@ -104,10 +104,36 @@ data class QueueBarItem(
     val trackItem: AppMediaItem?,
 )
 
+/**
+ * Flat, Swift-bridgeable projection of a [io.music_assistant.client.data.model.client.ResolvedChapter].
+ *
+ * Only the selected player gets one — it is the only player with a scrubber on screen — so it
+ * hangs off [PlayerBarState.Data] rather than off every [PlayerBarItem].
+ *
+ * [startSec] and [durationSec] are the whole coordinate frame Swift needs: the slider spans
+ * `0...durationSec`, and a released drag goes back through
+ * [io.music_assistant.client.di.KmpHelper.seekWithinChapter] rather than being converted in
+ * Swift, so the rounding rule stays in one place.
+ */
+data class ChapterBarItem(
+    /** Null when the metadata ships a blank name; Swift falls back to the album/author line. */
+    val name: String?,
+    val startSec: Double,
+    val durationSec: Double,
+)
+
 sealed class PlayerBarState {
     data object Loading : PlayerBarState()
     data object Empty : PlayerBarState()
-    data class Data(val players: List<PlayerBarItem>, val selectedIndex: Int) : PlayerBarState()
+    data class Data(
+        val players: List<PlayerBarItem>,
+        val selectedIndex: Int,
+        /**
+         * The chapter the selected player's scrubber presents, or null for absolute time —
+         * no chapters, not an audiobook, or the server preference is off.
+         */
+        val presentationChapter: ChapterBarItem? = null,
+    ) : PlayerBarState()
 }
 
 /**
@@ -138,6 +164,10 @@ internal fun playerBarStatesEquivalentIgnoringElapsed(
 ): Boolean {
     if (old !is PlayerBarState.Data || new !is PlayerBarState.Data) return old == new
     if (old.selectedIndex != new.selectedIndex) return false
+    // Explicit, unlike the players below: a chapter boundary changes nothing else on the
+    // projection, so folding it into the elapsed-ignoring comparison would swallow the one
+    // emission that flips the scrubber to the next chapter.
+    if (old.presentationChapter != new.presentationChapter) return false
     if (old.players.size != new.players.size) return false
     // Copying the new elapsed onto the old item reduces "equal except elapsedTime" to a plain
     // data-class comparison, so this can't drift out of sync as fields are added to
@@ -219,6 +249,7 @@ internal fun buildPlayerBarState(
     // Defaults to a throwaway cache so the function stays pure for callers that don't have one —
     // notably the tests, which would otherwise all have to thread an instance through.
     queueCache: QueueProjectionCache = QueueProjectionCache(),
+    presentationChapter: ChapterBarItem? = null,
 ): PlayerBarState {
     val players = (playersDataState as? DataState.Data)?.data ?: return PlayerBarState.Loading
     if (players.isEmpty()) return PlayerBarState.Empty
@@ -274,5 +305,6 @@ internal fun buildPlayerBarState(
             )
         },
         selectedIndex = selectedIndex?.takeIf { it in players.indices } ?: 0,
+        presentationChapter = presentationChapter,
     )
 }

@@ -45,6 +45,7 @@
 		C8PR00022F2D000000000002 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = C8PR00012F2D000000000001 /* PrivacyInfo.xcprivacy */; };
 		C8SH00012F3E000000000001 /* AppRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SH00112F3E000000000011 /* AppRouter.swift */; };
 		C8SH00022F3E000000000002 /* AppShellRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SH00122F3E000000000012 /* AppShellRootView.swift */; };
+		C8SH00072F3E000000000007 /* OAuthWebSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SH00172F3E000000000017 /* OAuthWebSession.swift */; };
 		C8SH00032F3E000000000003 /* AppTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SH00132F3E000000000013 /* AppTabView.swift */; };
 		C8SH00042F3E000000000004 /* ToastHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SH00142F3E000000000014 /* ToastHost.swift */; };
 		C8SH00052F3E000000000005 /* ThemeStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SH00152F3E000000000015 /* ThemeStore.swift */; };
@@ -120,6 +121,7 @@
 		C8PR00012F2D000000000001 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		C8SH00112F3E000000000011 /* AppRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRouter.swift; sourceTree = "<group>"; };
 		C8SH00122F3E000000000012 /* AppShellRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppShellRootView.swift; sourceTree = "<group>"; };
+		C8SH00172F3E000000000017 /* OAuthWebSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OAuthWebSession.swift; sourceTree = "<group>"; };
 		C8SH00132F3E000000000013 /* AppTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTabView.swift; sourceTree = "<group>"; };
 		C8SH00142F3E000000000014 /* ToastHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToastHost.swift; sourceTree = "<group>"; };
 		C8SH00152F3E000000000015 /* ThemeStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeStore.swift; sourceTree = "<group>"; };
@@ -310,6 +312,7 @@
 				C8SH00112F3E000000000011 /* AppRouter.swift */,
 				C8SH00122F3E000000000012 /* AppShellRootView.swift */,
 				C8SH00132F3E000000000013 /* AppTabView.swift */,
+				C8SH00172F3E000000000017 /* OAuthWebSession.swift */,
 				C8SH00142F3E000000000014 /* ToastHost.swift */,
 				C8SH00152F3E000000000015 /* ThemeStore.swift */,
 			);
@@ -528,6 +531,7 @@
 				C8SH00012F3E000000000001 /* AppRouter.swift in Sources */,
 				C8SH00022F3E000000000002 /* AppShellRootView.swift in Sources */,
 				C8SH00032F3E000000000003 /* AppTabView.swift in Sources */,
+				C8SH00072F3E000000000007 /* OAuthWebSession.swift in Sources */,
 				C8SH00042F3E000000000004 /* ToastHost.swift in Sources */,
 				C8SH00052F3E000000000005 /* ThemeStore.swift in Sources */,
 				C8ID00032F5A000000000003 /* ItemDetailsView.swift in Sources */,

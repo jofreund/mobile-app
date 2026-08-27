@@ -29,23 +29,20 @@ enum PendingURL {
     static var url: URL?
 }
 
-/// Single dispatch point for incoming deep links — mirrors Android's
-/// MainActivity.handleIncomingUri. Two entry forms reach here:
+/// Single dispatch point for incoming deep links. Three entry forms reach here:
 ///   - custom scheme  musicassistant://auth/callback   → OAuth (peeled off)
 ///   - custom scheme  musicassistant://app/<page>       → DeepLinkBus
 ///   - Universal Link https://…music-assistant.io/app/<page> → DeepLinkBus
-/// The OAuth callback is handled explicitly; everything else is forwarded to
-/// the shared DeepLinkBus, which self-filters and ignores anything it doesn't
-/// recognize.
+/// The OAuth callback is peeled off by shared Kotlin so this path and the in-app
+/// auth session agree on what a callback is; everything else is forwarded to the
+/// shared DeepLinkBus, which self-filters and ignores anything it doesn't recognize.
+///
+/// Note this is NOT a fallback for the in-app session: while a session is active the
+/// system delivers the custom-scheme redirect only to that session's completion
+/// handler, so `.onOpenURL` does not fire. This path serves cold launches and any
+/// callback that arrives without a live session.
 func handleIncomingURL(_ url: URL) {
-    if url.scheme == "musicassistant", url.host == "auth" {
-        guard url.path == "/callback",
-              let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
-              let code = components.queryItems?.first(where: { $0.name == "code" })?.value
-        else { return }
-        KmpHelper.shared.authManager.handleOAuthCallback(token: code)
-        return
-    }
+    if KmpHelper.shared.authManager.handleOAuthCallbackUrl(urlString: url.absoluteString) { return }
     KmpHelper.shared.handleDeepLink(urlString: url.absoluteString)
 }
 
@@ -91,6 +88,10 @@ struct iOSApp: App {
     /// background would tear the connection down every time someone glanced at a notification.
     @Environment(\.scenePhase) private var scenePhase
 
+    /// Strong ref: `ASWebAuthenticationSession` cancels itself when its owner deallocates,
+    /// so the handler must outlive every login attempt.
+    private let oauthWebSession = OAuthWebSession()
+
     init() {
         #if DEBUG
         // Route Kermit logs to the unified log un-redacted during development
@@ -117,16 +118,18 @@ struct iOSApp: App {
         // loading system (and therefore AsyncImage/URLSession). Must follow
         // bootstrapKmp() — loads dispatch into Koin-resolved Kotlin.
         MAWebRTCURLProtocol.registerOnce()
+
+        // App-wide setup, so it belongs beside bootstrapKmp() rather than in a SwiftUI
+        // callback. It used to be installed from `ContentView.onAppear` on the belief that
+        // presenting needed a live scene; the handler resolves its presentation window
+        // lazily, at present time, so it has nothing to wait for here.
+        KmpHelper.shared.authManager.oauthHandler = oauthWebSession
     }
 
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .onAppear {
-                    // OAuthHandler presents `ASWebAuthenticationSession`;
-                    // requires a live scene, so can't move to `init()`.
-                    KmpHelper.shared.authManager.oauthHandler = OAuthHandler()
-
                     if let pending = PendingURL.url {
                         PendingURL.url = nil
                         handleIncomingURL(pending)

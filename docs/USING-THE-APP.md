@@ -70,6 +70,14 @@ The **expanded player** has artwork, a seek bar, shuffle, previous, play/pause, 
 plus a volume slider. Swipe sideways here too, or tap the player name for the same picker. Swipe
 down to dismiss.
 
+While an **audiobook** is playing the seek bar spans the current chapter rather than the whole
+book, the timestamps read chapter-relative, and the chapter name replaces the artist/album line.
+Previous and next then step by chapter — for podcast episodes with chapter metadata too — with
+Previous restarting the current chapter unless you press it within five seconds of its start.
+This follows the server's `audiobook_chapter_progress` setting, which is toggled in the Music
+Assistant web interface: with it off, everything stays on whole-book time and the transport
+buttons move between queue items.
+
 Two things live in the expanded player's header:
 
 - **Queue** — the upcoming list. Tap to jump, drag to reorder, long-press for the item menu
