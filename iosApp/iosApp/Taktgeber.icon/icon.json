@@ -1,0 +1,38 @@
+{
+  "fill": {
+    "linear-gradient": [
+      "display-p3:0.14118,0.10980,0.08627,1.00000",
+      "display-p3:0.06275,0.05098,0.04314,1.00000"
+    ]
+  },
+  "groups": [
+    {
+      "layers": [
+        {
+          "glass": true,
+          "image-name": "Bar-Center.svg",
+          "name": "Bar Center"
+        },
+        {
+          "glass": true,
+          "image-name": "Bars-Side.svg",
+          "name": "Bars Side"
+        }
+      ],
+      "shadow": {
+        "kind": "neutral",
+        "opacity": 0.4
+      },
+      "translucency": {
+        "enabled": true,
+        "value": 0.5
+      }
+    }
+  ],
+  "supported-platforms": {
+    "circles": [
+      "watchOS"
+    ],
+    "squares": "shared"
+  }
+}
