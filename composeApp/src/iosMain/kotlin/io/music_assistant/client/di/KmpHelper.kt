@@ -17,6 +17,7 @@ import io.music_assistant.client.api.ServiceClient
 import io.music_assistant.client.api.isAccepted
 import io.music_assistant.client.auth.AuthState
 import io.music_assistant.client.auth.AuthenticationManager
+import io.music_assistant.client.auth.OAuthCallback
 import io.music_assistant.client.bridge.Cancellable
 import io.music_assistant.client.bridge.NativeFlow
 import io.music_assistant.client.bridge.NativeStateFlow
@@ -228,6 +229,14 @@ object KmpHelper : KoinComponent {
      * silently ignored.
      */
     fun handleDeepLink(urlString: String) = deepLinkBus.handle(urlString)
+
+    /**
+     * Callback scheme for `ASWebAuthenticationSession`, so Swift does not hold its own
+     * copy that could drift from the redirect URL the server is given. Bare scheme, not
+     * a URL: the session matches on the scheme alone and silently never fires if it is
+     * given a full URL.
+     */
+    fun oauthCallbackScheme(): String = OAuthCallback.SCHEME
 
     // MARK: - Transient messages (toasts)
     //
@@ -457,11 +466,6 @@ object KmpHelper : KoinComponent {
      * `ConnectionSetupStore`'s login-form UI (loading/providers-loaded/authenticated/error). */
     val authState: NativeStateFlow<AuthState> get() = NativeStateFlow(authManager.authState, mainScope)
 
-    /** Matches `AuthenticationViewModel`'s private `OAUTH_RETURN_URL` — now shared since Swift
-     * needs the same literal for [getOAuthUrl]. Must stay in sync with `iOSApp.swift`'s
-     * `handleIncomingURL` scheme/host/path parsing. */
-    private const val OAUTH_RETURN_URL = "musicassistant://auth/callback"
-
     /** Wraps `AuthenticationManager.getProviders()`. Swift cancels the returned handle before
      * starting a new load (mirrors `AuthenticationViewModel`'s `flatMapLatest` — cancelling the
      * underlying coroutine here is what makes `getProviders()`'s own "rethrow
@@ -486,7 +490,7 @@ object KmpHelper : KoinComponent {
      * `authManager.startOAuthFlow(oauthUrl:)` directly (already public, non-suspend — no bridge
      * needed, same as `handleOAuthCallback` is already called directly). */
     fun getOAuthUrl(providerId: String, completion: (String?) -> Unit, onError: (Throwable) -> Unit): Cancellable =
-        NativeSuspend(mainScope) { authManager.getOAuthUrl(providerId, OAUTH_RETURN_URL).getOrThrow() }
+        NativeSuspend(mainScope) { authManager.getOAuthUrl(providerId, OAuthCallback.RETURN_URL).getOrThrow() }
             .invoke(completion, onError)
 
     /** Wraps `AuthenticationManager.logout()` — the `AuthCoordinator` path that sets

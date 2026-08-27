@@ -34,6 +34,7 @@ class AuthRoundTripTest {
             result.surfaceAsFailure,
             "A transient silent re-auth failure must not bounce the user to the login screen",
         )
+        assertEquals(AuthFailureCause.NOT_SENT, result.cause)
     }
 
     @Test
@@ -89,7 +90,9 @@ class AuthRoundTripTest {
         // This is the shape the real server sends for a revoked token.
         val result = classifyAuthRoundTrip(
             response = Result.success(
-                answer("""{"message_id":"m1","error_code":23,"details":"The access token is invalid or has expired."}"""),
+                answer(
+                    """{"message_id":"m1","error_code":23,"details":"The access token is invalid or has expired."}""",
+                ),
             ),
             isAutoLogin = true,
             priorSilentFailures = 0,
@@ -126,6 +129,34 @@ class AuthRoundTripTest {
 
         assertTrue(result is AuthRoundTrip.Responded)
         assertEquals(payload, result.answer)
+    }
+
+    @Test
+    fun aTimedOutRoundTripIsReportedAsNoReply() {
+        // The request went out and the server stayed silent — a different fault from a
+        // send that never happened, and the two must not share a user-facing message.
+        val result = classifyAuthRoundTrip(
+            response = Result.failure(AuthRoundTripTimeout(5_000)),
+            isAutoLogin = false,
+            priorSilentFailures = 0,
+            maxSilentFailures = 3,
+        )
+
+        assertTrue(result is AuthRoundTrip.NoResponse)
+        assertEquals(AuthFailureCause.NO_REPLY, result.cause)
+    }
+
+    @Test
+    fun aSendFailureIsReportedAsNotSent() {
+        val result = classifyAuthRoundTrip(
+            response = failed(),
+            isAutoLogin = false,
+            priorSilentFailures = 0,
+            maxSilentFailures = 3,
+        )
+
+        assertTrue(result is AuthRoundTrip.NoResponse)
+        assertEquals(AuthFailureCause.NOT_SENT, result.cause)
     }
 
     // --- authRoundTrip (timeout helper) ---
