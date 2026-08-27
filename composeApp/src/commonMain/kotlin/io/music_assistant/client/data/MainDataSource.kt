@@ -4,6 +4,7 @@
 package io.music_assistant.client.data
 
 import co.touchlab.kermit.Logger
+import io.music_assistant.client.api.APICommands
 import io.music_assistant.client.api.Request
 import io.music_assistant.client.api.ServiceClient
 import io.music_assistant.client.api.isAccepted
@@ -25,6 +26,7 @@ import io.music_assistant.client.data.model.server.DspConfigPreset
 import io.music_assistant.client.data.model.server.ServerPlayer
 import io.music_assistant.client.data.model.server.ServerQueue
 import io.music_assistant.client.data.model.server.ServerQueueItem
+import io.music_assistant.client.data.model.server.ServerUser
 import io.music_assistant.client.data.model.server.events.MediaItemAddedEvent
 import io.music_assistant.client.data.model.server.events.MediaItemDeletedEvent
 import io.music_assistant.client.data.model.server.events.MediaItemPlayedEvent
@@ -105,6 +107,8 @@ class MainDataSource(
     private val mediaItemFactory: MediaItemFactory,
     private val playerFactory: PlayerFactory,
     private val queueFactory: QueueFactory,
+    /** Server-synced user preferences, refreshed from `auth/me` and shared by all surfaces. */
+    val userPreferences: UserPreferences,
 ) : CoroutineScope {
     private val log = Logger.withTag("MainDataSource")
 
@@ -249,9 +253,29 @@ class MainDataSource(
     private val queueProjectionCache = QueueProjectionCache()
 
     val playerBarState: StateFlow<PlayerBarState> =
-        combine(playersData, selectedPlayerIndex) { data, index ->
-            buildPlayerBarState(data, index, queueProjectionCache)
-        }
+        combine(playersData, selectedPlayerIndex, ::Pair)
+            // Only the selected player is ever on screen with a scrubber, so it is the only
+            // one whose chapter has to be resolved — and the only one worth holding a boundary
+            // timer for. `withPresentationChapter` re-emits at each boundary, which is the sole
+            // trigger there is: no server event announces that the chapter changed.
+            .withPresentationChapter(userPreferences, positionTracker) { (data, index) ->
+                index?.let { (data as? DataState.Data)?.data?.getOrNull(it) }
+            }
+            .map { presentation ->
+                val (data, index) = presentation.value
+                buildPlayerBarState(
+                    playersDataState = data,
+                    selectedIndex = index,
+                    queueCache = queueProjectionCache,
+                    presentationChapter = presentation.chapter?.let {
+                        ChapterBarItem(
+                            name = it.displayName,
+                            startSec = it.start,
+                            durationSec = it.duration,
+                        )
+                    },
+                )
+            }
             .distinctUntilChanged(::playerBarStatesEquivalentIgnoringElapsed)
             .stateIn(this, SharingStarted.Eagerly, PlayerBarState.Loading)
 
@@ -395,6 +419,7 @@ class MainDataSource(
                             // boundary just as well as a one-minute one — and the blink that
                             // reasoning was protecting against is handled by the line above.
                             updatePlayersAndQueues()
+                            updateUserPreferences()
                         } else {
                             // Not authenticated yet
                             val connState = sessionState.dataConnectionState
@@ -744,6 +769,22 @@ class MainDataSource(
         _serverPlayers.update { DataState.NoData() }
         _queueInfos.update { emptyList() }
         positionTracker.clear()
+        userPreferences.clear()
+    }
+
+    /**
+     * Refreshes preferences from `auth/me`; a failed fetch keeps the current values.
+     *
+     * Re-read on every authenticated connect rather than once per launch: the web frontend
+     * owns these toggles, so they can change while this client is away, and there is no
+     * event announcing it.
+     */
+    private fun updateUserPreferences() {
+        launch {
+            apiClient.sendRequest(Request(APICommands.AUTH_ME))
+                .resultAs<ServerUser>()
+                ?.let { userPreferences.update(it.preferences) }
+        }
     }
 
     suspend fun getDspConfig(playerId: String): DspConfig? =

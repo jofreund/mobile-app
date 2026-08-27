@@ -22,6 +22,7 @@ import io.music_assistant.client.bridge.Cancellable
 import io.music_assistant.client.bridge.NativeFlow
 import io.music_assistant.client.bridge.NativeStateFlow
 import io.music_assistant.client.bridge.NativeSuspend
+import io.music_assistant.client.data.ChapterBarItem
 import io.music_assistant.client.data.MainDataSource
 import io.music_assistant.client.data.PlayerBarState
 import io.music_assistant.client.data.model.client.LibraryFilters
@@ -31,6 +32,7 @@ import io.music_assistant.client.data.model.client.QueueOption
 import io.music_assistant.client.data.model.client.SortConfig
 import io.music_assistant.client.data.model.client.SortOption
 import io.music_assistant.client.data.model.client.SubItemContext
+import io.music_assistant.client.data.model.client.chapterSeekSeconds
 import io.music_assistant.client.data.model.client.clientSorted
 import io.music_assistant.client.data.model.client.items.Album
 import io.music_assistant.client.data.model.client.items.AppMediaItem
@@ -1300,6 +1302,29 @@ object KmpHelper : KoinComponent {
 
     fun seekPlayerBar(playerId: String, seconds: Double) =
         dispatchPlayerBarAction(playerId, PlayerAction.SeekTo(seconds.toLong()))
+
+    /**
+     * Seeks to a position read off a chapter-relative scrubber.
+     *
+     * [chapter] is the one Swift latched when the drag started, not whichever is current when
+     * it ends: a boundary crossed mid-drag must not re-base the released value, which would
+     * clamp the thumb to the new chapter's start.
+     *
+     * The conversion is here rather than in Swift so both coordinate systems meet in one
+     * place — and so the round-up survives. Truncating a fractional chapter start lands a
+     * fraction of a second before it, inside the previous chapter, which reads to the user as
+     * the seek having gone to the wrong chapter entirely.
+     *
+     * @return the absolute position, in seconds, that was actually requested.
+     */
+    fun seekWithinChapter(playerId: String, chapter: ChapterBarItem, relativeSec: Double): Double {
+        val target = chapterSeekSeconds(chapter.startSec + relativeSec.coerceIn(0.0, chapter.durationSec))
+        dispatchPlayerBarAction(playerId, PlayerAction.SeekTo(target))
+        // Returned so the caller can latch the exact absolute position that was requested.
+        // Recomputing it in Swift would miss the round-up and leave the latch waiting on a
+        // server position it never quite matches.
+        return target.toDouble()
+    }
 
     fun togglePlayerBarShuffle(playerId: String) {
         val enabled = currentPlayerData(playerId)?.queueInfo?.shuffleEnabled ?: return
