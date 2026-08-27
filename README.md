@@ -46,7 +46,8 @@ session it has no honest use for.
 - iOS 26.0 or later
 - Xcode 26 (this fork is developed against the beta toolchain)
 - JDK 21 — Gradle 8.13 / Kotlin 2.4 do not support JDK 25
-- A reachable [Music Assistant server](https://github.com/music-assistant/server), schema 43
+- A reachable [Music Assistant server](https://github.com/music-assistant/server). Tested against
+  schema 59; a server is refused only once its `min_supported_schema_version` climbs past that
 
 ## Building
 

@@ -4,8 +4,8 @@ import MusicAssistantKit
 
 /// Replaces `ContentView`'s old direct Compose host. Owns exactly what
 /// `TopLevelNavRoot.kt` used to own — the Main/Settings switch, the
-/// auto-login splash, the reconnection banner, and the schema-compatibility
-/// warning — natively, reading all four from the same `AppRootRouter` /
+/// auto-login splash, the reconnection banner, and the terminal
+/// schema-incompatibility alert — natively, reading all four from the same `AppRootRouter` /
 /// `SchemaVersionWarningViewModel` singletons. `TopLevelNavRoot.kt`,
 /// `ConnectionStatusBanner.kt`, and `AutoLoginSplash.kt` are gone (this
 /// superseded them entirely — Android is gone too, so nothing else rendered
@@ -18,12 +18,6 @@ import MusicAssistantKit
 struct AppShellRootView: View {
 
     @State private var router = AppRouter()
-
-    // Transient hide for the dismissible SERVER_AHEAD warning; reset whenever
-    // a fresh warning arrives (including a fresh CLIENT_INCOMPATIBLE, which
-    // never reads this — its alert has no dismiss action). Mirrors the
-    // `hidden`/`LaunchedEffect(warning)` pair in App.kt's Compose dialog.
-    @State private var dismissedSchemaWarning = false
 
     /// The app's one toast host — see `ToastHost.swift` for why there must be exactly one. Held
     /// here rather than in `AppTabView` so a message raised while Settings is up still lands.
@@ -50,63 +44,34 @@ struct AppShellRootView: View {
         .animation(.easeInOut(duration: 0.2), value: router.splashVisible)
         .toastHost(toasts)
         .task { router.start() }
-        .onChange(of: schemaWarningIdentity) { dismissedSchemaWarning = false }
         .alert(
-            schemaWarningTitle,
+            String(localized: "schema_incompatible_dialog_title"),
             isPresented: schemaAlertPresented,
-            presenting: router.schemaWarning,
             actions: schemaAlertActions,
-            message: { Text(schemaWarningMessage(for: $0)) }
+            message: { Text(String(localized: "schema_incompatible_dialog_message")) }
         )
     }
 
-    /// `.onChange` needs an `Equatable` key; the Kotlin enum instances compare
-    /// fine with `==` (they're `KotlinEnum`-backed), so this just needs a
-    /// Swift-native `Equatable` wrapper around "no warning vs. which case".
-    private var schemaWarningIdentity: String? {
-        guard let warning = router.schemaWarning else { return nil }
-        return warning == .clientIncompatible ? "clientIncompatible" : "serverAhead"
-    }
-
+    /// `SchemaWarning` has a single case — `CLIENT_INCOMPATIBLE`, which is terminal — so its
+    /// presence is the whole condition. There is no dismissal to honour: the only action is
+    /// Exit, and a client below the server's floor cannot do anything useful in the meantime.
+    /// The dismissible `SERVER_AHEAD` alert this used to also present is gone (see
+    /// `SchemaVersionWarningViewModel`), and with it the `dismissed`/`identity` bookkeeping
+    /// that existed solely to let it be waved away once per connect.
     private var schemaAlertPresented: Binding<Bool> {
         Binding(
-            get: {
-                guard let warning = router.schemaWarning else { return false }
-                // CLIENT_INCOMPATIBLE is terminal — always shown, no dismiss.
-                return warning == .clientIncompatible || !dismissedSchemaWarning
-            },
-            set: { isPresented in
-                if !isPresented { dismissedSchemaWarning = true }
-            }
+            get: { router.schemaWarning != nil },
+            set: { _ in }
         )
-    }
-
-    private var schemaWarningTitle: String {
-        guard let warning = router.schemaWarning else { return "" }
-        return warning == .clientIncompatible
-            ? String(localized: "schema_incompatible_dialog_title")
-            : String(localized: "schema_version_dialog_title")
-    }
-
-    private func schemaWarningMessage(for warning: SchemaWarning) -> String {
-        warning == .clientIncompatible
-            ? String(localized: "schema_incompatible_dialog_message")
-            : String(localized: "schema_version_dialog_message")
     }
 
     @ViewBuilder
-    private func schemaAlertActions(for warning: SchemaWarning) -> some View {
-        if warning == .clientIncompatible {
-            Button(String(localized: "schema_incompatible_dialog_exit")) {
-                // iOS has no programmatic hard-exit API; suspending (backgrounding)
-                // is the same platform-native behavior exitApp() uses on the
-                // Compose side (ui/compose/nav/PlatformExit.ios.kt).
-                UIApplication.shared.perform(NSSelectorFromString("suspend"))
-            }
-        } else {
-            Button(String(localized: "schema_version_dialog_confirm")) {
-                dismissedSchemaWarning = true
-            }
+    private func schemaAlertActions() -> some View {
+        Button(String(localized: "schema_incompatible_dialog_exit")) {
+            // iOS has no programmatic hard-exit API; suspending (backgrounding)
+            // is the same platform-native behavior exitApp() uses on the
+            // Compose side (ui/compose/nav/PlatformExit.ios.kt).
+            UIApplication.shared.perform(NSSelectorFromString("suspend"))
         }
     }
 
