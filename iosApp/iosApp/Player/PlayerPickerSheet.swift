@@ -77,7 +77,7 @@ struct PlayerPickerSheet: View {
             mode = mode == .group ? .players : .group
         } label: {
             // Filled and tinted while its panel is showing, outlined and quiet otherwise — the
-            // same on/off vocabulary the queue button in the player header uses.
+            // same on/off vocabulary the expanded player's icon row (queue/favorite/timer) uses.
             Image(systemName: mode == .group ? "hifispeaker.2.fill" : "hifispeaker.2")
                 .foregroundStyle(mode == .group ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
         }

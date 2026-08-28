@@ -20,13 +20,16 @@ private let playerLog = Logger(
 ///
 /// The queue list (tap-to-play, drag-to-reorder via native `List.onMove`, long-press via the
 /// shared `ItemContextMenu.swift` plus a queue-specific "Delete", chapter rows nested under the
-/// current audiobook item, auto-scroll-to-current) is also here — toggled from the header,
+/// current audiobook item, auto-scroll-to-current) is also here — toggled from the icon row,
 /// styled after Apple Music: the hero shrinks to a small peek row and the queue fills the space
 /// between it and the seek/transport/volume controls, which stay pinned and usable throughout
 /// rather than being replaced the way Compose's `CollapsibleQueue` replaces the whole hero.
 ///
-/// Deliberately **not** here yet (unreachable until a later phase builds each natively):
-/// favoriting (moving to the overflow menu, not staying in the always-visible hero row), group
+/// Secondary actions — favorite, sleep timer, queue toggle — live in `iconRow`, a bottom row
+/// between the volume slider and the player picker, in thumb reach. (Favoriting was once
+/// predicted to land in an overflow menu instead; the icon row superseded that.)
+///
+/// Deliberately **not** here yet (unreachable until a later phase builds each natively): group
 /// management, DSP settings, playback speed, lyrics, and the rest of the overflow (⋮) menu
 /// (power, "don't stop the music", queue transfer, go-to-artist/album). None of the underlying
 /// Kotlin/server logic is touched — only their Swift entry point is gone.
@@ -85,6 +88,7 @@ private struct ExpandedPlayerRow: View {
 
     @State private var showQueue = false
     @State private var showPlayerPicker = false
+    @State private var showSleepTimer = false
     /// Optimistic local reorder — reset to `nil` (falling back to `player.queueItems`' own
     /// order) whenever the Kotlin-driven order changes, mirroring Compose's
     /// `remember(items) { mutableStateOf(items) }` reset-on-server-echo.
@@ -105,6 +109,7 @@ private struct ExpandedPlayerRow: View {
             seekSection
             transportRow
             volumeRow
+            iconRow
             playerPicker
             if !showQueue {
                 Spacer(minLength: 0)
@@ -150,13 +155,16 @@ private struct ExpandedPlayerRow: View {
         .sheet(isPresented: $showPlayerPicker) {
             PlayerPickerSheet(player: player, store: store)
         }
+        .sheet(isPresented: $showSleepTimer) {
+            SleepTimerSheet(player: player, store: store)
+        }
     }
 
     // MARK: - Header
 
-    /// Collapse on one side, the queue toggle on the other, and nothing between them: the player
-    /// name moved to the picker at the bottom. The elaborate equal-width-sides centring this used
-    /// to need went with it — there is no longer a middle item to keep centred.
+    /// Just the collapse chevron now: the player name moved to the picker at the bottom, and the
+    /// queue toggle moved into `iconRow` with the other secondary actions, where a thumb can
+    /// actually reach it. The Spacer keeps the chevron leading-aligned.
     private var header: some View {
         HStack {
             Button(action: onCollapse) {
@@ -164,7 +172,6 @@ private struct ExpandedPlayerRow: View {
                     .font(.title3.weight(.semibold))
             }
             Spacer(minLength: 0)
-            headerActions
         }
     }
 
@@ -195,16 +202,80 @@ private struct ExpandedPlayerRow: View {
         .buttonStyle(.plain)
     }
 
-    private var headerActions: some View {
+    // MARK: - Icon row (favorite / sleep timer / queue)
+
+    /// Secondary actions between the volume slider and the player picker — bare glyphs spread
+    /// like the transport row, tinted when their state is on and quiet when it is not (the same
+    /// vocabulary as the group toggle in `PlayerPickerSheet`). Stays visible while the queue is
+    /// open: the queue button has to remain reachable to close it.
+    private var iconRow: some View {
+        HStack(spacing: 0) {
+            favoriteButton
+                .frame(maxWidth: .infinity)
+            // Old servers (schema < 35) have no sleep-timer commands; the row just closes up.
+            if KmpHelper.shared.isSleepTimerSupported() {
+                sleepTimerButton
+                    .frame(maxWidth: .infinity)
+            }
+            queueToggle
+                .frame(maxWidth: .infinity)
+        }
+    }
+
+    private var isFavorite: Bool { player.trackItem?.favorite?.boolValue ?? false }
+
+    private var favoriteButton: some View {
+        Button {
+            guard let item = player.trackItem else { return }
+            haptic.fire(.selection)
+            store.toggleFavorite(item: item)
+        } label: {
+            Image(systemName: isFavorite ? "heart.fill" : "heart")
+                .font(.title3)
+                .foregroundStyle(isFavorite ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
+        }
+        // Disabled rather than hidden so the row's three slots never shift. The uri check
+        // mirrors `MainDataSource.toggleFavorite`'s own guard: adding needs a URI, so a
+        // uri-less item's heart would silently do nothing.
+        .disabled(player.trackItem == nil || (!isFavorite && player.trackItem?.uri == nil))
+        .accessibilityLabel(String(localized: isFavorite ? "action_unfavorite" : "action_favorite"))
+        .accessibilityAddTraits(isFavorite ? [.isSelected] : [])
+    }
+
+    private var sleepTimerActive: Bool {
+        guard let expiresAt = player.sleepTimerExpiresAt else { return false }
+        return expiresAt > Date.now.timeIntervalSince1970
+    }
+
+    private var sleepTimerButton: some View {
+        Button {
+            showSleepTimer = true
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: "moon.zzz")
+                    .font(.title3)
+                if sleepTimerActive, let expiresAt = player.sleepTimerExpiresAt {
+                    // Self-updating remaining time, same source as the sheet's countdown.
+                    Text(
+                        timerInterval: Date.now...Date(timeIntervalSince1970: expiresAt),
+                        countsDown: true
+                    )
+                    .font(.caption.weight(.semibold))
+                    .monospacedDigit()
+                }
+            }
+            .foregroundStyle(sleepTimerActive ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
+        }
+        .accessibilityLabel(String(localized: sleepTimerActive ? "cd_sleep_timer" : "cd_sleep_timer_off"))
+        .accessibilityAddTraits(sleepTimerActive ? [.isSelected] : [])
+    }
+
+    private var queueToggle: some View {
         Button {
             withAnimation(.easeInOut(duration: 0.2)) { showQueue.toggle() }
         } label: {
-            // Bare glyph, no enclosing circle — Apple Music draws its queue button this way, and
-            // the circle was the only thing here wearing one.
-            //
-            // Losing the circle loses the filled variant that carried the on state with it, so
-            // colour does that work instead: tinted while the queue is showing, quiet when it is
-            // not. Same vocabulary as the group toggle in `PlayerPickerSheet`.
+            // Bare glyph, no enclosing circle — Apple Music draws its queue button this way.
+            // Colour carries the on state: tinted while the queue is showing, quiet when not.
             Image(systemName: "list.bullet")
                 .font(.title3)
                 .foregroundStyle(showQueue ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
@@ -756,11 +827,6 @@ private struct ExpandedPlayerRow: View {
     }
 
     // MARK: - Volume
-    //
-    // Favoriting was here too, but removed for now — it'll come back as an overflow-menu entry
-    // once that's built (matches Compose's own PlayerOverflowMenu, not the always-visible hero
-    // row), rather than staying here permanently. `PlayerBarItem.trackItem` stays on the model
-    // either way since the overflow menu will need it again.
 
     private var volumeRow: some View {
         VStack(spacing: 16) {

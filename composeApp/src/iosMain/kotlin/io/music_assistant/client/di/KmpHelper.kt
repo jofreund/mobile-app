@@ -49,6 +49,7 @@ import io.music_assistant.client.data.model.client.items.Track
 import io.music_assistant.client.data.model.server.AuthProvider
 import io.music_assistant.client.data.model.server.ServerProviderInstance
 import io.music_assistant.client.data.model.server.ServerUser
+import io.music_assistant.client.data.model.server.supportsSleepTimer
 import io.music_assistant.client.data.repository.MediaItemChange
 import io.music_assistant.client.data.repository.MediaItemRepository
 import io.music_assistant.client.data.repository.SearchResultData
@@ -1136,6 +1137,15 @@ object KmpHelper : KoinComponent {
         return true
     }
 
+    /**
+     * Optimistic favorite toggle for the expanded player's heart. Unlike [setFavorite]
+     * (Siri/context-menu, fire-and-forget with no local patch), this routes through
+     * [MainDataSource.toggleFavorite], which flips the `_favoriteOverrides` overlay
+     * immediately — so the heart reacts on the next state emission — rolls back on
+     * send failure, and is reconciled by the server's `MediaItemUpdatedEvent`.
+     */
+    fun toggleFavoriteOptimistic(item: AppMediaItem) = mainDataSource.toggleFavorite(item)
+
     // MARK: - Item context menu (long-press actions)
     //
     // Which actions apply to a given item is resolved natively in Swift (mirroring
@@ -1343,6 +1353,27 @@ object KmpHelper : KoinComponent {
 
     fun setPlayerBarVolume(playerId: String, level: Float) =
         dispatchPlayerBarAction(playerId, PlayerAction.VolumeSet(level.toDouble()))
+
+    // Deliberately NOT dispatchPlayerBarAction — see MainDataSource.setSleepTimer's doc:
+    // the timer is server-owned for every player and must never take a local-player branch.
+    fun setPlayerSleepTimer(playerId: String, seconds: Int) =
+        mainDataSource.setSleepTimer(playerId, seconds)
+
+    fun clearPlayerSleepTimer(playerId: String) = mainDataSource.clearSleepTimer(playerId)
+
+    /**
+     * Whether the connected server's schema has the `players/sleep_timer` commands
+     * ([SLEEP_TIMER_MIN_SCHEMA]). Non-reactive on purpose, same as [getServerId]:
+     * Swift evaluates it inside a body that re-runs on every player-bar emission,
+     * and the schema only changes across connect/disconnect.
+     */
+    fun isSleepTimerSupported(): Boolean =
+        supportsSleepTimer(
+            (serviceClient.sessionState.value as? HasConnectionData)
+                ?.connectionData
+                ?.serverInfo
+                ?.schemaVersion,
+        )
 
     private fun dispatchPlayerBarAction(playerId: String, action: PlayerAction) {
         val data = currentPlayerData(playerId) ?: return

@@ -195,6 +195,28 @@ class PlayerBarStateTest {
     }
 
     @Test
+    fun `sleep timer expiry reaches the projected item`() {
+        val base = PlayerDataFixtures.playerData()
+        val withTimer = base.copy(player = base.player.copy(sleepTimerExpiresAt = 1782000000.5))
+
+        assertEquals(1782000000.5, stateOf(withTimer).players.single().sleepTimerExpiresAt)
+        assertNull(stateOf(base).players.single().sleepTimerExpiresAt)
+    }
+
+    @Test
+    fun `sleep timer change is not suppressed`() {
+        // The expiry is a static timestamp (set/clear only, never ticking), so letting the
+        // plain data-class comparison see it costs one extra emission per timer change.
+        val base = projected()
+        assertFalse(
+            playerBarStatesEquivalentIgnoringElapsed(
+                base,
+                base.mutatingFirst { it.copy(sleepTimerExpiresAt = 123.0) },
+            ),
+        )
+    }
+
+    @Test
     fun `queue contents changing is not suppressed`() {
         // Reordering and removal both have to get through, or the queue list freezes after a
         // drag — the exact class of bug this projection has already produced twice.

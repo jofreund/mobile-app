@@ -44,8 +44,12 @@ data class PlayerBarItem(
     val volumeLevel: Float?,
     val isMuted: Boolean,
     val canMute: Boolean,
-    /** The current queue track, exposed so Swift can reuse the existing `setFavorite`/`favorite`/`uri`
-     * fields directly instead of adding separate favorite-specific fields here. */
+    /** Unix (UTC) seconds at which the server stops playback, or null when no timer runs.
+     * A static expiry, not a countdown — the ticking display is Swift's job, so this only
+     * changes on set/clear and stays cheap for [playerBarStatesEquivalentIgnoringElapsed]. */
+    val sleepTimerExpiresAt: Double?,
+    /** The current queue track, exposed whole so Swift can read `favorite`/`uri` directly and
+     * pass it to `toggleFavoriteOptimistic` instead of adding separate favorite fields here. */
     val trackItem: AppMediaItem?,
     /** What queue actions (`playQueueItem`/`moveQueueItem`/`removeQueueItem`) key on — null when
      * this player has no queue at all. */
@@ -276,6 +280,7 @@ internal fun buildPlayerBarState(
                 volumeLevel = player.currentVolume.takeIf { player.isVolumeSliderAccessible },
                 isMuted = player.currentMuteState,
                 canMute = player.canMute,
+                sleepTimerExpiresAt = player.sleepTimerExpiresAt,
                 trackItem = queue?.currentItem?.track as? AppMediaItem,
                 queueId = data.queueOrPlayerId,
                 queueItems = queueCache.project(data.playerId, data.queueItems),

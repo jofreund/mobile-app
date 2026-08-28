@@ -36,6 +36,7 @@
 		C8PL0004AA10000000000041 /* PlayPauseIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8PL0014AA10000000000042 /* PlayPauseIcon.swift */; };
 		C8PL0004AA10000000000043 /* CapsuleSlider.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8PL0014AA10000000000044 /* CapsuleSlider.swift */; };
 		C8PL0004AA10000000000045 /* PlayerPickerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8PL0014AA10000000000046 /* PlayerPickerSheet.swift */; };
+		C8PL0004AA10000000000047 /* SleepTimerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8PL0014AA10000000000048 /* SleepTimerSheet.swift */; };
 		C8PL00052F70000000000005 /* ExpandedPlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8PL00152F70000000000015 /* ExpandedPlayerView.swift */; };
 		C8PL00072F70000000000007 /* GroupSettingsContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8PL00172F70000000000017 /* GroupSettingsContent.swift */; };
 		C8PL00082F70000000000008 /* VolumeSlider.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8PL00182F70000000000018 /* VolumeSlider.swift */; };
@@ -114,6 +115,7 @@
 		C8PL0014AA10000000000042 /* PlayPauseIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayPauseIcon.swift; sourceTree = "<group>"; };
 		C8PL0014AA10000000000044 /* CapsuleSlider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CapsuleSlider.swift; sourceTree = "<group>"; };
 		C8PL0014AA10000000000046 /* PlayerPickerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerPickerSheet.swift; sourceTree = "<group>"; };
+		C8PL0014AA10000000000048 /* SleepTimerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepTimerSheet.swift; sourceTree = "<group>"; };
 		C8PL00152F70000000000015 /* ExpandedPlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExpandedPlayerView.swift; sourceTree = "<group>"; };
 		C8PL00172F70000000000017 /* GroupSettingsContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupSettingsContent.swift; sourceTree = "<group>"; };
 		C8PL00182F70000000000018 /* VolumeSlider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VolumeSlider.swift; sourceTree = "<group>"; };
@@ -299,6 +301,7 @@
 				C8PL0014AA10000000000042 /* PlayPauseIcon.swift */,
 				C8PL0014AA10000000000044 /* CapsuleSlider.swift */,
 				C8PL0014AA10000000000046 /* PlayerPickerSheet.swift */,
+				C8PL0014AA10000000000048 /* SleepTimerSheet.swift */,
 				C8PL00152F70000000000015 /* ExpandedPlayerView.swift */,
 				C8PL00172F70000000000017 /* GroupSettingsContent.swift */,
 				C8PL00182F70000000000018 /* VolumeSlider.swift */,
@@ -515,6 +518,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				C8PL0004AA10000000000045 /* PlayerPickerSheet.swift in Sources */,
+				C8PL0004AA10000000000047 /* SleepTimerSheet.swift in Sources */,
 				C8PL0004AA10000000000043 /* CapsuleSlider.swift in Sources */,
 				C8PL0004AA10000000000041 /* PlayPauseIcon.swift in Sources */,
 				C8SP00BB2F2D0000000000BB /* RowPressHighlight.swift in Sources */,

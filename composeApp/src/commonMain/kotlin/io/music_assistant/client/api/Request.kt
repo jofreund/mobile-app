@@ -64,6 +64,26 @@ data class Request @OptIn(ExperimentalUuidApi::class) constructor(
             },
         )
 
+        fun setSleepTimer(
+            playerId: String,
+            seconds: Int,
+        ) = Request(
+            command = APICommands.PLAYERS_SLEEP_TIMER_SET,
+            args = buildJsonObject {
+                put("player_id", JsonPrimitive(playerId))
+                put("seconds", JsonPrimitive(seconds))
+            },
+        )
+
+        fun clearSleepTimer(
+            playerId: String,
+        ) = Request(
+            command = APICommands.PLAYERS_SLEEP_TIMER_CLEAR,
+            args = buildJsonObject {
+                put("player_id", JsonPrimitive(playerId))
+            },
+        )
+
         fun seek(
             queueId: String,
             position: Long,

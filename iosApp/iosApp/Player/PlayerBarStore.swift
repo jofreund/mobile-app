@@ -86,6 +86,20 @@ final class PlayerBarStore {
         KmpHelper.shared.setPlayerBarVolume(playerId: id, level: level)
     }
 
+    /// Optimistic — the heart flips on the next state emission via Kotlin's favorite
+    /// override, rolls back on send failure. See `KmpHelper.toggleFavoriteOptimistic`.
+    func toggleFavorite(item: AppMediaItem) {
+        KmpHelper.shared.toggleFavoriteOptimistic(item: item)
+    }
+
+    func setSleepTimer(id: String, seconds: Int) {
+        KmpHelper.shared.setPlayerSleepTimer(playerId: id, seconds: Int32(seconds))
+    }
+
+    func clearSleepTimer(id: String) {
+        KmpHelper.shared.clearPlayerSleepTimer(playerId: id)
+    }
+
     func playQueueItem(queueId: String, queueItemId: String) {
         KmpHelper.shared.playQueueItem(queueId: queueId, queueItemId: queueItemId)
     }
@@ -192,9 +206,12 @@ struct PlayerBarItemView: Identifiable {
     let volumeLevel: Float?
     let isMuted: Bool
     let canMute: Bool
+    /// Unix (UTC) seconds at which the server's sleep timer stops playback, nil when no timer
+    /// runs. A static expiry — the ticking countdown is derived at render time (`TimelineView`).
+    let sleepTimerExpiresAt: Double?
     /// The current queue track — kept as the real Kotlin type (not flattened further) so
-    /// `ExpandedPlayerView` can read `.favorite`/`.uri` directly and reuse the existing
-    /// `KmpHelper.setFavorite(item:favorite:)` bridge instead of adding a favorite-specific one.
+    /// `ExpandedPlayerView` can read `.favorite`/`.uri` directly and pass it whole to
+    /// `KmpHelper.toggleFavoriteOptimistic` instead of adding favorite-specific fields here.
     let trackItem: AppMediaItem?
     /// What `KmpHelper.playQueueItem`/`moveQueueItem`/`removeQueueItem` key on — nil when this
     /// player has no queue at all.
@@ -239,6 +256,7 @@ struct PlayerBarItemView: Identifiable {
         self.volumeLevel = item.volumeLevel?.floatValue
         self.isMuted = item.isMuted
         self.canMute = item.canMute
+        self.sleepTimerExpiresAt = item.sleepTimerExpiresAt?.doubleValue
         self.trackItem = item.trackItem
         self.queueId = item.queueId
         self.queueItems = queueItems

@@ -767,7 +767,16 @@ class MainDataSource(
                     Request.Library.removeFavorite(item.itemId, item.mediaType),
                 )
             }
-            result.onFailure { setFavoriteOverride(item, item.favorite) }
+            // `isAccepted`, not `onFailure`: a server rejection still arrives as a successful
+            // Result carrying an error payload, and it too must roll the optimistic flip back —
+            // no `MediaItemUpdatedEvent` will ever come to reconcile a refused write.
+            if (!result.isAccepted) {
+                log.e(result.exceptionOrNull()) {
+                    "Favorite toggle to $newFavorite rejected for ${item.itemId}: " +
+                        (result.getOrNull()?.errorDetails ?: "transport failure")
+                }
+                setFavoriteOverride(item, item.favorite)
+            }
         }
     }
 
@@ -1116,6 +1125,30 @@ class MainDataSource(
             log.e(
                 result.exceptionOrNull(),
             ) { "Failed to restore pause after seek for ${data.player.name}" }
+        }
+    }
+
+    /**
+     * Starts a server-side sleep timer of [seconds] on [playerId].
+     *
+     * Deliberately not a [PlayerAction]: the timer lives on the server for every player,
+     * the local (Sendspin) one included — the server stops it over the normal protocol —
+     * so this must never take the local branch of [playerAction]. No optimistic state:
+     * the server calls `update_state()`, so the confirming `PlayerUpdatedEvent` carries
+     * the new expiry back within the same round trip.
+     */
+    fun setSleepTimer(playerId: String, seconds: Int) {
+        launch {
+            apiClient.sendRequest(Request.Player.setSleepTimer(playerId, seconds))
+                .onFailure { log.e(it) { "Failed to set sleep timer for $playerId" } }
+        }
+    }
+
+    /** Clears the server-side sleep timer on [playerId]. See [setSleepTimer]. */
+    fun clearSleepTimer(playerId: String) {
+        launch {
+            apiClient.sendRequest(Request.Player.clearSleepTimer(playerId))
+                .onFailure { log.e(it) { "Failed to clear sleep timer for $playerId" } }
         }
     }
 
