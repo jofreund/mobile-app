@@ -42,3 +42,4 @@ open iosApp/iosApp.xcodeproj
 ## Planned Features
 
 - **WebRTC Remote Access**: See `.claude/webrtc-implementation-plan.md` for comprehensive implementation plan, protocol details, and architecture design
+- **Local Player (Sendspin) Integration**: See `.claude/local-player-integration-plan.md` for the plan to port the on-device Sendspin player back from upstream (restores background audio and lock-screen/Control Center integration)
