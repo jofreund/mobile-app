@@ -108,6 +108,13 @@ private struct PlayerPickerRow: View {
 
                 Spacer(minLength: 8)
 
+                // Same trailing slot the Compose player dialog used for its NowPlayingIcon —
+                // "which of these is making sound right now", independent of which one the
+                // checkmark says this screen is driving.
+                if candidate.isPlaying {
+                    NowPlayingIndicator()
+                }
+
                 if isCurrent {
                     Image(systemName: "checkmark")
                         .font(.footnote.weight(.semibold))
