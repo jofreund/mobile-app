@@ -92,6 +92,12 @@ struct iOSApp: App {
     /// so the handler must outlive every login attempt.
     private let oauthWebSession = OAuthWebSession()
 
+    /// Mirrors the selected player into the lock screen / Dynamic Island Live Activity. Lives
+    /// here rather than in a view: it must observe playerBarState for the whole process
+    /// lifetime — including background launches from the activity's own play/pause intent,
+    /// where no view ever appears.
+    private let playerActivityController = PlayerActivityController()
+
     init() {
         #if DEBUG
         // Route Kermit logs to the unified log un-redacted during development
@@ -124,6 +130,10 @@ struct iOSApp: App {
         // presenting needed a live scene; the handler resolves its presentation window
         // lazily, at present time, so it has nothing to wait for here.
         KmpHelper.shared.authManager.oauthHandler = oauthWebSession
+
+        // Must run for background launches too (a Live Activity intent tap cold-launches the
+        // process with no scene), so init — not a view callback — is the only correct place.
+        playerActivityController.start()
     }
 
     var body: some Scene {
@@ -156,8 +166,12 @@ struct iOSApp: App {
         }
         .onChange(of: scenePhase) { _, phase in
             switch phase {
-            case .active: KmpHelper.shared.onAppForeground()
-            case .background: KmpHelper.shared.onAppBackground()
+            case .active:
+                KmpHelper.shared.onAppForeground()
+                playerActivityController.scenePhaseChanged(active: true)
+            case .background:
+                KmpHelper.shared.onAppBackground()
+                playerActivityController.scenePhaseChanged(active: false)
             case .inactive: break
             @unknown default: break
             }

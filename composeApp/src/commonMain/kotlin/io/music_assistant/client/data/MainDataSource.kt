@@ -1033,18 +1033,38 @@ class MainDataSource(
     fun playerAction(data: PlayerData, action: PlayerAction) {
         val resolved = playerRequestFactory.resolve(data, action)
         applyOptimisticFeedback(data, resolved)
-        launch {
-            val request = playerRequestFactory.buildRequest(data, resolved) ?: return@launch
-            val result = apiClient.sendRequest(request)
-            if (result.isFailure) {
-                clearPlaybackOverride(data.playerId)
-                log.e(
-                    result.exceptionOrNull(),
-                ) { "Failed to send player action request for ${data.player.name}: $action" }
-                return@launch
-            }
-            restorePauseAfterSeek(data, resolved)
+        launch { sendResolvedPlayerAction(data, action, resolved) }
+    }
+
+    /**
+     * [playerAction], but suspends until the request has actually left the process (or failed).
+     * Exists for the Live Activity's play/pause intent: that runs in an app process the system
+     * may suspend the moment the intent returns, so fire-and-forget would race suspension.
+     * Returns whether the transport accepted the send — a server *rejection* still counts as
+     * sent; the optimistic override's timeout revert covers that case.
+     */
+    suspend fun playerActionAwaitingSend(data: PlayerData, action: PlayerAction): Boolean {
+        val resolved = playerRequestFactory.resolve(data, action)
+        applyOptimisticFeedback(data, resolved)
+        return sendResolvedPlayerAction(data, action, resolved)
+    }
+
+    private suspend fun sendResolvedPlayerAction(
+        data: PlayerData,
+        action: PlayerAction,
+        resolved: PlayerAction,
+    ): Boolean {
+        val request = playerRequestFactory.buildRequest(data, resolved) ?: return false
+        val result = apiClient.sendRequest(request)
+        if (result.isFailure) {
+            clearPlaybackOverride(data.playerId)
+            log.e(
+                result.exceptionOrNull(),
+            ) { "Failed to send player action request for ${data.player.name}: $action" }
+            return false
         }
+        restorePauseAfterSeek(data, resolved)
+        return true
     }
 
     /**

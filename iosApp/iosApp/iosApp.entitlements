@@ -13,5 +13,12 @@
 		<string>applinks:www.music-assistant.io</string>
 		<string>applinks:music-assistant.io</string>
 	</array>
+	<!-- Shared with TaktgeberWidgets so the widget process can read the downscaled artwork the
+	     app writes for the Live Activity — see PlayerActivityArtworkStore. Keep the id in sync
+	     with PlayerActivityShared.swift and TaktgeberWidgets.entitlements. -->
+	<key>com.apple.security.application-groups</key>
+	<array>
+		<string>group.com.jofreund.taktgeber</string>
+	</array>
 </dict>
 </plist>

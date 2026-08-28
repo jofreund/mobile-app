@@ -84,7 +84,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
@@ -120,6 +122,14 @@ private val log = Logger.withTag("KmpHelper")
  * genuinely lost reply resolves rather than hanging forever.
  */
 private const val FETCH_TIMEOUT_MS = 30_000L
+
+/**
+ * See [KmpHelper.systemTogglePlayPause]. Bounded by the intent-execution budget the system gives
+ * a backgrounded app process (roughly ten seconds) — must fail soft before iOS kills the intent,
+ * not race it. Comfortably covers a LAN direct connect; a slow WebRTC signaling round trip is the
+ * case that times out, and the button simply does nothing then.
+ */
+private const val SYSTEM_COMMAND_TIMEOUT_MS = 8_000L
 
 /** See [fetchTracks]. */
 private const val TRACKS_FETCH_LIMIT = 500
@@ -1305,6 +1315,37 @@ object KmpHelper : KoinComponent {
     fun selectPlayerBarPlayer(playerId: String) = mainDataSource.selectPlayer(playerId)
 
     fun togglePlayerBarPlayPause(playerId: String) = dispatchPlayerBarAction(playerId, PlayerAction.TogglePlayPause)
+
+    /**
+     * Play/pause dispatched from the lock screen Live Activity's button. The intent runs in the
+     * app process, which may have just been cold-launched in the background — so unlike every
+     * other player-bar bridge this one cannot assume a live connection or loaded players. It:
+     *  1. pokes [ServiceClient.onAppForeground] (reconnects a socket the background teardown
+     *     dropped; Swift restores the background flag afterwards when no scene is active),
+     *  2. waits — bounded — for command readiness and for [playerId] to appear in players data,
+     *  3. sends TogglePlayPause and suspends until the request has left the process
+     *     ([MainDataSource.playerActionAwaitingSend]; fire-and-forget would race suspension).
+     *
+     * Completion receives whether the send happened — as a `KotlinBoolean`, `.boolValue` in Swift.
+     */
+    fun systemTogglePlayPause(playerId: String, completion: (Boolean) -> Unit) {
+        mainScope.launch {
+            serviceClient.onAppForeground()
+            val data = withTimeoutOrNull(SYSTEM_COMMAND_TIMEOUT_MS) {
+                serviceClient.isReadyForCommands.first { it }
+                mainDataSource.playersData
+                    .mapNotNull { state ->
+                        (state as? DataState.Data<List<PlayerData>>)?.data
+                            ?.firstOrNull { it.playerId == playerId }
+                    }
+                    .first()
+            }
+            val sent = data?.let {
+                mainDataSource.playerActionAwaitingSend(it, PlayerAction.TogglePlayPause)
+            } ?: false
+            completion(sent)
+        }
+    }
 
     fun skipPlayerBarNext(playerId: String) = dispatchPlayerBarAction(playerId, PlayerAction.Next)
 
