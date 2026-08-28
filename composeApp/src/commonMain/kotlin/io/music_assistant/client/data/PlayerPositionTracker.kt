@@ -18,11 +18,13 @@ import kotlinx.coroutines.isActive
  * Single source of truth for "what elapsed-time is each queue at, right now".
  *
  * Server events (`QueueTimeUpdatedEvent`, `QueueAddedEvent`, ...) write
- * anchors here. Play/pause transitions snapshot the interpolated position so
- * the pause duration doesn't fold into the next forward step. Consumers
- * (in-app slider, MediaSession writes for AA + notification, iOS NowPlaying,
- * audiobook chapter logic) all read the same source — synchronously via
- * [effectiveSec] or as a smoothly-ticking flow via [observe].
+ * anchors here, and user transport actions write *optimistic* anchors ahead of
+ * the server (seek target, 0.0 on next/previous — see
+ * `MainDataSource.applyOptimisticFeedback`), overwritten by the next server
+ * anchor either way. Play/pause transitions snapshot the interpolated position
+ * so the pause duration doesn't fold into the next forward step. Consumers
+ * (in-app slider, audiobook chapter logic) all read the same source —
+ * synchronously via [effectiveSec] or as a smoothly-ticking flow via [observe].
  *
  * No background tick: the cold [observe] flow ticks at 500 ms only while a
  * collector is attached AND the queue is playing. Sync reads are O(1) map
@@ -42,22 +44,14 @@ class PlayerPositionTracker {
          * interpolated delta to match, or the slider drifts then snaps each anchor.
          */
         val speed: Double = 1.0,
-        /** Hold the optimistic position until Sendspin confirms audio is flowing. */
-        val freezeReason: FreezeReason? = null,
     ) {
         /** Position right now: anchor + speed-scaled wall-time since anchor (capped at duration). */
         fun effectiveNow(): Double {
-            if (!isPlaying || freezeReason != null) return elapsedSec
+            if (!isPlaying) return elapsedSec
             val advanced = elapsedSec + (currentTimeMillis() - wallMs) / 1000.0 * speed
             return durationSec?.let { advanced.coerceAtMost(it) } ?: advanced
         }
     }
-
-    /**
-     * Optimistic anchors wait for [confirmPlaying], not server queue echoes: MA can
-     * report the seek target or next-track position before Sendspin has audio.
-     */
-    enum class FreezeReason { SEEK, TRACK_CHANGE }
 
     private val anchors = MutableStateFlow<Map<String, Anchor>>(emptyMap())
 
@@ -75,8 +69,6 @@ class PlayerPositionTracker {
     ) {
         anchors.update { existing ->
             val current = existing[queueId]
-            // Server anchors are noisy during handoff; Sendspin sync is the confirmation.
-            if (current?.freezeReason != null) return@update existing
             existing + (
                 queueId to Anchor(
                     elapsedSec = elapsedSec,
@@ -84,7 +76,6 @@ class PlayerPositionTracker {
                     isPlaying = isPlaying ?: current?.isPlaying ?: false,
                     durationSec = durationSec ?: current?.durationSec,
                     speed = speed ?: current?.speed ?: 1.0,
-                    freezeReason = null,
                 )
             )
         }
@@ -110,72 +101,8 @@ class PlayerPositionTracker {
         }
     }
 
-    /** User-dropped seek anchor; server echoes do not release the freeze. */
-    fun setOptimisticSeek(
-        queueId: String,
-        elapsedSec: Double,
-        durationSec: Double? = null,
-        speed: Double? = null,
-    ) {
-        anchors.update { existing ->
-            val current = existing[queueId]
-            existing + (
-                queueId to Anchor(
-                    elapsedSec = elapsedSec,
-                    wallMs = currentTimeMillis(),
-                    isPlaying = current?.isPlaying ?: false,
-                    durationSec = durationSec ?: current?.durationSec,
-                    speed = speed ?: current?.speed ?: 1.0,
-                    freezeReason = FreezeReason.SEEK,
-                )
-            )
-        }
-    }
-
-    /** Next/Previous boundary; wait for new-stream sync before ticking again. */
-    fun setOptimisticTrackChange(
-        queueId: String,
-        elapsedSec: Double,
-        durationSec: Double? = null,
-        speed: Double? = null,
-    ) {
-        anchors.update { existing ->
-            val current = existing[queueId]
-            existing + (
-                queueId to Anchor(
-                    elapsedSec = elapsedSec,
-                    wallMs = currentTimeMillis(),
-                    isPlaying = current?.isPlaying ?: false,
-                    durationSec = durationSec ?: current?.durationSec,
-                    speed = speed ?: current?.speed ?: 1.0,
-                    freezeReason = FreezeReason.TRACK_CHANGE,
-                )
-            )
-        }
-    }
-
-    /** Release an optimistic freeze once Sendspin reports synchronized audio. */
-    fun confirmPlaying(queueId: String) {
-        anchors.update { existing ->
-            val current = existing[queueId] ?: return@update existing
-            if (current.freezeReason == null) return@update existing
-            existing + (
-                queueId to current.copy(
-                    elapsedSec = current.effectiveNow(),
-                    wallMs = currentTimeMillis(),
-                    isPlaying = true,
-                    freezeReason = null,
-                )
-            )
-        }
-    }
-
     /** O(1) read of latest interpolated position. */
     fun effectiveSec(queueId: String): Double? = anchors.value[queueId]?.effectiveNow()
-
-    /** True while an optimistic seek or track-change is waiting for confirmation. */
-    fun isFrozenUntilConfirmed(queueId: String): Boolean =
-        anchors.value[queueId]?.freezeReason != null
 
     /**
      * Cold flow of interpolated position. Emits immediately on subscription,
@@ -198,7 +125,7 @@ class PlayerPositionTracker {
                 flow {
                     while (currentCoroutineContext().isActive) {
                         emit(anchor.effectiveNow())
-                        if (!anchor.isPlaying || anchor.freezeReason != null) break
+                        if (!anchor.isPlaying) break
                         delay(TICK_MS)
                     }
                 }

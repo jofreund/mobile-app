@@ -25,8 +25,8 @@ class PlayerRequestFactory(
      *  - Chaptered [PlayerAction.Next]/[PlayerAction.Previous] → seek to the adjacent chapter
      *    start; a bare Next/Previous otherwise.
      * Every other action passes through unchanged. Callers resolve once, then feed the result
-     * to both the optimistic update and [buildRequest] — so the optimistic update freezes to the
-     * true target instead of a track-boundary 0.0 that would clobber the position read here.
+     * to both the optimistic feedback and [buildRequest] — so a chapter skip's optimistic
+     * position anchor lands on the true seek target instead of a track-boundary 0.0.
      */
     fun resolve(data: PlayerData, action: PlayerAction): PlayerAction =
         when (action) {

@@ -56,6 +56,7 @@ import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -117,7 +118,15 @@ class MainDataSource(
         val players: DataState<List<Player>>,
         val queues: List<QueueInfo>,
         val favoriteOverrides: Map<String, Boolean>,
+        val playbackOverrides: Map<String, PlaybackOverride>,
     )
+
+    /**
+     * Optimistic play-state for one player. A fresh instance per write on purpose: the timeout
+     * in [setPlaybackOverride] compares by identity, so a newer toggle for the same player
+     * invalidates the older revert instead of being cleared by it.
+     */
+    private class PlaybackOverride(val isPlaying: Boolean)
 
     private val supervisorJob = SupervisorJob()
     override val coroutineContext: CoroutineContext = supervisorJob + Dispatchers.IO
@@ -134,6 +143,17 @@ class MainDataSource(
      * [buildPlayerDataList] so queue updates can't clobber it.
      */
     private val _favoriteOverrides = MutableStateFlow<Map<String, Boolean>>(emptyMap())
+
+    /**
+     * Optimistic play-state per player id, so the play/pause icon (and the position tracker's
+     * ticking, which mirrors `player.isPlaying`) flips on the tap instead of after the full
+     * tap → RPC → player-reacts → `player_updated` round trip — a second or more on slow
+     * players. Written on transport dispatch in [applyOptimisticFeedback], re-applied on every
+     * rebuild in [buildPlayerDataList], cleared when a [PlayerUpdatedEvent] confirms the target
+     * state, rolled back on send failure, and reverted by a timeout if the server never
+     * confirms (an external change mid-flight also just waits out the timeout).
+     */
+    private val _playbackOverrides = MutableStateFlow<Map<String, PlaybackOverride>>(emptyMap())
 
     private val _players =
         combine(_serverPlayers, settings.playersSorting) { playersState, sortedIds ->
@@ -345,8 +365,9 @@ class MainDataSource(
                 _players,
                 _queueInfos,
                 _favoriteOverrides,
-            ) { players, queues, favOverrides ->
-                PlayerBuildInputs(players, queues, favOverrides)
+                _playbackOverrides,
+            ) { players, queues, favOverrides, playbackOverrides ->
+                PlayerBuildInputs(players, queues, favOverrides, playbackOverrides)
             }
                 .debounce(Timings.EVENT_DEBOUNCE) // Small debounce to batch rapid updates, but don't delay initial load
                 .collect { input ->
@@ -360,6 +381,7 @@ class MainDataSource(
                                     input.players.data,
                                     input.queues,
                                     input.favoriteOverrides,
+                                    input.playbackOverrides,
                                     oldValues,
                                 ),
                             )
@@ -369,6 +391,7 @@ class MainDataSource(
                                     input.players.data,
                                     input.queues,
                                     input.favoriteOverrides,
+                                    input.playbackOverrides,
                                     oldValues,
                                 ),
                                 disconnectedAt = input.players.disconnectedAt,
@@ -639,6 +662,7 @@ class MainDataSource(
         allPlayers: List<Player>,
         queues: List<QueueInfo>,
         favoriteOverrides: Map<String, Boolean>,
+        playbackOverrides: Map<String, PlaybackOverride>,
         oldValues: DataState<List<PlayerData>>,
     ): List<PlayerData> {
         val playerDataList = allPlayers
@@ -667,9 +691,10 @@ class MainDataSource(
                     ?.updateFrom(newData) ?: newData
             }
 
-        // Fill any null now-playing artwork from the queue track, then re-apply favorite
-        // overrides last so the stale queue payload can't win. The two patches are
-        // independent (currentMedia vs queue.currentItem.track.favorite), so order is free.
+        // Fill any null now-playing artwork from the queue track, then re-apply favorite and
+        // playback overrides last so a stale server payload can't win. The patches are
+        // independent (currentMedia vs queue.currentItem.track.favorite vs player.isPlaying),
+        // so order is free.
         return playerDataList
             .map { applyNowPlayingArtwork(it) }
             .let { list ->
@@ -677,6 +702,13 @@ class MainDataSource(
                     list
                 } else {
                     list.map { applyFavoriteOverride(it, favoriteOverrides) }
+                }
+            }
+            .let { list ->
+                if (playbackOverrides.isEmpty()) {
+                    list
+                } else {
+                    list.map { applyPlaybackOverride(it, playbackOverrides) }
                 }
             }
     }
@@ -739,6 +771,46 @@ class MainDataSource(
         }
     }
 
+    /** Overrides the player's play-state from [overrides] — see [_playbackOverrides]. */
+    private fun applyPlaybackOverride(
+        playerData: PlayerData,
+        overrides: Map<String, PlaybackOverride>,
+    ): PlayerData {
+        val override = overrides[playerData.playerId] ?: return playerData
+        if (playerData.player.isPlaying == override.isPlaying) return playerData
+        return playerData.copy(
+            player = playerData.player.copy(isPlaying = override.isPlaying),
+        )
+    }
+
+    /**
+     * Write an optimistic play-state for [playerId] and schedule its revert: if no
+     * [PlayerUpdatedEvent] confirms the target within [PLAYBACK_OVERRIDE_TIMEOUT_MS], the
+     * override is dropped and the UI falls back to server truth. Identity-compared so a newer
+     * override for the same player is never cleared by an older override's timeout.
+     */
+    private fun setPlaybackOverride(playerId: String, isPlaying: Boolean) {
+        val override = PlaybackOverride(isPlaying)
+        _playbackOverrides.update { it + (playerId to override) }
+        launch {
+            delay(PLAYBACK_OVERRIDE_TIMEOUT_MS)
+            _playbackOverrides.update { current ->
+                if (current[playerId] === override) {
+                    log.w { "Playback override for $playerId never confirmed; reverting" }
+                    current - playerId
+                } else {
+                    current
+                }
+            }
+        }
+    }
+
+    private fun clearPlaybackOverride(playerId: String) {
+        _playbackOverrides.update { current ->
+            if (playerId in current) current - playerId else current
+        }
+    }
+
     /** Overrides the now-playing track's favorite flag from [overrides]. */
     private fun applyFavoriteOverride(
         playerData: PlayerData,
@@ -768,6 +840,7 @@ class MainDataSource(
         log.i { "Clearing all cached data" }
         _serverPlayers.update { DataState.NoData() }
         _queueInfos.update { emptyList() }
+        _playbackOverrides.update { emptyMap() }
         positionTracker.clear()
         userPreferences.clear()
     }
@@ -950,16 +1023,51 @@ class MainDataSource(
 
     fun playerAction(data: PlayerData, action: PlayerAction) {
         val resolved = playerRequestFactory.resolve(data, action)
+        applyOptimisticFeedback(data, resolved)
         launch {
             val request = playerRequestFactory.buildRequest(data, resolved) ?: return@launch
             val result = apiClient.sendRequest(request)
             if (result.isFailure) {
+                clearPlaybackOverride(data.playerId)
                 log.e(
                     result.exceptionOrNull(),
                 ) { "Failed to send player action request for ${data.player.name}: $action" }
                 return@launch
             }
             restorePauseAfterSeek(data, resolved)
+        }
+    }
+
+    /**
+     * Reflect a transport action in local state before the server confirms it, so the tap has
+     * visible effect immediately instead of after the full round trip (see [_playbackOverrides]):
+     *
+     *  - Play/pause flips [Player.isPlaying] via the override map — which also freezes/resumes
+     *    the position tracker's ticking through the mirror collector in `init`.
+     *  - Next/Previous drops the position anchor to 0 (the track that follows starts there,
+     *    and a `previous` that restarts the current track does too).
+     *  - SeekTo anchors at the target — audiobook chapter skips arrive here already resolved
+     *    into their SeekTo, so they anchor at the chapter start rather than 0.
+     *
+     * Anchors need no rollback bookkeeping: the next server anchor overwrites them, and while
+     * playing one arrives about every second.
+     */
+    private fun applyOptimisticFeedback(data: PlayerData, resolved: PlayerAction) {
+        when (resolved) {
+            PlayerAction.TogglePlayPause ->
+                setPlaybackOverride(data.playerId, !data.player.isPlaying)
+
+            PlayerAction.Play -> setPlaybackOverride(data.playerId, true)
+            PlayerAction.Pause -> setPlaybackOverride(data.playerId, false)
+            PlayerAction.Next, PlayerAction.Previous ->
+                data.queueInfo?.id?.let { positionTracker.setAnchor(it, elapsedSec = 0.0) }
+
+            is PlayerAction.SeekTo ->
+                data.queueInfo?.id?.let {
+                    positionTracker.setAnchor(it, elapsedSec = resolved.position.toDouble())
+                }
+
+            else -> Unit
         }
     }
 
@@ -1138,6 +1246,14 @@ class MainDataSource(
 
                         is PlayerUpdatedEvent -> {
                             val data = playerFactory.create(event.data)
+                            // Server truth caught up with an optimistic play-state — stop
+                            // overriding. A mismatching event (emitted before our command
+                            // executed) keeps the override until it confirms or times out.
+                            _playbackOverrides.value[data.id]?.let { override ->
+                                if (override.isPlaying == data.isPlaying) {
+                                    clearPlaybackOverride(data.id)
+                                }
+                            }
                             _serverPlayers.update { oldState ->
                                 when (oldState) {
                                     is DataState.Data -> {
@@ -1618,6 +1734,13 @@ class MainDataSource(
 
         /** The queue reports elapsed time in whole-ish seconds; this is "close enough to be it". */
         private const val SEEK_SETTLE_TOLERANCE_SECONDS = 2.0
+
+        /**
+         * How long an optimistic play-state override survives without a confirming
+         * [PlayerUpdatedEvent] before reverting to server truth. Generous on purpose: slow
+         * players (Cast, AirPlay) can take a couple of seconds to actually change state.
+         */
+        private const val PLAYBACK_OVERRIDE_TIMEOUT_MS = 5_000L
 
         /**
          * Resolves the effective selected player from the current state.

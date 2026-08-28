@@ -38,7 +38,17 @@ struct VolumeSlider: View {
     /// Mirrors `CapsuleSlider`'s own swell so the glyphs can move aside for it.
     @State private var isAdjusting = false
 
+    /// The last level actually sent during this drag, and when — the throttle for `sendLive`.
+    @State private var lastLiveSend: (level: Float, at: Date)?
+
     private var displayValue: Float { dragValue ?? pendingValue ?? volume ?? 0 }
+
+    /// At most one live send per this interval while dragging. Frequent enough to hear the level
+    /// follow the finger, sparse enough not to flood a player whose volume command is slow.
+    private static let liveSendInterval: TimeInterval = 0.2
+    /// And only when the level has moved at least this far since the last send — matches the
+    /// slider's own 5-point VoiceOver step, so a resting finger sends nothing.
+    private static let liveSendMinDelta: Float = 5
 
     var body: some View {
         HStack(spacing: 14) {
@@ -51,7 +61,12 @@ struct VolumeSlider: View {
             CapsuleSlider(
                 value: Binding(
                     get: { Double(displayValue) },
-                    set: { dragValue = Float($0) }
+                    set: {
+                        dragValue = Float($0)
+                        // Throttled live send, so the audio follows the finger instead of only
+                        // changing on release. The final release value still goes out below.
+                        sendLive()
+                    }
                 ),
                 range: 0...100,
                 // Five points per VoiceOver step: 20 stops across the range, which is about as
@@ -65,7 +80,13 @@ struct VolumeSlider: View {
                     // caller uses `withAnimation` and has never been slow. Kept because scoping
                     // an animation to the views it applies to is right regardless.
                     isAdjusting = editing
-                    guard !editing, let level = dragValue else { return }
+                    if editing {
+                        // Fresh throttle per drag: the first movement sends immediately.
+                        lastLiveSend = nil
+                        return
+                    }
+                    lastLiveSend = nil
+                    guard let level = dragValue else { return }
                     // Order matters: hand over to `pendingValue` before clearing `dragValue`, or
                     // `displayValue` falls through to the stale `volume` for a frame.
                     pendingValue = level
@@ -88,9 +109,15 @@ struct VolumeSlider: View {
                 .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isAdjusting)
         }
         .opacity(enabled ? 1 : 0.4)
-        // Any change to `volume` is the round trip closing: either the server took our value, or
-        // something else moved it and that reading should win. Either way stop overriding.
-        .onChange(of: volume) { _, _ in pendingValue = nil }
+        // A change to `volume` near the released value is the round trip closing — stop
+        // overriding. Not *any* change any more: live sends during the drag mean the server can
+        // still be echoing intermediate levels when the finger lifts, and dropping the latch on
+        // one of those snapped the fill backwards for a beat. A genuinely different reading
+        // (something else moved the volume) waits out the 3s backstop below instead.
+        .onChange(of: volume) { _, newValue in
+            guard let pending = pendingValue, let newValue else { return }
+            if abs(newValue - pending) < Self.liveSendMinDelta { pendingValue = nil }
+        }
         // Backstop. A server that clamps our value to what it already had emits no change at all,
         // and the fill would sit on a level the player never reached until the next event.
         .task(id: pendingValue) {
@@ -99,6 +126,20 @@ struct VolumeSlider: View {
             guard !Task.isCancelled else { return }
             pendingValue = nil
         }
+    }
+
+    /// Sends the in-drag level when it has moved far enough since the last send and the throttle
+    /// window has passed. Skipped entirely outside a drag (`dragValue` nil). Deliberately does
+    /// not touch `pendingValue`: `dragValue` still owns the fill until release, so server echoes
+    /// of these intermediate levels can't yank it around.
+    private func sendLive() {
+        guard let level = dragValue else { return }
+        if let last = lastLiveSend {
+            guard Date().timeIntervalSince(last.at) >= Self.liveSendInterval,
+                  abs(level - last.level) >= Self.liveSendMinDelta else { return }
+        }
+        lastLiveSend = (level, Date())
+        onVolumeSet(level)
     }
 
     @ViewBuilder

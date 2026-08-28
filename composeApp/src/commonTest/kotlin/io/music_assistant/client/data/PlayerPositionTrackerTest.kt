@@ -2,149 +2,94 @@ package io.music_assistant.client.data
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class PlayerPositionTrackerTest {
     @Test
-    fun optimisticSeekIgnoresStaleServerAnchorFarFromSeekTarget() {
+    fun pausedAnchorReportsItsElapsedExactly() {
         val tracker = PlayerPositionTracker()
         val queueId = "queue"
 
         tracker.setAnchor(
             queueId = queueId,
             elapsedSec = 65.0,
-            isPlaying = true,
-            durationSec = 218.0,
-            speed = 1.0,
-        )
-        tracker.setOptimisticSeek(
-            queueId = queueId,
-            elapsedSec = 149.0,
-            durationSec = 218.0,
-            speed = 1.0,
-        )
-        assertTrue(tracker.isFrozenUntilConfirmed(queueId))
-
-        tracker.setAnchor(
-            queueId = queueId,
-            elapsedSec = 67.9,
+            isPlaying = false,
             durationSec = 218.0,
             speed = 1.0,
         )
 
-        assertEquals(149.0, tracker.effectiveSec(queueId))
-        assertTrue(tracker.isFrozenUntilConfirmed(queueId))
+        assertEquals(65.0, tracker.effectiveSec(queueId))
     }
 
     @Test
-    fun optimisticSeekIgnoresServerAnchorsUntilAudioConfirm() {
-        // Server can echo the seek target before audio resumes; that must not unfreeze.
+    fun newerAnchorOverwritesOlderOne() {
+        // The optimistic transport anchors (seek target, 0.0 on next/previous) rely on
+        // exactly this: whoever wrote last wins, and the next server anchor corrects.
+        val tracker = PlayerPositionTracker()
+        val queueId = "queue"
+
+        tracker.setAnchor(queueId = queueId, elapsedSec = 65.0, isPlaying = false)
+        tracker.setAnchor(queueId = queueId, elapsedSec = 149.0)
+
+        assertEquals(149.0, tracker.effectiveSec(queueId))
+    }
+
+    @Test
+    fun playingAnchorNeverRunsPastDuration() {
         val tracker = PlayerPositionTracker()
         val queueId = "queue"
 
         tracker.setAnchor(
             queueId = queueId,
-            elapsedSec = 65.0,
+            elapsedSec = 218.0,
             isPlaying = true,
             durationSec = 218.0,
-            speed = 1.0,
         )
-        tracker.setOptimisticSeek(
+
+        assertEquals(218.0, tracker.effectiveSec(queueId))
+    }
+
+    @Test
+    fun elapsedOnlyAnchorPreservesPlayingStateAndDuration() {
+        // QueueTimeUpdatedEvent carries only the new elapsed value.
+        val tracker = PlayerPositionTracker()
+        val queueId = "queue"
+
+        tracker.setAnchor(
             queueId = queueId,
-            elapsedSec = 149.0,
-            durationSec = 218.0,
-            speed = 1.0,
+            elapsedSec = 60.0,
+            isPlaying = true,
+            durationSec = 100.0,
         )
-        assertTrue(tracker.isFrozenUntilConfirmed(queueId))
+        tracker.setAnchor(queueId = queueId, elapsedSec = 100.0)
 
-        // Echo at the target still arrives too early.
-        tracker.setAnchor(queueId = queueId, elapsedSec = 149.5)
-        assertEquals(149.0, tracker.effectiveSec(queueId))
-        assertTrue(tracker.isFrozenUntilConfirmed(queueId))
-
-        // Audio sync is the release signal.
-        tracker.confirmPlaying(queueId)
-        assertTrue(!tracker.isFrozenUntilConfirmed(queueId))
+        // Still playing (would advance), still capped by the preserved duration.
         val pos = tracker.effectiveSec(queueId) ?: error("missing position")
-        assertTrue(pos >= 149.0)
+        assertEquals(100.0, pos)
     }
 
     @Test
-    fun trackChangeFreezeIgnoresServerAnchorAtBoundaryWhileOldAudioPlays() {
-        // Next-track queue metadata can arrive while old audio is still draining.
+    fun setPlayingOnUnknownQueueIsIgnored() {
         val tracker = PlayerPositionTracker()
-        val queueId = "queue"
 
-        tracker.setAnchor(queueId = queueId, elapsedSec = 53.0, isPlaying = true)
-        tracker.setOptimisticTrackChange(queueId = queueId, elapsedSec = 0.0)
-        assertTrue(tracker.isFrozenUntilConfirmed(queueId))
-        assertEquals(0.0, tracker.effectiveSec(queueId))
+        tracker.setPlaying("queue", isPlaying = true)
 
-        // Boundary echoes are not audio confirmation.
-        tracker.setAnchor(queueId = queueId, elapsedSec = 0.5)
-
-        assertEquals(0.0, tracker.effectiveSec(queueId))
-        assertTrue(tracker.isFrozenUntilConfirmed(queueId))
-
-        // Later pre-audio echoes stay frozen too.
-        tracker.setAnchor(queueId = queueId, elapsedSec = 1.2)
-
-        assertEquals(0.0, tracker.effectiveSec(queueId))
-        assertTrue(tracker.isFrozenUntilConfirmed(queueId))
+        assertNull(tracker.effectiveSec("queue"))
     }
 
     @Test
-    fun trackChangeFreezeUnfreezesOnAudioConfirm() {
-        // New-stream sync releases the boundary freeze.
+    fun removeAndClearDropAnchors() {
         val tracker = PlayerPositionTracker()
-        val queueId = "queue"
 
-        tracker.setAnchor(queueId = queueId, elapsedSec = 53.0, isPlaying = true)
-        tracker.setOptimisticTrackChange(queueId = queueId, elapsedSec = 0.0)
-        assertTrue(tracker.isFrozenUntilConfirmed(queueId))
+        tracker.setAnchor(queueId = "a", elapsedSec = 1.0)
+        tracker.setAnchor(queueId = "b", elapsedSec = 2.0)
 
-        tracker.confirmPlaying(queueId)
+        tracker.remove("a")
+        assertNull(tracker.effectiveSec("a"))
+        assertTrue(tracker.effectiveSec("b") != null)
 
-        assertTrue(!tracker.isFrozenUntilConfirmed(queueId))
-    }
-
-    @Test
-    fun trackChangeFreezeIgnoresAllServerAnchorsUntilAudioConfirm() {
-        // Neither old-track nor pre-audio new-track positions are confirmation.
-        val tracker = PlayerPositionTracker()
-        val queueId = "queue"
-
-        tracker.setAnchor(queueId = queueId, elapsedSec = 53.0, isPlaying = true)
-        tracker.setOptimisticTrackChange(queueId = queueId, elapsedSec = 0.0)
-        assertTrue(tracker.isFrozenUntilConfirmed(queueId))
-
-        // Late old-track position is still not confirmation.
-        tracker.setAnchor(queueId = queueId, elapsedSec = 53.0)
-        assertEquals(0.0, tracker.effectiveSec(queueId))
-        assertTrue(tracker.isFrozenUntilConfirmed(queueId))
-
-        // Pre-audio new-track position is also not confirmation.
-        tracker.setAnchor(queueId = queueId, elapsedSec = 2.0, isPlaying = true)
-        assertEquals(0.0, tracker.effectiveSec(queueId))
-        assertTrue(tracker.isFrozenUntilConfirmed(queueId))
-
-        // New-stream audio sync releases the freeze.
-        tracker.confirmPlaying(queueId)
-        assertTrue(!tracker.isFrozenUntilConfirmed(queueId))
-    }
-
-    @Test
-    fun seekFreezeStillUnfreezesOnAudioConfirm() {
-        // Seeks use the same Sendspin confirmation path as track changes.
-        val tracker = PlayerPositionTracker()
-        val queueId = "queue"
-
-        tracker.setAnchor(queueId = queueId, elapsedSec = 65.0, isPlaying = true)
-        tracker.setOptimisticSeek(queueId = queueId, elapsedSec = 149.0)
-        assertTrue(tracker.isFrozenUntilConfirmed(queueId))
-
-        tracker.confirmPlaying(queueId)
-
-        assertTrue(!tracker.isFrozenUntilConfirmed(queueId))
+        tracker.clear()
+        assertNull(tracker.effectiveSec("b"))
     }
 }

@@ -123,12 +123,51 @@ final class PlayerBarStore {
             players = []
             selectedIndex = 0
             presentationChapter = nil
+            queueViewCache = [:]
             return
         }
-        players = data.players.map(PlayerBarItemView.init)
+        var freshCache: [String: QueueViewCacheEntry] = [:]
+        players = data.players.map { item in
+            let projected = projectQueueItems(of: item)
+            freshCache[item.playerId] = QueueViewCacheEntry(
+                source: item.queueItems,
+                projected: projected
+            )
+            return PlayerBarItemView(item, queueItems: projected)
+        }
+        // Replaced wholesale, so players that disappeared drop their cached queues with them.
+        queueViewCache = freshCache
         selectedIndex = Int(data.selectedIndex)
         presentationChapter = data.presentationChapter
     }
+
+    /// Swift half of Kotlin's `QueueProjectionCache`: reuse the previous `QueueBarItemView`s
+    /// when the source rows are the very same Kotlin objects as last time.
+    ///
+    /// Every emission used to rebuild a `QueueBarItemView` — `URL(string:)` parse included —
+    /// for every queue item of every player, on the main thread, even though almost every
+    /// emission changes something *else* (a play-state flip, a volume echo). The Kotlin side
+    /// already returns the identical projected list instance across such rebuilds, so its rows
+    /// keep their object identity across the bridge, and an element-wise `===` walk (cheap
+    /// pointer compares) is enough to know the old projection is still exact. Any mismatch —
+    /// count, order, or a genuinely new row — falls through to a full re-projection, so a miss
+    /// is only ever a missed optimization, same contract as the Kotlin cache.
+    private func projectQueueItems(of item: PlayerBarItem) -> [QueueBarItemView] {
+        let source = item.queueItems
+        if let cached = queueViewCache[item.playerId],
+           cached.source.count == source.count,
+           zip(cached.source, source).allSatisfy({ $0 === $1 }) {
+            return cached.projected
+        }
+        return source.map(QueueBarItemView.init)
+    }
+
+    private struct QueueViewCacheEntry {
+        let source: [QueueBarItem]
+        let projected: [QueueBarItemView]
+    }
+
+    private var queueViewCache: [String: QueueViewCacheEntry] = [:]
 }
 
 /// SwiftUI-shaped projection of the Kotlin `PlayerBarItem` — same "flatten at the bridge
@@ -179,7 +218,10 @@ struct PlayerBarItemView: Identifiable {
     /// makes the expanded player's group-settings header icon appear at all.
     let groupMembers: [GroupMemberBarItemView]
 
-    init(_ item: PlayerBarItem) {
+    /// [queueItems] is supplied pre-projected by `PlayerBarStore`, which caches the previous
+    /// projection and reuses it when the underlying Kotlin rows are identical — see
+    /// `PlayerBarStore.projectQueueItems`.
+    init(_ item: PlayerBarItem, queueItems: [QueueBarItemView]) {
         self.id = item.playerId
         self.name = item.name
         self.icon = item.icon
@@ -199,7 +241,7 @@ struct PlayerBarItemView: Identifiable {
         self.canMute = item.canMute
         self.trackItem = item.trackItem
         self.queueId = item.queueId
-        self.queueItems = item.queueItems.map(QueueBarItemView.init)
+        self.queueItems = queueItems
         self.currentQueueItemId = item.currentQueueItemId
         self.currentItemChapters = item.currentItemChapters
         self.isGroup = item.isGroup
