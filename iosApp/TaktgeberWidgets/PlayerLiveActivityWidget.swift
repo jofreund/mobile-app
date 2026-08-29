@@ -14,7 +14,7 @@ struct PlayerLiveActivityWidget: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: PlayerActivityAttributes.self) { context in
             LockScreenPlayerView(context: context)
-                .widgetURL(URL(string: "musicassistant://app/players"))
+                .widgetURL(playerDeepLinkURL(for: context.state.playerId))
         } dynamicIsland: { context in
             DynamicIsland {
                 // One full-width row in the bottom region instead of leading/center/trailing:
@@ -31,17 +31,38 @@ struct PlayerLiveActivityWidget: Widget {
                         .padding(.horizontal, 4)
                         .padding(.top, 6)
                         .padding(.bottom, 20)
+                        .widgetURL(playerDeepLinkURL(for: context.state.playerId))
                 }
             } compactLeading: {
+                // Carries the deep link for the whole compact presentation (leading and
+                // trailing form one tap target; only one view may declare the URL).
                 Image(systemName: "music.note")
+                    .widgetURL(playerDeepLinkURL(for: context.state.playerId))
             } compactTrailing: {
                 Image(systemName: context.state.isPlaying ? "waveform" : "pause.fill")
                     .opacity(context.isStale ? 0.5 : 1)
             } minimal: {
                 Image(systemName: "music.note")
+                    .widgetURL(playerDeepLinkURL(for: context.state.playerId))
             }
         }
     }
+}
+
+/// Deep link every tap surface of the activity opens the app with: the app routes
+/// `musicassistant://app/players/<playerId>` to the expanded player view of that player
+/// (`DeepLinkBus` on the Kotlin side, applied by `AppTabView`). The id rides in the URL rather
+/// than being inferred from the current selection so the app lands on the player the card was
+/// actually showing, even if selection moved meanwhile. Player ids are server-issued opaque
+/// strings, so the path segment is percent-encoded — including `/`, which `.urlPathAllowed`
+/// would let through and which would split the id into bogus extra segments.
+private func playerDeepLinkURL(for playerId: String) -> URL? {
+    var allowed = CharacterSet.urlPathAllowed
+    allowed.remove(charactersIn: "/")
+    guard let encoded = playerId.addingPercentEncoding(withAllowedCharacters: allowed),
+          let url = URL(string: "musicassistant://app/players/\(encoded)")
+    else { return URL(string: "musicassistant://app/players") }
+    return url
 }
 
 private struct LockScreenPlayerView: View {

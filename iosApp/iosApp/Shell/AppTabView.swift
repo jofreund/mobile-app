@@ -141,7 +141,16 @@ struct AppTabView: View {
                 // that only existed because that controller was mounted and this wasn't the
                 // sole consumer.
                 guard let dest else { return }
-                if dest is DeepLinkDestinationPlayers {
+                if let players = dest as? DeepLinkDestinationPlayers {
+                    // A Live Activity tap names the player its card was showing. Select by id
+                    // (not index): Kotlin's resolver applies the choice once that player is in
+                    // the visible list, which also covers the cold launch where this fires
+                    // before any players have loaded — and falls back to its usual selection
+                    // if the id never appears. The mini player pager and the expanded cover
+                    // both follow `selectedIndex`, so nothing else needs steering.
+                    if let playerId = players.playerId {
+                        playerBarStore.selectPlayer(id: playerId)
+                    }
                     playerExpanded = true
                     KmpHelper.shared.consumeDeepLink(destination: dest)
                 } else if dest is DeepLinkDestinationHome {
