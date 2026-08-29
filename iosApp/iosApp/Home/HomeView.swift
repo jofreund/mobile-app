@@ -396,7 +396,9 @@ private struct HomeCarouselTile: View {
                 .buttonStyle(.plain)
             }
         }
-        .itemContextMenu(item: item)
+        // Same reference size the tile decodes at, so the preview is a cache hit — see
+        // `itemContextMenu`'s doc on why tiles preview the artwork alone.
+        .itemContextMenu(item: item, artworkPreviewSize: width)
     }
 
     private var tile: some View {
