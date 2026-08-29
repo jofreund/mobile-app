@@ -463,10 +463,16 @@ private struct ExpandedPlayerRow: View {
                 Text(queueLabel)
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
+                // The chapter rows' hanging indent (see `queueTextInset`) exists to tuck them
+                // under the track rows' titles — with no track row on screen at all (an
+                // audiobook as the queue's only item, the common audiobook case) there is
+                // nothing to hang under and the indent reads as unexplained dead space, so the
+                // chapters start at the margin like everything else.
+                let hasTrackRows = rows.contains { $0.queueIndex != nil }
                 ScrollViewReader { proxy in
                     List {
                         ForEach(rows) { row in
-                            queueRowView(row)
+                            queueRowView(row, hasTrackRows: hasTrackRows)
                         }
                         .onMove { from, to in handleMove(rows: rows, from: from, to: to) }
                     }
@@ -482,12 +488,12 @@ private struct ExpandedPlayerRow: View {
     }
 
     @ViewBuilder
-    private func queueRowView(_ row: QueueDisplayRow) -> some View {
+    private func queueRowView(_ row: QueueDisplayRow, hasTrackRows: Bool) -> some View {
         switch row {
         case .track(let item, let queueIndex):
             queueTrackRow(item, queueIndex: queueIndex)
         case .chapter(let chapter, _):
-            queueChapterRow(chapter)
+            queueChapterRow(chapter, indented: hasTrackRows)
         }
     }
 
@@ -548,11 +554,11 @@ private struct ExpandedPlayerRow: View {
         .alignmentGuide(.listRowSeparatorLeading) { _ in Self.queueTextInset }
     }
 
-    private func queueChapterRow(_ chapter: Chapter) -> some View {
+    private func queueChapterRow(_ chapter: Chapter, indented: Bool) -> some View {
         Button {
             store.seek(id: player.id, seconds: chapter.start.rounded(.up))
         } label: {
-            queueChapterRowLabel(chapter)
+            queueChapterRowLabel(chapter, indented: indented)
         }
         .buttonStyle(.plain)
         .moveDisabled(true)
@@ -570,10 +576,11 @@ private struct ExpandedPlayerRow: View {
     private static let queueRowInsets = EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0)
 
     /// Where a queue row's text starts: 40pt of artwork plus the 12pt `HStack` spacing. Chapter
-    /// rows pad by the same amount to hang under the titles, and the separator is aligned to it.
+    /// rows pad by the same amount to hang under the titles (only while there is a track row to
+    /// hang under — see `queueSection`), and the separator is aligned to it.
     private static let queueTextInset: CGFloat = 52
 
-    private func queueChapterRowLabel(_ chapter: Chapter) -> some View {
+    private func queueChapterRowLabel(_ chapter: Chapter, indented: Bool) -> some View {
         HStack {
             Text(chapter.name)
                 .font(.subheadline)
@@ -585,7 +592,7 @@ private struct ExpandedPlayerRow: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .padding(.leading, Self.queueTextInset)
+        .padding(.leading, indented ? Self.queueTextInset : 0)
         .contentShape(Rectangle())
     }
 
