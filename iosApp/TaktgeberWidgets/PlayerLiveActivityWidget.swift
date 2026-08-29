@@ -31,20 +31,22 @@ struct PlayerLiveActivityWidget: Widget {
                         .padding(.horizontal, 4)
                         .padding(.top, 6)
                         .padding(.bottom, 20)
-                        .widgetURL(playerDeepLinkURL(for: context.state.playerId))
                 }
             } compactLeading: {
-                // Carries the deep link for the whole compact presentation (leading and
-                // trailing form one tap target; only one view may declare the URL).
                 Image(systemName: "music.note")
-                    .widgetURL(playerDeepLinkURL(for: context.state.playerId))
             } compactTrailing: {
                 Image(systemName: context.state.isPlaying ? "waveform" : "pause.fill")
                     .opacity(context.isStale ? 0.5 : 1)
             } minimal: {
                 Image(systemName: "music.note")
-                    .widgetURL(playerDeepLinkURL(for: context.state.playerId))
             }
+            // The island's deep link must be declared on the DynamicIsland itself —
+            // `DynamicIsland.widgetURL`, not the SwiftUI view modifier. The view modifier
+            // attached to views inside the island's closures is silently ignored for the
+            // compact/minimal (and, in practice, expanded) tap targets: taps opened the app
+            // with no URL. This island-level default covers all island presentations; the
+            // lock screen banner is a plain widget view and keeps the view modifier.
+            .widgetURL(playerDeepLinkURL(for: context.state.playerId))
         }
     }
 }
