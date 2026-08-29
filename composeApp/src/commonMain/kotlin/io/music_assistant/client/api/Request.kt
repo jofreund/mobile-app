@@ -700,13 +700,19 @@ data class Request @OptIn(ExperimentalUuidApi::class) constructor(
             },
         )
 
+        /**
+         * Un-favorites a library item. The server's `music/favorites/remove_item` takes
+         * `item_id` — *not* the `library_item_id` that `music/library/remove_item` above
+         * takes. Sending the wrong name is rejected with `error_code` 3 (`invalid_data`),
+         * which surfaced as an error toast and a heart that snapped back on reload.
+         */
         fun removeFavorite(
             itemId: String,
             mediaType: MediaType,
         ) = Request(
             command = APICommands.MUSIC_FAVORITES_REMOVE_ITEM,
             args = buildJsonObject {
-                put("library_item_id", JsonPrimitive(itemId))
+                put("item_id", JsonPrimitive(itemId))
                 put("media_type", JsonPrimitive(mediaType.serverValue))
             },
         )
