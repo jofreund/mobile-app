@@ -56,6 +56,7 @@ import io.music_assistant.client.data.repository.SearchResultData
 import io.music_assistant.client.logging.InMemoryLogWriter
 import io.music_assistant.client.logging.LogSharer
 import io.music_assistant.client.settings.ConnectionHistoryEntry
+import io.music_assistant.client.settings.LiveActivityVisibility
 import io.music_assistant.client.settings.SettingsRepository
 import io.music_assistant.client.settings.ViewMode
 import io.music_assistant.client.ui.AppBannerState
@@ -579,6 +580,19 @@ object KmpHelper : KoinComponent {
 
     fun switchTheme(theme: ThemeSetting) {
         settingsRepository.switchTheme(theme)
+    }
+
+    /**
+     * Whether the lock screen / Dynamic Island Live Activity is shown for the selected player at
+     * all times or only while something is playing. Observable because
+     * `PlayerActivityController` has to *react* to a change — flipping to "while playing" with
+     * everything paused has to end the activity that is already on screen.
+     */
+    val liveActivityVisibility: NativeStateFlow<LiveActivityVisibility>
+        get() = NativeStateFlow(settingsRepository.liveActivityVisibility, mainScope)
+
+    fun setLiveActivityVisibility(visibility: LiveActivityVisibility) {
+        settingsRepository.setLiveActivityVisibility(visibility)
     }
 
     fun hasCrashLog(): Boolean = logSharer.hasCrashLog()

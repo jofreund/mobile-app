@@ -23,8 +23,15 @@ import UIKit
 final class PlayerActivityController {
 
     private var stateSub: Cancellable?
+    private var visibilitySub: Cancellable?
     private var isForeground = false
     private var activity: Activity<PlayerActivityAttributes>?
+
+    /// The user's `settings_live_activity` choice. Read in `start()`, not in a property
+    /// initializer: this controller is a stored property of the `App` struct, so it is built
+    /// before `bootstrapKmp()` runs in that struct's `init` and there is no `KmpHelper` to ask
+    /// yet. `start()` is called once Kotlin is up.
+    private var visibility: LiveActivityVisibility = .always
 
     /// Last content published, to skip no-op republishes (playerBarState emits on every volume
     /// echo and position anchor; ActivityKit updates are not free).
@@ -54,8 +61,17 @@ final class PlayerActivityController {
         for extra in existing.dropFirst() {
             Task { await extra.end(nil, dismissalPolicy: .immediate) }
         }
+        visibility = KmpHelper.shared.liveActivityVisibility.value ?? .always
         stateSub = KmpHelper.shared.playerBarState.subscribe { [weak self] state in
             self?.handle(state)
+        }
+        // The setting is a state change of its own: switching to "while playing" while
+        // everything is paused has to end the card that is already on the lock screen, and
+        // switching back has to bring it up again with no player event to ride on.
+        visibilitySub = KmpHelper.shared.liveActivityVisibility.subscribe { [weak self] visibility in
+            guard let self, let visibility, visibility != self.visibility else { return }
+            self.visibility = visibility
+            self.handle(KmpHelper.shared.playerBarState.value)
         }
     }
 
@@ -71,7 +87,7 @@ final class PlayerActivityController {
     // MARK: - State → activity
 
     private func handle(_ state: PlayerBarState?) {
-        guard let content = Self.desiredContent(from: state) else {
+        guard let content = Self.desiredContent(from: state, visibility: visibility) else {
             endActivity()
             return
         }
@@ -81,9 +97,18 @@ final class PlayerActivityController {
     /// The content the activity should show for this state, or nil when there is nothing to
     /// show (no players, or the selected player has no current item — an idle player's activity
     /// would be an inert card with a dead button).
-    private static func desiredContent(from state: PlayerBarState?) -> PlayerActivityAttributes.ContentState? {
+    ///
+    /// Under `.whilePlaying` there is a second gate: at least one player — any player, not
+    /// necessarily the selected one, matching how the setting is worded — has to be playing.
+    /// Note the consequence, which is the point of the setting rather than a wrinkle in it:
+    /// pausing from the activity's own button ends the activity.
+    private static func desiredContent(
+        from state: PlayerBarState?,
+        visibility: LiveActivityVisibility
+    ) -> PlayerActivityAttributes.ContentState? {
         guard let data = state as? PlayerBarState.Data,
               !data.players.isEmpty else { return nil }
+        if visibility == .whilePlaying, !data.players.contains(where: { $0.isPlaying }) { return nil }
         let index = Int(data.selectedIndex)
         guard index >= 0, index < data.players.count else { return nil }
         let item = data.players[index]
@@ -165,7 +190,7 @@ final class PlayerActivityController {
     /// Re-checks against live state before republishing artwork — the track may have changed
     /// again while the image was loading.
     private func publishCurrentIfStillWanted(_ content: PlayerActivityAttributes.ContentState) {
-        guard let desired = Self.desiredContent(from: KmpHelper.shared.playerBarState.value),
+        guard let desired = Self.desiredContent(from: KmpHelper.shared.playerBarState.value, visibility: visibility),
               desired.playerId == content.playerId, desired.title == content.title else {
             handle(KmpHelper.shared.playerBarState.value)
             return
