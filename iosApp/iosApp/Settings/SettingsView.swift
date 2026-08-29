@@ -65,6 +65,7 @@ struct SettingsView: View {
                 accountSection(user: user)
             }
             themeSection
+            LiveActivitySection()
             miscSection
         }
     }
@@ -110,6 +111,53 @@ struct SettingsView: View {
 
     private var miscSection: some View {
         MiscLogsSection()
+    }
+}
+
+/// Whether the lock screen / Dynamic Island Live Activity is on screen for the selected player
+/// at all times, or only while something is playing. Isolated like `MiscLogsSection` so its
+/// `@State` doesn't live on `SettingsView`.
+///
+/// Write-through, the same shape `ThemeStore` uses: the tap goes to `KmpHelper` and the new
+/// value arrives back through the subscription, so the picker can never show a choice the
+/// repository didn't take. `PlayerActivityController` subscribes to the very same flow, so it
+/// reacts to the change without this view knowing it exists.
+private struct LiveActivitySection: View {
+
+    @State private var visibility: LiveActivityVisibility = KmpHelper.shared.liveActivityVisibility.value ?? .always
+    @State private var subscription: Cancellable?
+
+    var body: some View {
+        Section {
+            // Inline, so both choices are visible rows under the header rather than a
+            // push-to-a-sub-screen row whose own label would just repeat that header.
+            Picker("", selection: binding) {
+                Text(String(localized: "settings_live_activity_always"))
+                    .tag(LiveActivityVisibility.always)
+                Text(String(localized: "settings_live_activity_while_playing"))
+                    .tag(LiveActivityVisibility.whilePlaying)
+            }
+            .pickerStyle(.inline)
+            .labelsHidden()
+        } header: {
+            Text(String(localized: "settings_live_activity"))
+        } footer: {
+            Text(String(localized: "settings_live_activity_explanation"))
+        }
+        .task {
+            guard subscription == nil else { return }
+            subscription = KmpHelper.shared.liveActivityVisibility.subscribe { [self] value in
+                guard let value else { return }
+                visibility = value
+            }
+        }
+    }
+
+    private var binding: Binding<LiveActivityVisibility> {
+        Binding(
+            get: { visibility },
+            set: { KmpHelper.shared.setLiveActivityVisibility(visibility: $0) }
+        )
     }
 }
 
