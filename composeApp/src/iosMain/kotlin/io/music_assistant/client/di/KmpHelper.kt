@@ -1142,21 +1142,37 @@ object KmpHelper : KoinComponent {
      * add for an item with no URI). Network outcome is fire-and-forget — Swift
      * uses the synchronous return to avoid lying to Siri about success.
      */
-    fun setFavorite(item: AppMediaItem, favorite: Boolean): Boolean {
-        if (favorite) {
+    fun setFavorite(item: AppMediaItem, favorite: Boolean): Boolean =
+        setFavorite(item, favorite) { }
+
+    /**
+     * [setFavorite] with the server's answer reported through [completion] — `false` when the
+     * request was refused (a rejection arrives as a *successful* Result carrying an error
+     * payload, hence `isAccepted` rather than `onFailure`) or never made it out. For screens
+     * that flip a heart optimistically and have to put it back when the write didn't land;
+     * fire-and-forget callers (Siri, the long-press context menu) use the overload above.
+     *
+     * [completion] is not called when the return value is `false`: there was no request.
+     */
+    fun setFavorite(item: AppMediaItem, favorite: Boolean, completion: (Boolean) -> Unit): Boolean {
+        val request = if (favorite) {
             // Prefer plain `uri`; fall back to `mediaUri`. The base class uses
             // `uri` directly; subclasses like Genre override `mediaUri` to
             // synthesize one when the server didn't supply it.
             val uri = item.uri ?: item.mediaUri ?: return false
-            mainScope.launch {
-                serviceClient.sendRequest(Request.Library.addFavorite(uri))
-            }
+            Request.Library.addFavorite(uri)
         } else {
-            mainScope.launch {
-                serviceClient.sendRequest(
-                    Request.Library.removeFavorite(item.itemId, item.mediaType),
-                )
+            Request.Library.removeFavorite(item.itemId, item.mediaType)
+        }
+        mainScope.launch {
+            val result = serviceClient.sendRequest(request)
+            if (!result.isAccepted) {
+                log.e(result.exceptionOrNull()) {
+                    "Favorite set to $favorite rejected for ${item.itemId}: " +
+                        (result.getOrNull()?.errorDetails ?: "transport failure")
+                }
             }
+            completion(result.isAccepted)
         }
         return true
     }

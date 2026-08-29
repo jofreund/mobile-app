@@ -63,9 +63,14 @@ struct GenreDetailsView: View {
             if genre.uri != nil {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
-                        let next = !isFavorite
+                        // Rolls back when the server refuses the write — see `ItemDetailsView`.
+                        let previous = isFavorite
+                        let next = !previous
                         isFavorite = next
-                        _ = KmpHelper.shared.setFavorite(item: genre, favorite: next)
+                        let sent = KmpHelper.shared.setFavorite(item: genre, favorite: next) { accepted in
+                            if !accepted.boolValue { isFavorite = previous }
+                        }
+                        if !sent { isFavorite = previous }
                     } label: {
                         Image(systemName: isFavorite ? "heart.fill" : "heart")
                     }

@@ -173,9 +173,17 @@ private struct DetailContent: View {
             if item.uri != nil {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
-                        let next = !isFavorite
+                        // The heart flips first and goes back if the server refuses the write —
+                        // without the rollback a rejected favorite stayed filled, so the screen
+                        // claimed a favorite the server never stored (the error toast, raised
+                        // from `ErrorMessageBus`, was the only hint).
+                        let previous = isFavorite
+                        let next = !previous
                         isFavorite = next
-                        _ = KmpHelper.shared.setFavorite(item: item, favorite: next)
+                        let sent = KmpHelper.shared.setFavorite(item: item, favorite: next) { accepted in
+                            if !accepted.boolValue { isFavorite = previous }
+                        }
+                        if !sent { isFavorite = previous }
                     } label: {
                         Image(systemName: isFavorite ? "heart.fill" : "heart")
                     }
