@@ -479,7 +479,7 @@ private struct LibraryItemCell: View {
                 ) { content }
                     .buttonStyle(.plain)
             } else {
-                Button { _ = KmpHelper.shared.playOnSelectedPlayer(item: item.kotlin, option: .replace, radio: false) } label: {
+                Button { _ = KmpHelper.shared.playOnSelectedPlayer(item: item.kotlin, option: .replace, endlessMix: false) } label: {
                     content
                 }
                 .buttonStyle(PressReportingButtonStyle { isPressed = $0 })

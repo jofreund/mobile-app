@@ -106,7 +106,7 @@ struct ArtistDetailsView: View {
             .padding(.horizontal, 24)
 
             Button(String(localized: "action_play_now"), systemImage: "play.fill") {
-                _ = KmpHelper.shared.playOnSelectedPlayer(item: artist, option: .replace, radio: false)
+                _ = KmpHelper.shared.playOnSelectedPlayer(item: artist, option: .replace, endlessMix: false)
             }
             .buttonStyle(.glassProminent)
             .controlSize(.large)
@@ -240,7 +240,7 @@ private struct ArtistSectionTile: View {
 
     var body: some View {
         if isPlayable {
-            Button { _ = KmpHelper.shared.playOnSelectedPlayer(item: item.kotlin, option: .replace, radio: false) } label: {
+            Button { _ = KmpHelper.shared.playOnSelectedPlayer(item: item.kotlin, option: .replace, endlessMix: false) } label: {
                 tile
             }
             .buttonStyle(.plain)

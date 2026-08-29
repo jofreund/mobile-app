@@ -389,7 +389,7 @@ private struct HomeCarouselTile: View {
                     .buttonStyle(.plain)
             } else {
                 Button {
-                    _ = KmpHelper.shared.playOnSelectedPlayer(item: item.kotlin, option: .replace, radio: false)
+                    _ = KmpHelper.shared.playOnSelectedPlayer(item: item.kotlin, option: .replace, endlessMix: false)
                 } label: {
                     tile
                 }

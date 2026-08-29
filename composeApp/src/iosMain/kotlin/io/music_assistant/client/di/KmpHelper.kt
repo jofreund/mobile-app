@@ -1077,7 +1077,7 @@ object KmpHelper : KoinComponent {
      * `ItemDetailsViewModel.onPlayClick`'s request shape for the native ItemDetailsView's
      * hero play button and track/episode row taps. False on no selected player or no URI.
      */
-    fun playOnSelectedPlayer(item: AppMediaItem, option: QueueOption, radio: Boolean): Boolean {
+    fun playOnSelectedPlayer(item: AppMediaItem, option: QueueOption, endlessMix: Boolean): Boolean {
         val mediaUri = item.mediaUri ?: return false
         val queueId = mainDataSource.selectedPlayer?.queueOrPlayerId ?: return false
         mainScope.launch {
@@ -1086,7 +1086,7 @@ object KmpHelper : KoinComponent {
                     media = listOf(mediaUri),
                     queueOrPlayerId = queueId,
                     option = option,
-                    radioMode = radio && item !is Genre,
+                    endlessMixMode = endlessMix && item !is Genre,
                 ),
             )
         }
@@ -1106,7 +1106,7 @@ object KmpHelper : KoinComponent {
                     media = listOf(uri),
                     queueOrPlayerId = queueId,
                     option = QueueOption.REPLACE,
-                    radioMode = false,
+                    endlessMixMode = false,
                     startItem = chapterPosition.toString(),
                 ),
             )
@@ -1162,8 +1162,8 @@ object KmpHelper : KoinComponent {
     // `ItemActionResolver.resolveLongClickActions` 1:1, the same "small pure function,
     // port it directly" precedent HomeView.swift's `reconciledRows` already follows) —
     // only the actions that actually touch the server get a bridge method here.
-    // `Play Now`/`Insert Next & Play`/`Insert Next`/`Add to Queue`/`Start Radio` are
-    // already covered by [playOnSelectedPlayer] with the matching `QueueOption`/`radio`
+    // `Play Now`/`Insert Next & Play`/`Insert Next`/`Add to Queue`/`Start endless mix` are
+    // already covered by [playOnSelectedPlayer] with the matching `QueueOption`/`endlessMix`
     // combo; `Favorite`/`Unfavorite` by [setFavorite].
 
     /**
@@ -1189,7 +1189,7 @@ object KmpHelper : KoinComponent {
                     media = listOf(mediaUri),
                     queueOrPlayerId = queueId,
                     option = QueueOption.REPLACE,
-                    radioMode = false,
+                    endlessMixMode = false,
                     startItem = startItem.itemId,
                 ),
             )

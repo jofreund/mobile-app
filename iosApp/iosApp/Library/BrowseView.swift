@@ -98,7 +98,7 @@ private struct BrowseRow: View {
                     )
                 ) { row }
             } else {
-                Button { _ = KmpHelper.shared.playOnSelectedPlayer(item: item.kotlin, option: .replace, radio: false) } label: {
+                Button { _ = KmpHelper.shared.playOnSelectedPlayer(item: item.kotlin, option: .replace, endlessMix: false) } label: {
                     row
                 }
                 // Wins over the `.plain` below, which stays for the navigating branches — those

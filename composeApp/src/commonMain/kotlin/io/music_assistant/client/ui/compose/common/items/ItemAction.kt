@@ -7,7 +7,7 @@ sealed class ItemAction(val kind: Kind) {
 
     data class Play(val queueOption: QueueOption) : ItemAction(Kind.PLAYBACK)
     data object PlayFromHere : ItemAction(Kind.PLAYBACK)
-    data object StartRadio : ItemAction(Kind.PLAYBACK)
+    data object StartEndlessMix : ItemAction(Kind.PLAYBACK)
 
     data object AddToLibrary : ItemAction(Kind.OTHER)
     data object RemoveFromLibrary : ItemAction(Kind.OTHER)

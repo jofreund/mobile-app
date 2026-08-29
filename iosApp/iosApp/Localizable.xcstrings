@@ -833,31 +833,31 @@
         }
       }
     },
-    "action_start_radio" : {
+    "action_start_endless_mix" : {
       "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Radio starten"
+            "value" : "Endlosmix starten"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Start radio"
+            "value" : "Start endless mix"
           }
         },
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Radio starten"
+            "value" : "Eindeloze mix starten"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "启动电台"
+            "value" : "开始无尽混音"
           }
         }
       }

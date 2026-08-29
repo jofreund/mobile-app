@@ -26,7 +26,7 @@ struct ItemDetailsView: View {
     }
 }
 
-/// The single-sub-list screen for Album/Playlist/Podcast/Audiobook: hero, play/radio
+/// The single-sub-list screen for Album/Playlist/Podcast/Audiobook: hero, play/endless-mix
 /// buttons, favorite toggle, and the one sub-list each of those types has (tracks,
 /// episodes, or chapters).
 ///
@@ -207,13 +207,13 @@ private struct DetailContent: View {
 
             HStack(spacing: 12) {
                 Button(String(localized: "action_play_now"), systemImage: "play.fill") {
-                    _ = KmpHelper.shared.playOnSelectedPlayer(item: item, option: .replace, radio: false)
+                    _ = KmpHelper.shared.playOnSelectedPlayer(item: item, option: .replace, endlessMix: false)
                 }
                 .buttonStyle(.glassProminent)
 
-                if item.canStartRadio {
-                    Button(String(localized: "action_start_radio"), systemImage: "dot.radiowaves.left.and.right") {
-                        _ = KmpHelper.shared.playOnSelectedPlayer(item: item, option: .replace, radio: true)
+                if item.canStartEndlessMix {
+                    Button(String(localized: "action_start_endless_mix"), systemImage: "dot.radiowaves.left.and.right") {
+                        _ = KmpHelper.shared.playOnSelectedPlayer(item: item, option: .replace, endlessMix: true)
                     }
                     .buttonStyle(.glass)
                 }
@@ -292,7 +292,7 @@ private struct DetailContent: View {
 /// A track or podcast episode row. Tap dispatches "play now" (queue REPLACE) on the
 /// selected player — the same default a plain tap resolves to elsewhere in the app
 /// (`DefaultClickOption.PLAY_NOW`). Long-press offers Play From Here / Insert Next /
-/// Add to Queue / Start Radio / library / playlist / mark-played actions, same as
+/// Add to Queue / Start endless mix / library / playlist / mark-played actions, same as
 /// every other native item row (`ItemContextMenu.swift`) — "Play From Here" and
 /// "Remove from Playlist" are only offered here, since this is the one row type that
 /// has a parent Album/Playlist context.
@@ -318,7 +318,7 @@ private struct PlayableRow: View {
 
     var body: some View {
         Button {
-            _ = KmpHelper.shared.playOnSelectedPlayer(item: media.kotlin, option: .replace, radio: false)
+            _ = KmpHelper.shared.playOnSelectedPlayer(item: media.kotlin, option: .replace, endlessMix: false)
         } label: {
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 2) {

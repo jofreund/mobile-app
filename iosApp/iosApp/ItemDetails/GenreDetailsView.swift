@@ -3,8 +3,8 @@ import MusicAssistantKit
 
 /// The native genre screen: hero + a segmented Albums/Artists toggle over the server's
 /// recommendation-folder overview, mirroring `ItemDetailsViewModel.loadGenreOverview`'s
-/// single fetch-then-split-by-type. No radio button — `onPlayClick` forces
-/// `radioMode = false` for `Genre` on the Compose side too.
+/// single fetch-then-split-by-type. No endless-mix button — `onPlayClick` forces
+/// `endlessMixMode = false` for `Genre` on the Compose side too.
 struct GenreDetailsView: View {
 
     let route: ItemDetailsRoute
@@ -84,7 +84,7 @@ struct GenreDetailsView: View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 24)
             Button(String(localized: "action_play_now"), systemImage: "play.fill") {
-                _ = KmpHelper.shared.playOnSelectedPlayer(item: genre, option: .replace, radio: false)
+                _ = KmpHelper.shared.playOnSelectedPlayer(item: genre, option: .replace, endlessMix: false)
             }
             .buttonStyle(.glassProminent)
             .controlSize(.large)

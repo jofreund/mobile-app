@@ -37,7 +37,7 @@ struct ItemMenuContext {
 enum ItemMenuAction: Hashable, Identifiable {
     case playNow, insertNextAndPlay, insertNext, addToQueue
     case playFromHere
-    case startRadio
+    case startEndlessMix
     case addToLibrary, removeFromLibrary
     case favorite, unfavorite
     case addToPlaylist
@@ -54,7 +54,7 @@ enum ItemMenuAction: Hashable, Identifiable {
         case .insertNext: String(localized: "action_insert_next")
         case .addToQueue: String(localized: "action_add_to_queue")
         case .playFromHere: String(localized: "action_play_from_here")
-        case .startRadio: String(localized: "action_start_radio")
+        case .startEndlessMix: String(localized: "action_start_endless_mix")
         case .addToLibrary: String(localized: "action_add_to_library")
         case .removeFromLibrary: String(localized: "action_remove_from_library")
         case .favorite: String(localized: "action_favorite")
@@ -74,7 +74,7 @@ enum ItemMenuAction: Hashable, Identifiable {
         case .insertNext: "text.line.first.and.arrowtriangle.forward"
         case .addToQueue: "text.append"
         case .playFromHere: "play.circle"
-        case .startRadio: "dot.radiowaves.left.and.right"
+        case .startEndlessMix: "dot.radiowaves.left.and.right"
         case .addToLibrary: "plus.circle"
         case .removeFromLibrary: "minus.circle"
         case .favorite: "heart"
@@ -107,8 +107,8 @@ func resolveMenuActions(for item: MediaItem, context: ItemMenuContext) -> [ItemM
         if context.parentForPlayFromHere != nil {
             actions.append(.playFromHere)
         }
-        if kotlin.canStartRadio {
-            actions.append(.startRadio)
+        if kotlin.canStartEndlessMix {
+            actions.append(.startEndlessMix)
         }
     }
 
@@ -206,18 +206,18 @@ private struct ItemContextMenuModifier: ViewModifier {
         let kotlin = item.kotlin
         switch action {
         case .playNow:
-            _ = KmpHelper.shared.playOnSelectedPlayer(item: kotlin, option: .replace, radio: false)
+            _ = KmpHelper.shared.playOnSelectedPlayer(item: kotlin, option: .replace, endlessMix: false)
         case .insertNextAndPlay:
-            _ = KmpHelper.shared.playOnSelectedPlayer(item: kotlin, option: .play, radio: false)
+            _ = KmpHelper.shared.playOnSelectedPlayer(item: kotlin, option: .play, endlessMix: false)
         case .insertNext:
-            _ = KmpHelper.shared.playOnSelectedPlayer(item: kotlin, option: .next, radio: false)
+            _ = KmpHelper.shared.playOnSelectedPlayer(item: kotlin, option: .next, endlessMix: false)
         case .addToQueue:
-            _ = KmpHelper.shared.playOnSelectedPlayer(item: kotlin, option: .add, radio: false)
+            _ = KmpHelper.shared.playOnSelectedPlayer(item: kotlin, option: .add, endlessMix: false)
         case .playFromHere:
             guard let parent = context.parentForPlayFromHere else { return }
             _ = KmpHelper.shared.playFromHere(parent: parent, startItem: kotlin)
-        case .startRadio:
-            _ = KmpHelper.shared.playOnSelectedPlayer(item: kotlin, option: .replace, radio: true)
+        case .startEndlessMix:
+            _ = KmpHelper.shared.playOnSelectedPlayer(item: kotlin, option: .replace, endlessMix: true)
         case .addToLibrary:
             _ = KmpHelper.shared.setInLibrary(item: kotlin, inLibrary: true)
         case .removeFromLibrary:
