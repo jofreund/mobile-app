@@ -775,17 +775,29 @@ private struct ExpandedPlayerRow: View {
 
     // MARK: - Transport
 
+    /// Shuffle and repeat for music; skip-back and skip-forward for spoken word.
+    ///
+    /// The two outer slots swap wholesale on `player.isSpokenWord` rather than growing the row:
+    /// on an audiobook or a podcast episode, shuffling the queue or repeating the item is
+    /// meaningless, while jumping past an ad break or back over a missed sentence is what you
+    /// reach for — and five buttons is already the width this row can hold at the default text
+    /// size. Play/pause and the track skips stay put across the swap, so the transport doesn't
+    /// reshuffle itself under the user's thumb when a book follows an album in the queue.
     private var transportRow: some View {
         HStack(spacing: 28) {
-            Button {
-                store.toggleShuffle(id: player.id)
-                haptic.fire(.selection)
-            } label: {
-                Image(systemName: "shuffle")
-                    .font(.title3)
-                    .foregroundStyle(player.shuffleEnabled ? .primary : .secondary)
+            if player.isSpokenWord {
+                skipButton(offset: -Self.skipBackSeconds)
+            } else {
+                Button {
+                    store.toggleShuffle(id: player.id)
+                    haptic.fire(.selection)
+                } label: {
+                    Image(systemName: "shuffle")
+                        .font(.title3)
+                        .foregroundStyle(player.shuffleEnabled ? .primary : .secondary)
+                }
+                .disabled(player.isDynamicPlaylist)
             }
-            .disabled(player.isDynamicPlaylist)
 
             Button {
                 store.skipPrevious(id: player.id)
@@ -813,20 +825,55 @@ private struct ExpandedPlayerRow: View {
                 Image(systemName: "forward.fill").font(.title2)
             }
 
-            Button {
-                store.cycleRepeatMode(id: player.id)
-                haptic.fire(.selection)
-            } label: {
-                Image(systemName: repeatSymbolName)
-                    .font(.title3)
-                    .foregroundStyle(player.repeatMode == .off || player.repeatMode == nil ? .secondary : .primary)
+            if player.isSpokenWord {
+                skipButton(offset: Self.skipForwardSeconds)
+            } else {
+                Button {
+                    store.cycleRepeatMode(id: player.id)
+                    haptic.fire(.selection)
+                } label: {
+                    Image(systemName: repeatSymbolName)
+                        .font(.title3)
+                        .foregroundStyle(player.repeatMode == .off || player.repeatMode == nil ? .secondary : .primary)
+                }
+                .disabled(player.isDynamicPlaylist)
             }
-            .disabled(player.isDynamicPlaylist)
         }
         .buttonStyle(.plain)
         .disabled(!player.canPlay)
         .frame(maxWidth: .infinity)
         .haptics(haptic)
+    }
+
+    /// The spoken-word skip amounts. Asymmetric on purpose, and the same pair Apple Books,
+    /// Overcast and Pocket Casts default to: forward skips an ad break or a slow passage,
+    /// back re-hears a sentence you missed. Both have an SF Symbol (`goforward.30`,
+    /// `gobackward.10`), so changing either means checking a glyph exists for the new value.
+    private static let skipBackSeconds = 10
+    private static let skipForwardSeconds = 30
+
+    /// A relative-seek button: negative `offset` skips back, positive skips forward.
+    ///
+    /// Never dimmed, unlike the shuffle/repeat buttons it replaces — those are toggles whose
+    /// secondary tint means "off", while these are momentary actions with no state to report.
+    private func skipButton(offset: Int) -> some View {
+        Button {
+            store.seekBy(id: player.id, seconds: offset)
+            haptic.fire(.impact(weight: .light))
+        } label: {
+            // `gobackward.10` / `goforward.30` carry the figure in the glyph itself, so the
+            // amount is visible without a label under an already-crowded row.
+            Image(systemName: offset < 0 ? "gobackward.\(-offset)" : "goforward.\(offset)")
+                .font(.title3)
+        }
+        .accessibilityLabel(
+            offset < 0
+                ? String(localized: "cd_skip_back_seconds")
+                : String(localized: "cd_skip_forward_seconds")
+        )
+        // Nothing to seek through until a track is loaded — matches the scrubber, which goes
+        // inert in the same state rather than sending a seek into an empty queue.
+        .disabled(!hasTrack)
     }
 
     private var repeatSymbolName: String {
