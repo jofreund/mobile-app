@@ -280,7 +280,7 @@ private struct SearchResultRow: View {
                 ) { row }
             } else {
                 Button {
-                    _ = KmpHelper.shared.playOnSelectedPlayer(item: item.kotlin, option: .replace, radio: false)
+                    _ = KmpHelper.shared.playOnSelectedPlayer(item: item.kotlin, option: .replace, endlessMix: false)
                 } label: {
                     row
                 }

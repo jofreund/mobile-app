@@ -37,7 +37,7 @@ struct ItemMenuContext {
 enum ItemMenuAction: Hashable, Identifiable {
     case playNow, insertNextAndPlay, insertNext, addToQueue
     case playFromHere
-    case startRadio
+    case startEndlessMix
     case addToLibrary, removeFromLibrary
     case favorite, unfavorite
     case addToPlaylist
@@ -54,7 +54,7 @@ enum ItemMenuAction: Hashable, Identifiable {
         case .insertNext: String(localized: "action_insert_next")
         case .addToQueue: String(localized: "action_add_to_queue")
         case .playFromHere: String(localized: "action_play_from_here")
-        case .startRadio: String(localized: "action_start_radio")
+        case .startEndlessMix: String(localized: "action_start_endless_mix")
         case .addToLibrary: String(localized: "action_add_to_library")
         case .removeFromLibrary: String(localized: "action_remove_from_library")
         case .favorite: String(localized: "action_favorite")
@@ -74,7 +74,7 @@ enum ItemMenuAction: Hashable, Identifiable {
         case .insertNext: "text.line.first.and.arrowtriangle.forward"
         case .addToQueue: "text.append"
         case .playFromHere: "play.circle"
-        case .startRadio: "dot.radiowaves.left.and.right"
+        case .startEndlessMix: "dot.radiowaves.left.and.right"
         case .addToLibrary: "plus.circle"
         case .removeFromLibrary: "minus.circle"
         case .favorite: "heart"
@@ -107,8 +107,8 @@ func resolveMenuActions(for item: MediaItem, context: ItemMenuContext) -> [ItemM
         if context.parentForPlayFromHere != nil {
             actions.append(.playFromHere)
         }
-        if kotlin.canStartRadio {
-            actions.append(.startRadio)
+        if kotlin.canStartEndlessMix {
+            actions.append(.startEndlessMix)
         }
     }
 
@@ -146,30 +146,36 @@ extension View {
     /// `KmpHelper` bridge methods for every action `resolveMenuActions` can produce. One shared
     /// implementation for `LibraryItemCell`, `HomeCarouselTile`, `SearchResultRow`, and
     /// `ItemDetailsView`'s `PlayableRow` rather than four copies.
-    func itemContextMenu(item: MediaItem, context: ItemMenuContext = ItemMenuContext()) -> some View {
-        modifier(ItemContextMenuModifier(item: item, context: context))
+    ///
+    /// `artworkPreviewSize`: tile call sites pass their artwork's reference size to replace the
+    /// system's lifted snapshot with an artwork-only card. The default snapshot is the whole
+    /// cell — artwork *plus* the labels below it — on a transparent background, and once the
+    /// menu repositions it, the labels and the see-through padding float over neighbouring
+    /// tiles and section headers, which reads as the grid's layout breaking. Apple Music lifts
+    /// only the artwork for exactly this reason. Passing the same size the tile decodes at
+    /// keeps this a memory-cache hit (`ArtworkLoader`'s key includes `maxPixel`), so the
+    /// preview never flashes a placeholder mid-animation. Rows keep the default snapshot —
+    /// full-width, over their own slot, nothing to overlap.
+    func itemContextMenu(
+        item: MediaItem,
+        context: ItemMenuContext = ItemMenuContext(),
+        artworkPreviewSize: CGFloat? = nil
+    ) -> some View {
+        modifier(ItemContextMenuModifier(item: item, context: context, artworkPreviewSize: artworkPreviewSize))
     }
 }
 
 private struct ItemContextMenuModifier: ViewModifier {
     let item: MediaItem
     let context: ItemMenuContext
+    let artworkPreviewSize: CGFloat?
 
     @State private var showRemoveLibraryConfirm = false
     @State private var showRemoveFromPlaylistConfirm = false
     @State private var showAddToPlaylistSheet = false
 
     func body(content: Content) -> some View {
-        content
-            .contextMenu {
-                ForEach(resolveMenuActions(for: item, context: context)) { action in
-                    Button(role: action.isDestructive ? .destructive : nil) {
-                        perform(action)
-                    } label: {
-                        Label(action.title, systemImage: action.systemImage)
-                    }
-                }
-            }
+        withContextMenu(content)
             .confirmationDialog(
                 String(localized: "dialog_remove_from_library_title"),
                 isPresented: $showRemoveLibraryConfirm,
@@ -202,22 +208,47 @@ private struct ItemContextMenuModifier: ViewModifier {
             }
     }
 
+    @ViewBuilder
+    private func withContextMenu(_ content: Content) -> some View {
+        if let artworkPreviewSize {
+            content.contextMenu {
+                menuButtons
+            } preview: {
+                ArtworkView(url: item.artworkURL, kind: item.kind, sizing: .fixed(artworkPreviewSize))
+            }
+        } else {
+            content.contextMenu {
+                menuButtons
+            }
+        }
+    }
+
+    private var menuButtons: some View {
+        ForEach(resolveMenuActions(for: item, context: context)) { action in
+            Button(role: action.isDestructive ? .destructive : nil) {
+                perform(action)
+            } label: {
+                Label(action.title, systemImage: action.systemImage)
+            }
+        }
+    }
+
     private func perform(_ action: ItemMenuAction) {
         let kotlin = item.kotlin
         switch action {
         case .playNow:
-            _ = KmpHelper.shared.playOnSelectedPlayer(item: kotlin, option: .replace, radio: false)
+            _ = KmpHelper.shared.playOnSelectedPlayer(item: kotlin, option: .replace, endlessMix: false)
         case .insertNextAndPlay:
-            _ = KmpHelper.shared.playOnSelectedPlayer(item: kotlin, option: .play, radio: false)
+            _ = KmpHelper.shared.playOnSelectedPlayer(item: kotlin, option: .play, endlessMix: false)
         case .insertNext:
-            _ = KmpHelper.shared.playOnSelectedPlayer(item: kotlin, option: .next, radio: false)
+            _ = KmpHelper.shared.playOnSelectedPlayer(item: kotlin, option: .next, endlessMix: false)
         case .addToQueue:
-            _ = KmpHelper.shared.playOnSelectedPlayer(item: kotlin, option: .add, radio: false)
+            _ = KmpHelper.shared.playOnSelectedPlayer(item: kotlin, option: .add, endlessMix: false)
         case .playFromHere:
             guard let parent = context.parentForPlayFromHere else { return }
             _ = KmpHelper.shared.playFromHere(parent: parent, startItem: kotlin)
-        case .startRadio:
-            _ = KmpHelper.shared.playOnSelectedPlayer(item: kotlin, option: .replace, radio: true)
+        case .startEndlessMix:
+            _ = KmpHelper.shared.playOnSelectedPlayer(item: kotlin, option: .replace, endlessMix: true)
         case .addToLibrary:
             _ = KmpHelper.shared.setInLibrary(item: kotlin, inLibrary: true)
         case .removeFromLibrary:

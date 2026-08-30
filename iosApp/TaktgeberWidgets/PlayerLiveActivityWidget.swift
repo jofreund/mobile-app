@@ -14,7 +14,7 @@ struct PlayerLiveActivityWidget: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: PlayerActivityAttributes.self) { context in
             LockScreenPlayerView(context: context)
-                .widgetURL(URL(string: "musicassistant://app/players"))
+                .widgetURL(playerDeepLinkURL(for: context.state.playerId))
         } dynamicIsland: { context in
             DynamicIsland {
                 // One full-width row in the bottom region instead of leading/center/trailing:
@@ -40,8 +40,31 @@ struct PlayerLiveActivityWidget: Widget {
             } minimal: {
                 Image(systemName: "music.note")
             }
+            // The island's deep link must be declared on the DynamicIsland itself —
+            // `DynamicIsland.widgetURL`, not the SwiftUI view modifier. The view modifier
+            // attached to views inside the island's closures is silently ignored for the
+            // compact/minimal (and, in practice, expanded) tap targets: taps opened the app
+            // with no URL. This island-level default covers all island presentations; the
+            // lock screen banner is a plain widget view and keeps the view modifier.
+            .widgetURL(playerDeepLinkURL(for: context.state.playerId))
         }
     }
+}
+
+/// Deep link every tap surface of the activity opens the app with: the app routes
+/// `musicassistant://app/players/<playerId>` to the expanded player view of that player
+/// (`DeepLinkBus` on the Kotlin side, applied by `AppTabView`). The id rides in the URL rather
+/// than being inferred from the current selection so the app lands on the player the card was
+/// actually showing, even if selection moved meanwhile. Player ids are server-issued opaque
+/// strings, so the path segment is percent-encoded — including `/`, which `.urlPathAllowed`
+/// would let through and which would split the id into bogus extra segments.
+private func playerDeepLinkURL(for playerId: String) -> URL? {
+    var allowed = CharacterSet.urlPathAllowed
+    allowed.remove(charactersIn: "/")
+    guard let encoded = playerId.addingPercentEncoding(withAllowedCharacters: allowed),
+          let url = URL(string: "musicassistant://app/players/\(encoded)")
+    else { return URL(string: "musicassistant://app/players") }
+    return url
 }
 
 private struct LockScreenPlayerView: View {

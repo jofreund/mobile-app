@@ -389,14 +389,16 @@ private struct HomeCarouselTile: View {
                     .buttonStyle(.plain)
             } else {
                 Button {
-                    _ = KmpHelper.shared.playOnSelectedPlayer(item: item.kotlin, option: .replace, radio: false)
+                    _ = KmpHelper.shared.playOnSelectedPlayer(item: item.kotlin, option: .replace, endlessMix: false)
                 } label: {
                     tile
                 }
                 .buttonStyle(.plain)
             }
         }
-        .itemContextMenu(item: item)
+        // Same reference size the tile decodes at, so the preview is a cache hit — see
+        // `itemContextMenu`'s doc on why tiles preview the artwork alone.
+        .itemContextMenu(item: item, artworkPreviewSize: width)
     }
 
     private var tile: some View {

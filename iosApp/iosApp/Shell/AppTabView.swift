@@ -99,19 +99,11 @@ struct AppTabView: View {
         // it doesn't make it taller. There is no way to ask for a taller accessory: the API is
         // content plus `isEnabled` and nothing else.
         .tabBarMinimizeBehavior(.onScrollDown)
-        // Always present. It used to be conditionally emptied while Search had focus, inherited
-        // from the hand-rolled bar, which rendered squeezed against the keyboard — but returning
-        // nothing from this builder doesn't remove the accessory, it just empties it, so
-        // focusing the search field left a blank pill sitting above the keyboard. The system
-        // places the accessory around the keyboard itself, so there is nothing to hide from.
-        //
-        // (`tabViewBottomAccessory(isEnabled:)` would genuinely remove it, but that overload is
-        // iOS 26.1 and this app targets 26.0.)
-        .tabViewBottomAccessory {
-            MiniPlayerView(store: playerBarStore, scrollID: $miniPlayerScrollID) {
+        .modifier(
+            PlayerBarAccessory(store: playerBarStore, scrollID: $miniPlayerScrollID) {
                 playerExpanded = true
             }
-        }
+        )
         .fullScreenCover(isPresented: $playerExpanded) {
             ExpandedPlayerView(
                 store: playerBarStore,
@@ -141,7 +133,16 @@ struct AppTabView: View {
                 // that only existed because that controller was mounted and this wasn't the
                 // sole consumer.
                 guard let dest else { return }
-                if dest is DeepLinkDestinationPlayers {
+                if let players = dest as? DeepLinkDestinationPlayers {
+                    // A Live Activity tap names the player its card was showing. Select by id
+                    // (not index): Kotlin's resolver applies the choice once that player is in
+                    // the visible list, which also covers the cold launch where this fires
+                    // before any players have loaded — and falls back to its usual selection
+                    // if the id never appears. The mini player pager and the expanded cover
+                    // both follow `selectedIndex`, so nothing else needs steering.
+                    if let playerId = players.playerId {
+                        playerBarStore.selectPlayer(id: playerId)
+                    }
                     playerExpanded = true
                     KmpHelper.shared.consumeDeepLink(destination: dest)
                 } else if dest is DeepLinkDestinationHome {
@@ -194,6 +195,45 @@ struct AppTabView: View {
                     ItemDetailsView(route: route)
                 }
         }
+    }
+}
+
+/// Mounts the mini player in the tab bar's bottom accessory, and — where the OS allows it —
+/// takes the accessory away entirely while there is no player to put in it.
+///
+/// Hiding it matters because `PlayerBarState` is `Loading` until the first players snapshot
+/// arrives (cold launch, and again whenever the connection drops back to `DataState.Loading`)
+/// and `Empty` when the server reports no players at all. In both, `MiniPlayerView` draws
+/// nothing — which left a blank pill sitting above the tab bar, most visibly for the second or
+/// two after launch.
+///
+/// Returning nothing from the content builder is not enough: that empties the accessory without
+/// removing it, which is exactly the blank pill. Only `tabViewBottomAccessory(isEnabled:)`
+/// genuinely removes it, and that overload is iOS 26.1 while this app deploys to 26.0 — hence
+/// the availability branch. The branch is a modifier rather than an `if` around the `TabView`
+/// itself so that both paths keep one `TabView` identity; it is also resolved once per launch
+/// (the OS version doesn't change under us), so the toggling that actually happens at runtime
+/// is `isEnabled` flipping inside a single, stable branch. On 26.0 the behaviour is unchanged.
+private struct PlayerBarAccessory: ViewModifier {
+
+    var store: PlayerBarStore
+
+    /// Owned by `AppTabView` — see `MiniPlayerView.scrollID` for why it can't live in the view.
+    @Binding var scrollID: String?
+
+    let onExpand: () -> Void
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if #available(iOS 26.1, *) {
+            content.tabViewBottomAccessory(isEnabled: !store.players.isEmpty) { miniPlayer }
+        } else {
+            content.tabViewBottomAccessory { miniPlayer }
+        }
+    }
+
+    private var miniPlayer: some View {
+        MiniPlayerView(store: store, scrollID: $scrollID, onExpand: onExpand)
     }
 }
 

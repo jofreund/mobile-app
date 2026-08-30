@@ -76,9 +76,14 @@ struct ArtistDetailsView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
-                    let next = !isFavorite
+                    // Rolls back when the server refuses the write — see `ItemDetailsView`.
+                    let previous = isFavorite
+                    let next = !previous
                     isFavorite = next
-                    _ = KmpHelper.shared.setFavorite(item: artist, favorite: next)
+                    let sent = KmpHelper.shared.setFavorite(item: artist, favorite: next) { accepted in
+                        if !accepted.boolValue { isFavorite = previous }
+                    }
+                    if !sent { isFavorite = previous }
                 } label: {
                     Image(systemName: isFavorite ? "heart.fill" : "heart")
                 }
@@ -106,7 +111,7 @@ struct ArtistDetailsView: View {
             .padding(.horizontal, 24)
 
             Button(String(localized: "action_play_now"), systemImage: "play.fill") {
-                _ = KmpHelper.shared.playOnSelectedPlayer(item: artist, option: .replace, radio: false)
+                _ = KmpHelper.shared.playOnSelectedPlayer(item: artist, option: .replace, endlessMix: false)
             }
             .buttonStyle(.glassProminent)
             .controlSize(.large)
@@ -240,7 +245,7 @@ private struct ArtistSectionTile: View {
 
     var body: some View {
         if isPlayable {
-            Button { _ = KmpHelper.shared.playOnSelectedPlayer(item: item.kotlin, option: .replace, radio: false) } label: {
+            Button { _ = KmpHelper.shared.playOnSelectedPlayer(item: item.kotlin, option: .replace, endlessMix: false) } label: {
                 tile
             }
             .buttonStyle(.plain)

@@ -479,13 +479,15 @@ private struct LibraryItemCell: View {
                 ) { content }
                     .buttonStyle(.plain)
             } else {
-                Button { _ = KmpHelper.shared.playOnSelectedPlayer(item: item.kotlin, option: .replace, radio: false) } label: {
+                Button { _ = KmpHelper.shared.playOnSelectedPlayer(item: item.kotlin, option: .replace, endlessMix: false) } label: {
                     content
                 }
                 .buttonStyle(PressReportingButtonStyle { isPressed = $0 })
             }
         }
-        .itemContextMenu(item: item)
+        // Grid tiles preview the artwork alone (at the tile's own decode hint, so it's a cache
+        // hit — see `itemContextMenu`'s doc); list rows keep the default full-row snapshot.
+        .itemContextMenu(item: item, artworkPreviewSize: viewMode == .list ? nil : Self.gridArtworkHint)
         // A no-op in grid mode, where there is no list row to paint.
         .pressHighlight(isPressed)
     }
@@ -500,7 +502,7 @@ private struct LibraryItemCell: View {
 
     private var gridTile: some View {
         VStack(alignment: item.kind.prefersCircularArtwork ? .center : .leading, spacing: 8) {
-            ArtworkView(url: item.artworkURL, kind: item.kind, sizing: .flexible(decodeHint: 180))
+            ArtworkView(url: item.artworkURL, kind: item.kind, sizing: .flexible(decodeHint: Self.gridArtworkHint))
                 .frame(maxWidth: .infinity)
             Text(item.title)
                 .font(.subheadline.weight(.medium))
@@ -546,4 +548,7 @@ private struct LibraryItemCell: View {
 
     private static let artworkSize: CGFloat = 48
     private static let artworkGap: CGFloat = 12
+    /// Shared between the tile's decode and the context-menu preview so they stay one
+    /// `ArtworkLoader` cache entry.
+    private static let gridArtworkHint: CGFloat = 180
 }

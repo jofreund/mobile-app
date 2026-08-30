@@ -60,6 +60,7 @@ import io.music_assistant.client.logging.InMemoryLogWriter
 import io.music_assistant.client.logging.LogSharer
 import io.music_assistant.client.player.sendspin.SendspinState
 import io.music_assistant.client.settings.ConnectionHistoryEntry
+import io.music_assistant.client.settings.LiveActivityVisibility
 import io.music_assistant.client.settings.SettingsRepository
 import io.music_assistant.client.settings.ViewMode
 import io.music_assistant.client.ui.AppBannerState
@@ -726,6 +727,19 @@ object KmpHelper : KoinComponent {
         settingsRepository.switchTheme(theme)
     }
 
+    /**
+     * Whether the lock screen / Dynamic Island Live Activity is shown for the selected player at
+     * all times or only while something is playing. Observable because
+     * `PlayerActivityController` has to *react* to a change — flipping to "while playing" with
+     * everything paused has to end the activity that is already on screen.
+     */
+    val liveActivityVisibility: NativeStateFlow<LiveActivityVisibility>
+        get() = NativeStateFlow(settingsRepository.liveActivityVisibility, mainScope)
+
+    fun setLiveActivityVisibility(visibility: LiveActivityVisibility) {
+        settingsRepository.setLiveActivityVisibility(visibility)
+    }
+
     fun hasCrashLog(): Boolean = logSharer.hasCrashLog()
 
     /** Mirrors `SettingsViewModel.shareLogs`/`shareCrashLog` — `LogSharer.ios.kt`'s
@@ -1222,7 +1236,7 @@ object KmpHelper : KoinComponent {
      * `ItemDetailsViewModel.onPlayClick`'s request shape for the native ItemDetailsView's
      * hero play button and track/episode row taps. False on no selected player or no URI.
      */
-    fun playOnSelectedPlayer(item: AppMediaItem, option: QueueOption, radio: Boolean): Boolean {
+    fun playOnSelectedPlayer(item: AppMediaItem, option: QueueOption, endlessMix: Boolean): Boolean {
         val mediaUri = item.mediaUri ?: return false
         val queueId = mainDataSource.selectedPlayer?.queueOrPlayerId ?: return false
         mainScope.launch {
@@ -1231,7 +1245,7 @@ object KmpHelper : KoinComponent {
                     media = listOf(mediaUri),
                     queueOrPlayerId = queueId,
                     option = option,
-                    radioMode = radio && item !is Genre,
+                    endlessMixMode = endlessMix && item !is Genre,
                 ),
             )
         }
@@ -1243,7 +1257,7 @@ object KmpHelper : KoinComponent {
      * player. Mirrors `ItemDetailsViewModel.onChapterClick`.
      */
     fun playChapterOnSelectedPlayer(item: AppMediaItem, chapterPosition: Int): Boolean {
-        val uri = item.uri ?: return false
+        val uri = item.referenceUri
         val queueId = mainDataSource.selectedPlayer?.queueOrPlayerId ?: return false
         mainScope.launch {
             serviceClient.sendRequest(
@@ -1251,7 +1265,7 @@ object KmpHelper : KoinComponent {
                     media = listOf(uri),
                     queueOrPlayerId = queueId,
                     option = QueueOption.REPLACE,
-                    radioMode = false,
+                    endlessMixMode = false,
                     startItem = chapterPosition.toString(),
                 ),
             )
@@ -1265,29 +1279,45 @@ object KmpHelper : KoinComponent {
      * Set the favorite flag on an [AppMediaItem]. Drives `INMediaAffinityIntent`
      * mapping from Swift: `like` ⇒ `favorite = true`, `dislike` ⇒ `favorite = false`.
      * MA only tracks favorites as a boolean — dislike removes an existing favorite
-     * but cannot record an explicit "do not play this" signal. Adding requires a
-     * URI; removal works by id+mediaType.
+     * but cannot record an explicit "do not play this" signal. Adding addresses the item by
+     * [AppMediaItem.referenceUri]; removal works by id+mediaType.
      *
-     * Returns `true` synchronously when the request was dispatched, `false` when
-     * we couldn't form a valid request (the only known failure mode today: an
-     * add for an item with no URI). Network outcome is fire-and-forget — Swift
-     * uses the synchronous return to avoid lying to Siri about success.
+     * Returns `true` synchronously once the request is dispatched. Network outcome is
+     * fire-and-forget — Swift uses the synchronous return to avoid lying to Siri about
+     * success. Both directions are always expressible now that the add path addresses the
+     * item by [AppMediaItem.referenceUri] rather than a server-supplied URI that may be
+     * missing (or, for podcasts, point at the show's website).
      */
-    fun setFavorite(item: AppMediaItem, favorite: Boolean): Boolean {
-        if (favorite) {
-            // Prefer plain `uri`; fall back to `mediaUri`. The base class uses
-            // `uri` directly; subclasses like Genre override `mediaUri` to
-            // synthesize one when the server didn't supply it.
-            val uri = item.uri ?: item.mediaUri ?: return false
-            mainScope.launch {
-                serviceClient.sendRequest(Request.Library.addFavorite(uri))
-            }
+    fun setFavorite(item: AppMediaItem, favorite: Boolean): Boolean =
+        setFavorite(item, favorite) { }
+
+    /**
+     * [setFavorite] with the server's answer reported through [completion] — `false` when the
+     * request was refused (a rejection arrives as a *successful* Result carrying an error
+     * payload, hence `isAccepted` rather than `onFailure`) or never made it out. For screens
+     * that flip a heart optimistically and have to put it back when the write didn't land;
+     * fire-and-forget callers (Siri, the long-press context menu) use the overload above.
+     *
+     * Always dispatches, so the `Boolean` return is `true` and [completion] always runs; the
+     * return is kept for symmetry with the overload above and its Swift call sites.
+     */
+    fun setFavorite(item: AppMediaItem, favorite: Boolean, completion: (Boolean) -> Unit): Boolean {
+        val request = if (favorite) {
+            // `referenceUri`, never the raw `uri`: a provider podcast's server-supplied `uri`
+            // is the show's website, which the server can't resolve back to the item.
+            Request.Library.addFavorite(item.referenceUri)
         } else {
-            mainScope.launch {
-                serviceClient.sendRequest(
-                    Request.Library.removeFavorite(item.itemId, item.mediaType),
-                )
+            Request.Library.removeFavorite(item.itemId, item.mediaType)
+        }
+        mainScope.launch {
+            val result = serviceClient.sendRequest(request)
+            if (!result.isAccepted) {
+                log.e(result.exceptionOrNull()) {
+                    "Favorite set to $favorite rejected for ${item.itemId}: " +
+                        (result.getOrNull()?.errorDetails ?: "transport failure")
+                }
             }
+            completion(result.isAccepted)
         }
         return true
     }
@@ -1307,8 +1337,8 @@ object KmpHelper : KoinComponent {
     // `ItemActionResolver.resolveLongClickActions` 1:1, the same "small pure function,
     // port it directly" precedent HomeView.swift's `reconciledRows` already follows) —
     // only the actions that actually touch the server get a bridge method here.
-    // `Play Now`/`Insert Next & Play`/`Insert Next`/`Add to Queue`/`Start Radio` are
-    // already covered by [playOnSelectedPlayer] with the matching `QueueOption`/`radio`
+    // `Play Now`/`Insert Next & Play`/`Insert Next`/`Add to Queue`/`Start endless mix` are
+    // already covered by [playOnSelectedPlayer] with the matching `QueueOption`/`endlessMix`
     // combo; `Favorite`/`Unfavorite` by [setFavorite].
 
     /**
@@ -1334,7 +1364,7 @@ object KmpHelper : KoinComponent {
                     media = listOf(mediaUri),
                     queueOrPlayerId = queueId,
                     option = QueueOption.REPLACE,
-                    radioMode = false,
+                    endlessMixMode = false,
                     startItem = startItem.itemId,
                 ),
             )
@@ -1348,8 +1378,7 @@ object KmpHelper : KoinComponent {
      */
     fun setInLibrary(item: AppMediaItem, inLibrary: Boolean): Boolean {
         if (inLibrary) {
-            val uri = item.uri ?: item.mediaUri ?: return false
-            mainScope.launch { serviceClient.sendRequest(Request.Library.add(uri)) }
+            mainScope.launch { serviceClient.sendRequest(Request.Library.add(item.referenceUri)) }
         } else {
             mainScope.launch { serviceClient.sendRequest(Request.Library.remove(item.itemId, item.mediaType)) }
         }
@@ -1498,6 +1527,18 @@ object KmpHelper : KoinComponent {
 
     fun seekPlayerBar(playerId: String, seconds: Double) =
         dispatchPlayerBarAction(playerId, PlayerAction.SeekTo(seconds.toLong()))
+
+    /**
+     * Relative seek for the expanded player's skip-back/skip-forward buttons (spoken-word items).
+     *
+     * Deliberately [PlayerAction.SeekBy] rather than a position computed in Swift: Swift's
+     * `livePosition` is an interpolated ticker, so an offset applied to it drifts from where the
+     * player really is. `PlayerRequestFactory.resolve()` reads the live position at send time
+     * and clamps the result to `[0, duration]`, which is also what feeds the optimistic
+     * position anchor — so the scrubber jumps to the same place the server will report.
+     */
+    fun seekPlayerBarBy(playerId: String, seconds: Long) =
+        dispatchPlayerBarAction(playerId, PlayerAction.SeekBy(seconds))
 
     /**
      * Seeks to a position read off a chapter-relative scrubber.

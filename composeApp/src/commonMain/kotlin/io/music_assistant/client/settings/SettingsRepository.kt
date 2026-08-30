@@ -501,6 +501,21 @@ class SettingsRepository(
         _sendspinUseCustomConnection.update { enabled }
     }
 
+    // When the iOS Live Activity is shown. Absent -> ALWAYS, which is the behavior the
+    // activity shipped with, so there is nothing to migrate.
+    private val _liveActivityVisibility = MutableStateFlow(loadLiveActivityVisibility())
+    val liveActivityVisibility = _liveActivityVisibility.asStateFlow()
+
+    private fun loadLiveActivityVisibility(): LiveActivityVisibility =
+        settings.getStringOrNull(LIVE_ACTIVITY_VISIBILITY_KEY)
+            ?.let { runCatching { LiveActivityVisibility.valueOf(it) }.getOrNull() }
+            ?: LiveActivityVisibility.ALWAYS
+
+    fun setLiveActivityVisibility(visibility: LiveActivityVisibility) {
+        settings.putString(LIVE_ACTIVITY_VISIBILITY_KEY, visibility.name)
+        _liveActivityVisibility.update { visibility }
+    }
+
     // Connection method preference
     private val _preferredConnectionMethod = MutableStateFlow(
         settings.getString("preferred_connection_method", "direct"),
@@ -694,6 +709,7 @@ class SettingsRepository(
     }
 
     private companion object {
+        const val LIVE_ACTIVITY_VISIBILITY_KEY = "live_activity_visibility"
         const val CAR_DSP_CONNECT_KEY = "car_dsp_action_connect"
         const val CAR_DSP_DISCONNECT_KEY = "car_dsp_action_disconnect"
     }

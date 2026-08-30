@@ -833,31 +833,31 @@
         }
       }
     },
-    "action_start_radio" : {
+    "action_start_endless_mix" : {
       "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Radio starten"
+            "value" : "Endlosmix starten"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Start radio"
+            "value" : "Start endless mix"
           }
         },
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Radio starten"
+            "value" : "Eindeloze mix starten"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "启动电台"
+            "value" : "开始无尽混音"
           }
         }
       }
@@ -2865,6 +2865,52 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "选择编解码器"
+          }
+        }
+      }
+    },
+    "cd_skip_back_seconds" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "10 Sekunden zurückspringen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Skip back 10 seconds"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "10 seconden terug"
+          }
+        }
+      }
+    },
+    "cd_skip_forward_seconds" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "30 Sekunden vorspringen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Skip forward 30 seconds"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "30 seconden vooruit"
           }
         }
       }
@@ -8374,6 +8420,98 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Host"
+          }
+        }
+      }
+    },
+    "settings_live_activity" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Live-Aktivität"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Live Activity"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Live-activiteit"
+          }
+        }
+      }
+    },
+    "settings_live_activity_always" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Immer"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Always"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Altijd"
+          }
+        }
+      }
+    },
+    "settings_live_activity_explanation" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Legt fest, ob die Live-Aktivität auf dem Sperrbildschirm immer sichtbar bleibt oder nur, solange mindestens ein Player abspielt."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Whether the lock screen Live Activity stays visible at all times, or only while at least one player is playing."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bepaalt of de live-activiteit op het toegangsscherm altijd zichtbaar blijft, of alleen zolang er ten minste één speler afspeelt."
+          }
+        }
+      }
+    },
+    "settings_live_activity_while_playing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nur während der Wiedergabe"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only while playing"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alleen tijdens afspelen"
           }
         }
       }

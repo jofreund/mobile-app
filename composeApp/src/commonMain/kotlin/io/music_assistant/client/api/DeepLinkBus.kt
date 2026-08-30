@@ -1,6 +1,7 @@
 package io.music_assistant.client.api
 
 import io.ktor.http.Url
+import io.ktor.http.decodeURLPart
 import io.music_assistant.client.data.model.client.MediaType
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -17,8 +18,12 @@ sealed interface DeepLinkDestination {
     // existing pendingSearch hoist in MainNavRoot when needed.
     data object Search : DeepLinkDestination
 
-    /** Expand the players (now-playing) layout over the current tab. */
-    data object Players : DeepLinkDestination
+    /**
+     * Expand the players (now-playing) layout over the current tab. [playerId] null = whichever
+     * player is currently selected; set (`/players/<playerId>`) = select that player first —
+     * the Live Activity links here with the id of the player it was showing.
+     */
+    data class Players(val playerId: String? = null) : DeepLinkDestination
 }
 
 /**
@@ -71,7 +76,11 @@ class DeepLinkBus {
                 )
             }
             "search" -> DeepLinkDestination.Search
-            "players" -> DeepLinkDestination.Players
+            // /players → just expand; /players/<playerId> → select that player, then expand.
+            // The id is taken verbatim (percent-decoded) — player ids are server-issued opaque
+            // strings, so there is no closed set to validate against here; the consumer treats
+            // an unknown id as absent.
+            "players" -> DeepLinkDestination.Players(playerId = route.getOrNull(1)?.decodeURLPart())
             else -> return
         }
         _pending.value = dest
