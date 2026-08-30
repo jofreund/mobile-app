@@ -60,20 +60,19 @@ struct GenreDetailsView: View {
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            if genre.uri != nil {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        // Rolls back when the server refuses the write — see `ItemDetailsView`.
-                        let previous = isFavorite
-                        let next = !previous
-                        isFavorite = next
-                        let sent = KmpHelper.shared.setFavorite(item: genre, favorite: next) { accepted in
-                            if !accepted.boolValue { isFavorite = previous }
-                        }
-                        if !sent { isFavorite = previous }
-                    } label: {
-                        Image(systemName: isFavorite ? "heart.fill" : "heart")
+            // No uri check — see `ItemDetailsView`.
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    // Rolls back when the server refuses the write — see `ItemDetailsView`.
+                    let previous = isFavorite
+                    let next = !previous
+                    isFavorite = next
+                    let sent = KmpHelper.shared.setFavorite(item: genre, favorite: next) { accepted in
+                        if !accepted.boolValue { isFavorite = previous }
                     }
+                    if !sent { isFavorite = previous }
+                } label: {
+                    Image(systemName: isFavorite ? "heart.fill" : "heart")
                 }
             }
         }

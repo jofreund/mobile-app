@@ -170,23 +170,23 @@ private struct DetailContent: View {
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            if item.uri != nil {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        // The heart flips first and goes back if the server refuses the write —
-                        // without the rollback a rejected favorite stayed filled, so the screen
-                        // claimed a favorite the server never stored (the error toast, raised
-                        // from `ErrorMessageBus`, was the only hint).
-                        let previous = isFavorite
-                        let next = !previous
-                        isFavorite = next
-                        let sent = KmpHelper.shared.setFavorite(item: item, favorite: next) { accepted in
-                            if !accepted.boolValue { isFavorite = previous }
-                        }
-                        if !sent { isFavorite = previous }
-                    } label: {
-                        Image(systemName: isFavorite ? "heart.fill" : "heart")
+            // No uri check: the favorite write addresses the item by `referenceUri`, which is
+            // built from provider/media type/item id and is always available.
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    // The heart flips first and goes back if the server refuses the write —
+                    // without the rollback a rejected favorite stayed filled, so the screen
+                    // claimed a favorite the server never stored (the error toast, raised
+                    // from `ErrorMessageBus`, was the only hint).
+                    let previous = isFavorite
+                    let next = !previous
+                    isFavorite = next
+                    let sent = KmpHelper.shared.setFavorite(item: item, favorite: next) { accepted in
+                        if !accepted.boolValue { isFavorite = previous }
                     }
+                    if !sent { isFavorite = previous }
+                } label: {
+                    Image(systemName: isFavorite ? "heart.fill" : "heart")
                 }
             }
         }

@@ -25,6 +25,13 @@ data class RecommendationFolder(
     override val favorite: Boolean? = null
     override val mediaType: MediaType = MediaType.FOLDER
 
+    // A folder is addressed by its `path`/`uri`, never by a `provider://folder/item_id`
+    // reference — there is no folder item on the server to resolve one back to. Keeps the
+    // base class's canonical-reference default (see [AppMediaItem.referenceUri]) from turning
+    // a folder with no uri into a bogus playable target.
+    override val mediaUri: String?
+        get() = uri
+
     // Browse folders can arrive with a blank name; fall back to the path's last (capitalized) segment.
     override val displayName: String
         get() = name.ifBlank {
