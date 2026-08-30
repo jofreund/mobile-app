@@ -80,12 +80,30 @@ sealed class AppMediaItem {
     fun image(type: ImageType): ImageInfo? = images[type] ?: images[ImageType.MAIN]
 
     /**
-     * URI suitable for the play_media API.
-     * For genres, always constructs a full URI since the server requires it.
-     * For other types, uses the server-provided [uri].
+     * The reference the server can resolve back to this item: `provider://media_type/item_id`,
+     * the shape its own `create_uri` produces — use this, not [uri], for every command that
+     * takes an item (play_media, library add, favorite add).
+     *
+     * [uri] is that shape for almost everything, but not always: the server's RSS podcast
+     * parser overwrites a podcast's `uri` with whatever `<link>` the feed carries — the show's
+     * *website* — and OpenSubsonic does the same with its radio stream URLs. Handed one of
+     * those, `parse_uri` sees a plain http(s) URL, routes it to the builtin provider and
+     * ffprobes a web page, which comes back as `InvalidDataError` ("Die angegebenen Daten sind
+     * ungültig oder konnten nicht verarbeitet werden"). Hence the check that [uri] actually
+     * addresses this item's provider before it is trusted; when it doesn't, the canonical form
+     * is rebuilt from the parts the server did give us.
+     */
+    val referenceUri: String
+        get() = uri?.takeIf { it.startsWith("$provider://") }
+            ?: "$provider://${mediaType.serverValue}/$itemId"
+
+    /**
+     * URI suitable for the play_media API — [referenceUri], since a server-supplied [uri] is
+     * not always resolvable (see there). Genres never carried one at all and used to override
+     * this to synthesize the same shape by hand.
      */
     open val mediaUri: String?
-        get() = uri
+        get() = referenceUri
 
     private val mappingsHashes: Set<Int> by lazy {
         providerMappings?.map { it.toHash().hashCode() }?.toSet() ?: emptySet()

@@ -1112,7 +1112,7 @@ object KmpHelper : KoinComponent {
      * player. Mirrors `ItemDetailsViewModel.onChapterClick`.
      */
     fun playChapterOnSelectedPlayer(item: AppMediaItem, chapterPosition: Int): Boolean {
-        val uri = item.uri ?: return false
+        val uri = item.referenceUri
         val queueId = mainDataSource.selectedPlayer?.queueOrPlayerId ?: return false
         mainScope.launch {
             serviceClient.sendRequest(
@@ -1134,13 +1134,14 @@ object KmpHelper : KoinComponent {
      * Set the favorite flag on an [AppMediaItem]. Drives `INMediaAffinityIntent`
      * mapping from Swift: `like` ⇒ `favorite = true`, `dislike` ⇒ `favorite = false`.
      * MA only tracks favorites as a boolean — dislike removes an existing favorite
-     * but cannot record an explicit "do not play this" signal. Adding requires a
-     * URI; removal works by id+mediaType.
+     * but cannot record an explicit "do not play this" signal. Adding addresses the item by
+     * [AppMediaItem.referenceUri]; removal works by id+mediaType.
      *
-     * Returns `true` synchronously when the request was dispatched, `false` when
-     * we couldn't form a valid request (the only known failure mode today: an
-     * add for an item with no URI). Network outcome is fire-and-forget — Swift
-     * uses the synchronous return to avoid lying to Siri about success.
+     * Returns `true` synchronously once the request is dispatched. Network outcome is
+     * fire-and-forget — Swift uses the synchronous return to avoid lying to Siri about
+     * success. Both directions are always expressible now that the add path addresses the
+     * item by [AppMediaItem.referenceUri] rather than a server-supplied URI that may be
+     * missing (or, for podcasts, point at the show's website).
      */
     fun setFavorite(item: AppMediaItem, favorite: Boolean): Boolean =
         setFavorite(item, favorite) { }
@@ -1152,15 +1153,14 @@ object KmpHelper : KoinComponent {
      * that flip a heart optimistically and have to put it back when the write didn't land;
      * fire-and-forget callers (Siri, the long-press context menu) use the overload above.
      *
-     * [completion] is not called when the return value is `false`: there was no request.
+     * Always dispatches, so the `Boolean` return is `true` and [completion] always runs; the
+     * return is kept for symmetry with the overload above and its Swift call sites.
      */
     fun setFavorite(item: AppMediaItem, favorite: Boolean, completion: (Boolean) -> Unit): Boolean {
         val request = if (favorite) {
-            // Prefer plain `uri`; fall back to `mediaUri`. The base class uses
-            // `uri` directly; subclasses like Genre override `mediaUri` to
-            // synthesize one when the server didn't supply it.
-            val uri = item.uri ?: item.mediaUri ?: return false
-            Request.Library.addFavorite(uri)
+            // `referenceUri`, never the raw `uri`: a provider podcast's server-supplied `uri`
+            // is the show's website, which the server can't resolve back to the item.
+            Request.Library.addFavorite(item.referenceUri)
         } else {
             Request.Library.removeFavorite(item.itemId, item.mediaType)
         }
@@ -1233,8 +1233,7 @@ object KmpHelper : KoinComponent {
      */
     fun setInLibrary(item: AppMediaItem, inLibrary: Boolean): Boolean {
         if (inLibrary) {
-            val uri = item.uri ?: item.mediaUri ?: return false
-            mainScope.launch { serviceClient.sendRequest(Request.Library.add(uri)) }
+            mainScope.launch { serviceClient.sendRequest(Request.Library.add(item.referenceUri)) }
         } else {
             mainScope.launch { serviceClient.sendRequest(Request.Library.remove(item.itemId, item.mediaType)) }
         }

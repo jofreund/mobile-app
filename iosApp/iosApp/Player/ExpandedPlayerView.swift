@@ -234,10 +234,10 @@ private struct ExpandedPlayerRow: View {
                 .font(.title3)
                 .foregroundStyle(isFavorite ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
         }
-        // Disabled rather than hidden so the row's three slots never shift. The uri check
-        // mirrors `MainDataSource.toggleFavorite`'s own guard: adding needs a URI, so a
-        // uri-less item's heart would silently do nothing.
-        .disabled(player.trackItem == nil || (!isFavorite && player.trackItem?.uri == nil))
+        // Disabled rather than hidden so the row's three slots never shift. Only the absence
+        // of a track disables it now: `MainDataSource.toggleFavorite` addresses the item by
+        // `referenceUri`, which every item has, so the old uri-less guard no longer applies.
+        .disabled(player.trackItem == nil)
         .accessibilityLabel(String(localized: isFavorite ? "action_unfavorite" : "action_favorite"))
         .accessibilityAddTraits(isFavorite ? [.isSelected] : [])
     }

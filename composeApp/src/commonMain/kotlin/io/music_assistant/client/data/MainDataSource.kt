@@ -758,9 +758,9 @@ class MainDataSource(
         launch {
             val newFavorite = item.favorite != true
             val result = if (newFavorite) {
-                val uri = item.uri ?: return@launch
                 setFavoriteOverride(item, true)
-                apiClient.sendRequest(Request.Library.addFavorite(uri))
+                // `referenceUri` rather than the raw `uri` — see [AppMediaItem.referenceUri].
+                apiClient.sendRequest(Request.Library.addFavorite(item.referenceUri))
             } else {
                 setFavoriteOverride(item, false)
                 apiClient.sendRequest(
