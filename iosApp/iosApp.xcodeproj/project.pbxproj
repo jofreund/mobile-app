@@ -11,6 +11,14 @@
 		058557D9273AAEEB004C7B11 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 058557D8273AAEEB004C7B11 /* Preview Assets.xcassets */; };
 		0B4C257E50350DDBF95D87D5 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA991F8C8A0917FDD5510709 /* Foundation.framework */; };
 		2152FB042600AC8F00CF470E /* iOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2152FB032600AC8F00CF470E /* iOSApp.swift */; };
+		C8AU00012FB0000000000001 /* NativeAudioController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8AU00112FB0000000000011 /* NativeAudioController.swift */; };
+		C8AU00022FB0000000000002 /* AudioDecoders.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8AU00122FB0000000000012 /* AudioDecoders.swift */; };
+		C8AU00032FB0000000000003 /* NowPlayingCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8AU00132FB0000000000013 /* NowPlayingCoordinator.swift */; };
+		C8AU00042FB0000000000004 /* NowPlayingInfoStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8AU00142FB0000000000014 /* NowPlayingInfoStore.swift */; };
+		C85119262F18C7A900185678 /* Copus in Frameworks */ = {isa = PBXBuildFile; productRef = C85119252F18C7A900185678 /* Copus */; };
+		C85119282F18C7A900185678 /* Opus in Frameworks */ = {isa = PBXBuildFile; productRef = C85119272F18C7A900185678 /* Opus */; };
+		C851192B2F18C88B00185678 /* FLAC in Frameworks */ = {isa = PBXBuildFile; productRef = C851192A2F18C88B00185678 /* FLAC */; };
+		C851192E2F18C8A200185678 /* ogg in Frameworks */ = {isa = PBXBuildFile; productRef = C851192D2F18C8A200185678 /* ogg */; };
 		7555FF83242A565900829871 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7555FF82242A565900829871 /* ContentView.swift */; };
 		C29F123E61DAA17B671EC957 /* SVGRasterizerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FE624765BDE4DC4138CA712 /* SVGRasterizerTests.swift */; };
 		C29F123E61DAA17B671EC958 /* QueueMoveMathTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FE624765BDE4DC4138CA713 /* QueueMoveMathTests.swift */; };
@@ -73,6 +81,7 @@
 		C8SS00042F80000000000004 /* SearchSections.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SS00132F80000000000013 /* SearchSections.swift */; };
 		C8SS00052F80000000000005 /* SearchSectionsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SS00232F80000000000023 /* SearchSectionsTests.swift */; };
 		C8ST00032F63000000000003 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8ST00132F63000000000013 /* SettingsView.swift */; };
+		C8ST00042F6300000000001A /* LocalPlayerSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8ST001A2F6300000000001A /* LocalPlayerSection.swift */; };
 		C8ST00042F63000000000004 /* ConnectionSetupStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8ST00142F63000000000014 /* ConnectionSetupStore.swift */; };
 		C8ST00052F63000000000005 /* ConnectionSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8ST00152F63000000000015 /* ConnectionSetupView.swift */; };
 		C8ST00072F63000000000007 /* QrScanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8ST00172F63000000000017 /* QrScanView.swift */; };
@@ -116,6 +125,10 @@
 		C8LC00112F4F000000000011 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		C8LL00132F5D000000000013 /* LibraryListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryListView.swift; sourceTree = "<group>"; };
 		C8LV00132F62000000000013 /* LibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryView.swift; sourceTree = "<group>"; };
+		C8AU00112FB0000000000011 /* NativeAudioController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeAudioController.swift; sourceTree = "<group>"; };
+		C8AU00122FB0000000000012 /* AudioDecoders.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioDecoders.swift; sourceTree = "<group>"; };
+		C8AU00132FB0000000000013 /* NowPlayingCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NowPlayingCoordinator.swift; sourceTree = "<group>"; };
+		C8AU00142FB0000000000014 /* NowPlayingInfoStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NowPlayingInfoStore.swift; sourceTree = "<group>"; };
 		C8PL00132F70000000000013 /* PlayerBarStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerBarStore.swift; sourceTree = "<group>"; };
 		C8PL00142F70000000000014 /* MiniPlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniPlayerView.swift; sourceTree = "<group>"; };
 		C8PL0014AA10000000000042 /* PlayPauseIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayPauseIcon.swift; sourceTree = "<group>"; };
@@ -150,6 +163,7 @@
 		C8SS00132F80000000000013 /* SearchSections.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchSections.swift; sourceTree = "<group>"; };
 		C8SS00232F80000000000023 /* SearchSectionsTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SearchSectionsTests.swift; sourceTree = "<group>"; };
 		C8ST00132F63000000000013 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		C8ST001A2F6300000000001A /* LocalPlayerSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalPlayerSection.swift; sourceTree = "<group>"; };
 		C8ST00142F63000000000014 /* ConnectionSetupStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionSetupStore.swift; sourceTree = "<group>"; };
 		C8ST00152F63000000000015 /* ConnectionSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionSetupView.swift; sourceTree = "<group>"; };
 		C8ST00172F63000000000017 /* QrScanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QrScanView.swift; sourceTree = "<group>"; };
@@ -179,6 +193,10 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C851192E2F18C8A200185678 /* ogg in Frameworks */,
+				C85119262F18C7A900185678 /* Copus in Frameworks */,
+				C851192B2F18C88B00185678 /* FLAC in Frameworks */,
+				C85119282F18C7A900185678 /* Opus in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -293,6 +311,7 @@
 				C8LL00062F5D000000000006 /* Library */,
 				C8SV00062F60000000000006 /* Search */,
 				C8PL00062F70000000000006 /* Player */,
+				C8AU00062FB0000000000006 /* LocalPlayer */,
 				C8HV00062F61000000000006 /* Home */,
 				C8ST00062F63000000000006 /* Settings */,
 				C8WD00062FA0000000000006 /* LiveActivity */,
@@ -346,6 +365,17 @@
 				C8FS00132F5F000000000013 /* LibraryFilterSheet.swift */,
 			);
 			path = Library;
+			sourceTree = "<group>";
+		};
+		C8AU00062FB0000000000006 /* LocalPlayer */ = {
+			isa = PBXGroup;
+			children = (
+				C8AU00112FB0000000000011 /* NativeAudioController.swift */,
+				C8AU00122FB0000000000012 /* AudioDecoders.swift */,
+				C8AU00132FB0000000000013 /* NowPlayingCoordinator.swift */,
+				C8AU00142FB0000000000014 /* NowPlayingInfoStore.swift */,
+			);
+			path = LocalPlayer;
 			sourceTree = "<group>";
 		};
 		C8PL00062F70000000000006 /* Player */ = {
@@ -403,6 +433,7 @@
 			isa = PBXGroup;
 			children = (
 				C8ST00132F63000000000013 /* SettingsView.swift */,
+				C8ST001A2F6300000000001A /* LocalPlayerSection.swift */,
 				C8ST00142F63000000000014 /* ConnectionSetupStore.swift */,
 				C8ST00152F63000000000015 /* ConnectionSetupView.swift */,
 				C8ST00172F63000000000017 /* QrScanView.swift */,
@@ -478,6 +509,10 @@
 			);
 			name = iosApp;
 			packageProductDependencies = (
+				C85119252F18C7A900185678 /* Copus */,
+				C85119272F18C7A900185678 /* Opus */,
+				C851192A2F18C88B00185678 /* FLAC */,
+				C851192D2F18C8A200185678 /* ogg */,
 			);
 			productName = iosApp;
 			productReference = 7555FF7B242A565900829871 /* Taktgeber.app */;
@@ -526,6 +561,9 @@
 			);
 			mainGroup = 7555FF72242A565900829871;
 			packageReferences = (
+				C85119242F18C7A900185678 /* XCRemoteSwiftPackageReference "swift-opus" */,
+				C85119292F18C88B00185678 /* XCRemoteSwiftPackageReference "flac-binary-xcframework" */,
+				C851192C2F18C8A200185678 /* XCRemoteSwiftPackageReference "ogg-binary-xcframework" */,
 			);
 			productRefGroup = 7555FF7C242A565900829871 /* Products */;
 			projectDirPath = "";
@@ -619,6 +657,10 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C8AU00012FB0000000000001 /* NativeAudioController.swift in Sources */,
+				C8AU00022FB0000000000002 /* AudioDecoders.swift in Sources */,
+				C8AU00032FB0000000000003 /* NowPlayingCoordinator.swift in Sources */,
+				C8AU00042FB0000000000004 /* NowPlayingInfoStore.swift in Sources */,
 				C8PL0004AA10000000000045 /* PlayerPickerSheet.swift in Sources */,
 				C8PL0004AA10000000000047 /* SleepTimerSheet.swift in Sources */,
 				C8PL0004AA10000000000043 /* CapsuleSlider.swift in Sources */,
@@ -663,6 +705,7 @@
 				C8HV00042F61000000000004 /* RecommendationRowTitle.swift in Sources */,
 				C8HV00032F61000000000003 /* HomeView.swift in Sources */,
 				C8ST00032F63000000000003 /* SettingsView.swift in Sources */,
+				C8ST00042F6300000000001A /* LocalPlayerSection.swift in Sources */,
 				C8ST00042F63000000000004 /* ConnectionSetupStore.swift in Sources */,
 				C8ST00052F63000000000005 /* ConnectionSetupView.swift in Sources */,
 				C8ST00072F63000000000007 /* QrScanView.swift in Sources */,
@@ -1006,6 +1049,59 @@
 			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		C85119242F18C7A900185678 /* XCRemoteSwiftPackageReference "swift-opus" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/alta/swift-opus";
+			requirement = {
+				kind = versionRange;
+				maximumVersion = 1.0.0;
+				minimumVersion = 0.0.2;
+			};
+		};
+		C85119292F18C88B00185678 /* XCRemoteSwiftPackageReference "flac-binary-xcframework" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sbooth/flac-binary-xcframework.git";
+			requirement = {
+				kind = versionRange;
+				maximumVersion = 1.0.0;
+				minimumVersion = 0.1.0;
+			};
+		};
+		C851192C2F18C8A200185678 /* XCRemoteSwiftPackageReference "ogg-binary-xcframework" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sbooth/ogg-binary-xcframework.git";
+			requirement = {
+				kind = versionRange;
+				maximumVersion = 1.0.0;
+				minimumVersion = 0.1.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		C85119252F18C7A900185678 /* Copus */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C85119242F18C7A900185678 /* XCRemoteSwiftPackageReference "swift-opus" */;
+			productName = Copus;
+		};
+		C85119272F18C7A900185678 /* Opus */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C85119242F18C7A900185678 /* XCRemoteSwiftPackageReference "swift-opus" */;
+			productName = Opus;
+		};
+		C851192A2F18C88B00185678 /* FLAC */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C85119292F18C88B00185678 /* XCRemoteSwiftPackageReference "flac-binary-xcframework" */;
+			productName = FLAC;
+		};
+		C851192D2F18C8A200185678 /* ogg */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C851192C2F18C8A200185678 /* XCRemoteSwiftPackageReference "ogg-binary-xcframework" */;
+			productName = ogg;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 7555FF73242A565900829871 /* Project object */;
 }

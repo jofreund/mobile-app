@@ -81,6 +81,9 @@ kotlin {
             // Phase A spike: switched from `com.shepeliev:webrtc-kmp` to Ktor EAP.
             // See plans/let-s-investigate-possible-migration-sequential-pike.md.
             implementation(libs.ktor.client.webrtc)
+
+            // Noise handshake for encrypted Sendspin (local player).
+            implementation(libs.cryptography.core)
         }
 
         commonTest.dependencies {
@@ -92,6 +95,8 @@ kotlin {
 
         iosMain.dependencies {
             implementation(libs.ktor.client.darwin)
+            // CryptoKit-backed provider for the Sendspin Noise handshake.
+            implementation(libs.cryptography.provider.cryptokit)
         }
     }
 }

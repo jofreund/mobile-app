@@ -1,8 +1,18 @@
 # Local Player (Sendspin) Integration Plan
 
-**Status:** Planned — not started
-**Created:** 2026-08-28
+**Status:** Implemented (Phases 1–7) — on-device validation (Phase 8) outstanding
+**Created:** 2026-08-28 · **Implemented:** 2026-08-30
 **Upstream reference:** [music-assistant/mobile-app](https://github.com/music-assistant/mobile-app) @ `ebad772` (2026-08-27)
+
+> Implementation notes vs. this plan: the Kotlin core, `LocalPlayerController`,
+> `MainDataSource` wiring, settings (single-store, no secrets split), Swift audio stack
+> (`iosApp/iosApp/LocalPlayer/`), Now Playing channels + coordinator, Live Activity
+> arbitration (Now Playing wins while the local player presents), and the SwiftUI
+> `LocalPlayerSection` all landed. The now-playing channel layer WAS ported after all
+> (the plan had marked it Android-oriented) because `NowPlayingCoordinator` needs it.
+> Everything Kotlin parses clean under detekt; neither Kotlin/Native compilation nor
+> Xcode builds are possible in the CI container (egress policy blocks dl.google.com and
+> download.jetbrains.com), so first compile + Phase 8 happen on a Mac.
 
 ## Goal
 

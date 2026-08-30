@@ -23,8 +23,15 @@ import UIKit
 final class PlayerActivityController {
 
     private var stateSub: Cancellable?
+    private var localTrackSub: Cancellable?
     private var isForeground = false
     private var activity: Activity<PlayerActivityAttributes>?
+
+    /// True while the local (Sendspin) player has something to present. The system's own
+    /// Now Playing surface (fed by `NowPlayingCoordinator` off the real audio session) owns
+    /// the lock screen then; publishing a Live Activity beside it would show two competing
+    /// cards for the same playback. Exactly one of the two drives the lock screen at a time.
+    private var localPlayerPresents = false
 
     /// Last content published, to skip no-op republishes (playerBarState emits on every volume
     /// echo and position anchor; ActivityKit updates are not free).
@@ -57,6 +64,15 @@ final class PlayerActivityController {
         stateSub = KmpHelper.shared.playerBarState.subscribe { [weak self] state in
             self?.handle(state)
         }
+        localTrackSub = KmpHelper.shared.observeNowPlayingTrack { [weak self] track in
+            guard let self else { return }
+            let presents = track != nil
+            guard presents != self.localPlayerPresents else { return }
+            self.localPlayerPresents = presents
+            // Stand down when the local player takes the lock screen; re-sync from the
+            // current bar state when it lets go.
+            self.handle(KmpHelper.shared.playerBarState.value)
+        }
     }
 
     func scenePhaseChanged(active: Bool) {
@@ -71,7 +87,7 @@ final class PlayerActivityController {
     // MARK: - State → activity
 
     private func handle(_ state: PlayerBarState?) {
-        guard let content = Self.desiredContent(from: state) else {
+        guard !localPlayerPresents, let content = Self.desiredContent(from: state) else {
             endActivity()
             return
         }
