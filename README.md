@@ -22,7 +22,7 @@ codebase. This fork keeps the Kotlin core and replaces everything above it.
 |---|---|---|
 | Platforms | Android + iOS | iOS only |
 | UI | Compose Multiplatform | Native SwiftUI |
-| Local playback | Sendspin on-device player | None — remote control only |
+| Local playback | Sendspin on-device player | Sendspin on-device player (optional, off by default) |
 | CarPlay / Android Auto | Both | Neither |
 | Siri / Assistant | Both | Neither |
 
@@ -34,12 +34,16 @@ risk for no user-visible benefit. What was replaced is the UI layer, where Compo
 participate in UIKit's interactive pop transition, sheet detents, `.searchable`, context-menu
 previews, native scroll physics, Dynamic Type, or VoiceOver rotors.
 
-### What removing local playback costs
+### Local playback
 
-Worth being explicit, because it is not recoverable by a setting: **there is no lock screen or
-Control Center integration, and no background audio.** iOS grants those surfaces to the app that
-is actually producing audio. A pure remote control cannot have them without holding an audio
-session it has no honest use for.
+The fork originally removed the on-device Sendspin player entirely ("remote control only"),
+which cost the surfaces iOS grants only to the app actually producing audio: lock screen and
+Control Center integration, and background audio. The player has since been ported back from
+upstream — including upstream's Noise-encrypted protocol — behind a Settings toggle that is
+**off by default**. With it off, the app behaves exactly as before (pure remote control, lock
+screen driven by the Live Activity); with it on, the phone registers as a Music Assistant
+player, and while it is the one playing, the system's own Now Playing surface takes over the
+lock screen.
 
 ## Requirements
 

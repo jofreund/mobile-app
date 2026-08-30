@@ -8,9 +8,10 @@ import MusicAssistantKit
 /// machine — server-ID-mismatch detection, per-server token lifecycle, and `SilentReauth`'s
 /// bounded-retry-vs-surface-immediately asymmetry.
 ///
-/// What the Compose original had and this doesn't: the Sendspin local-player config, and the
-/// Car actions / DSP sections. None of those are deferred work — CarPlay, Siri and the local
-/// player were removed outright, so there is nothing left for them to configure.
+/// What the Compose original had and this doesn't: the Car actions / DSP sections — CarPlay
+/// and Siri were removed outright, so there is nothing left for them to configure. The
+/// Sendspin local-player config is back as `LocalPlayerSection` since the local player's
+/// re-integration.
 ///
 /// `KmpHelper.sessionState` exposes the real Kotlin `SessionState` sealed class directly (same
 /// pattern `AppTabView.swift` already uses for `DeepLinkDestination`) so this view can branch on
@@ -64,6 +65,7 @@ struct SettingsView: View {
             if let user = connected.user {
                 accountSection(user: user)
             }
+            LocalPlayerSection()
             themeSection
             LiveActivitySection()
             miscSection
@@ -257,6 +259,3 @@ private struct MiscLogsSection: View {
         }
     }
 }
-
-/// custom connection, enable/disable. All fields lock while the local player is running
-/// (config is connect-time; changes take effect on the next connect), matching Compose exactly.

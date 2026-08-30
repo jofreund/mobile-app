@@ -11,6 +11,9 @@ import io.music_assistant.client.data.model.client.SortConfig
 import io.music_assistant.client.data.model.client.SortField
 import io.music_assistant.client.data.model.client.SortOption
 import io.music_assistant.client.data.model.client.SubItemContext
+import io.music_assistant.client.player.sendspin.SendspinConfig
+import io.music_assistant.client.player.sendspin.audio.Codec
+import io.music_assistant.client.player.sendspin.audio.Codecs
 import io.music_assistant.client.ui.theme.ThemeSetting
 import io.music_assistant.client.utils.myJson
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -319,6 +322,183 @@ class SettingsRepository(
     fun setDynamicColors(enabled: Boolean) {
         settings.putBoolean("dynamic_colors", enabled)
         _dynamicColors.update { enabled }
+    }
+
+    // Sendspin (local player) settings
+    private val _sendspinEnabled = MutableStateFlow(
+        settings.getBoolean("sendspin_enabled", false),
+    )
+    val sendspinEnabled = _sendspinEnabled.asStateFlow()
+
+    fun setSendspinEnabled(enabled: Boolean) {
+        settings.putBoolean("sendspin_enabled", enabled)
+        _sendspinEnabled.update { enabled }
+    }
+
+    // Require the Noise-encrypted Sendspin protocol: when the connected
+    // server is too old to support it, the local player stays unavailable
+    // instead of falling back to the legacy cleartext protocol.
+    private val _sendspinRequireEncryption = MutableStateFlow(
+        settings.getBoolean("sendspin_require_encryption", false),
+    )
+    val sendspinRequireEncryption = _sendspinRequireEncryption.asStateFlow()
+
+    fun setSendspinRequireEncryption(enabled: Boolean) {
+        settings.putBoolean("sendspin_require_encryption", enabled)
+        _sendspinRequireEncryption.update { enabled }
+    }
+
+    // Legacy-protocol player identity only. On encrypted Sendspin connections
+    // the client_id is the device's X25519 public key (see
+    // player/sendspin/identity/SendspinIdentity), so this UUID is vestigial
+    // there; it remains in use for legacy connections to older servers.
+    @OptIn(ExperimentalUuidApi::class)
+    private val _sendspinClientId = MutableStateFlow(
+        settings.getStringOrNull("sendspin_client_id") ?: Uuid.random().toString().also {
+            settings.putString("sendspin_client_id", it)
+        },
+    )
+    val sendspinClientId = _sendspinClientId.asStateFlow()
+
+    // The player id the app addresses the local player by. On legacy
+    // connections it is the UUID above; on encrypted connections the server
+    // registers the player under the device's X25519 public key, so the
+    // Sendspin client factory switches this to that identity when it resolves
+    // the connection mode. Persisted so consumers address the right player
+    // from process start, before the factory has re-resolved the mode —
+    // otherwise the synthetic local player is briefly injected under an id
+    // the server doesn't have.
+    private val _sendspinEffectivePlayerId = MutableStateFlow(
+        settings.getStringOrNull("sendspin_effective_player_id") ?: _sendspinClientId.value,
+    )
+    val sendspinEffectivePlayerId = _sendspinEffectivePlayerId.asStateFlow()
+
+    fun setSendspinEffectivePlayerId(id: String) {
+        settings.putString("sendspin_effective_player_id", id)
+        _sendspinEffectivePlayerId.update { id }
+    }
+
+    private val _sendspinDeviceName = MutableStateFlow(
+        settings.getStringOrNull("sendspin_device_name") ?: "My Phone",
+    )
+    val sendspinDeviceName = _sendspinDeviceName.asStateFlow()
+
+    fun setSendspinDeviceName(name: String) {
+        settings.putString("sendspin_device_name", name)
+        _sendspinDeviceName.update { name }
+    }
+
+    private val _sendspinPort = MutableStateFlow(
+        settings.getInt("sendspin_port", 8095),
+    )
+    val sendspinPort = _sendspinPort.asStateFlow()
+
+    fun setSendspinPort(port: Int) {
+        settings.putInt("sendspin_port", port)
+        _sendspinPort.update { port }
+    }
+
+    private val _sendspinPath = MutableStateFlow(
+        settings.getString("sendspin_path", "/sendspin"),
+    )
+    val sendspinPath = _sendspinPath.asStateFlow()
+
+    fun setSendspinPath(path: String) {
+        settings.putString("sendspin_path", path)
+        _sendspinPath.update { path }
+    }
+
+    private val _sendspinCodecPreference = MutableStateFlow(
+        Codec.valueOf(
+            settings.getString(
+                "sendspin_codec_preference",
+                (Codecs.list.getOrNull(0) ?: Codecs.default).name,
+            ).uppercase(),
+        ),
+    )
+    val sendspinCodecPreference = _sendspinCodecPreference.asStateFlow()
+
+    fun setSendspinCodecPreference(codec: Codec) {
+        settings.putString("sendspin_codec_preference", codec.name)
+        _sendspinCodecPreference.update { codec }
+    }
+
+    // Advertised buffer_capacity, stored in MB (converted to bytes when building the client hello).
+    private val _sendspinBufferCapacityMb = MutableStateFlow(
+        settings.getInt("sendspin_buffer_capacity_mb", SendspinConfig.BUFFER_MB_DEFAULT),
+    )
+    val sendspinBufferCapacityMb = _sendspinBufferCapacityMb.asStateFlow()
+
+    fun setSendspinBufferCapacityMb(mb: Int) {
+        settings.putInt("sendspin_buffer_capacity_mb", mb)
+        _sendspinBufferCapacityMb.update { mb }
+    }
+
+    // Whether the local player's now-playing slider draws the buffered-ahead segment.
+    private val _showBufferVisualization = MutableStateFlow(
+        settings.getBoolean("show_buffer_visualization", true),
+    )
+    val showBufferVisualization = _showBufferVisualization.asStateFlow()
+
+    fun setShowBufferVisualization(show: Boolean) {
+        settings.putBoolean("show_buffer_visualization", show)
+        _showBufferVisualization.update { show }
+    }
+
+    // Upstream keeps this key in its dedicated secrets store; this fork never
+    // adopted the secrets-store split, so it lives with everything else.
+    private val _sendspinHost = MutableStateFlow(
+        settings.getString("sendspin_host", ""),
+    )
+    val sendspinHost = _sendspinHost.asStateFlow()
+
+    fun setSendspinHost(host: String) {
+        settings.putString("sendspin_host", host)
+        _sendspinHost.update { host }
+    }
+
+    private val _sendspinUseTls = MutableStateFlow(
+        settings.getBoolean("sendspin_use_tls", false),
+    )
+    val sendspinUseTls = _sendspinUseTls.asStateFlow()
+
+    fun setSendspinUseTls(enabled: Boolean) {
+        settings.putBoolean("sendspin_use_tls", enabled)
+        _sendspinUseTls.update { enabled }
+    }
+
+    // User-tuned client-side playback delay (ms). Fed into AudioStreamManager's
+    // wall-clock gate as a subtraction from each chunk's local target time:
+    //   target = serverTimeToLocal(ts) - userDelay*1000
+    // Positive → play earlier to compensate for downstream pipeline lag.
+    // We don't report this to the server — it's purely client-side scheduling.
+    // Range ±2000 ms; default 250.
+    private val _sendspinStaticDelayMs = MutableStateFlow(
+        settings.getInt("sendspin_static_delay_ms", 250).coerceIn(-2000, 2000),
+    )
+    val sendspinStaticDelayMs = _sendspinStaticDelayMs.asStateFlow()
+
+    fun setSendspinStaticDelayMs(ms: Int) {
+        val clamped = ms.coerceIn(-2000, 2000)
+        settings.putInt("sendspin_static_delay_ms", clamped)
+        _sendspinStaticDelayMs.update { clamped }
+    }
+
+    // Migration logic: if user has custom host or non-default port, they're using custom connection
+    private val _sendspinUseCustomConnection = MutableStateFlow(
+        settings.getBooleanOrNull("sendspin_use_custom_connection") ?: run {
+            val hasCustomHost = settings.getString("sendspin_host", "").isNotEmpty()
+            val hasCustomPort = settings.getInt("sendspin_port", 8095) != 8095
+            val useCustom = hasCustomHost || hasCustomPort
+            settings.putBoolean("sendspin_use_custom_connection", useCustom)
+            useCustom
+        },
+    )
+    val sendspinUseCustomConnection = _sendspinUseCustomConnection.asStateFlow()
+
+    fun setSendspinUseCustomConnection(enabled: Boolean) {
+        settings.putBoolean("sendspin_use_custom_connection", enabled)
+        _sendspinUseCustomConnection.update { enabled }
     }
 
     // When the iOS Live Activity is shown. Absent -> ALWAYS, which is the behavior the

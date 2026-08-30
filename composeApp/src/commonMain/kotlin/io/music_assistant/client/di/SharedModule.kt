@@ -7,6 +7,7 @@ import io.music_assistant.client.api.ServiceClient
 import io.music_assistant.client.auth.AuthCoordinator
 import io.music_assistant.client.auth.AuthenticationManager
 import io.music_assistant.client.connection.ConnectionManager
+import io.music_assistant.client.data.LocalPlayerController
 import io.music_assistant.client.data.MainDataSource
 import io.music_assistant.client.data.PlayerPositionTracker
 import io.music_assistant.client.data.PlayerRequestFactory
@@ -16,6 +17,10 @@ import io.music_assistant.client.data.factory.PlayerFactory
 import io.music_assistant.client.data.factory.QueueFactory
 import io.music_assistant.client.data.repository.MediaItemRepository
 import io.music_assistant.client.logging.LogSharer
+import io.music_assistant.client.player.MediaPlayerController
+import io.music_assistant.client.player.sendspin.SendspinClientFactory
+import io.music_assistant.client.player.sendspin.identity.SendspinKeyStore
+import io.music_assistant.client.player.sendspin.identity.SettingsSendspinKeyStore
 import io.music_assistant.client.settings.SettingsRepository
 import io.music_assistant.client.settings.provideSettings
 import io.music_assistant.client.ui.AppRootRouter
@@ -53,8 +58,14 @@ fun sharedModule(
         single(createdAtStart = true) {  // Eager - must start observing sessionState from launch
             AppRootRouter(get(), get())
         }
+        singleOf(::MediaPlayerController)  // Used by the local (Sendspin) player sink
+        singleOf(::SendspinClientFactory)   // Factory for creating Sendspin clients
+        // Sendspin encrypted-protocol identity/trust persistence — the same
+        // app settings storage as everything else.
+        single<SendspinKeyStore> { SettingsSendspinKeyStore(get()) }
         single { PlayerPositionTracker() }  // Shared live-position source of truth
         single { UserPreferences() }        // Server-synced auth/me preferences
+        singleOf(::LocalPlayerController)    // Local player: lifecycle + state + commands
         singleOf(::PlayerRequestFactory)    // Pure PlayerAction → Request mapper
         singleOf(::MediaItemFactory)        // Stateless DTO → domain mapper
         singleOf(::PlayerFactory)           // Stateless DTO → domain mapper

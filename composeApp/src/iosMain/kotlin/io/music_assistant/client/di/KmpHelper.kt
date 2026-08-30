@@ -24,6 +24,9 @@ import io.music_assistant.client.bridge.NativeStateFlow
 import io.music_assistant.client.bridge.NativeSuspend
 import io.music_assistant.client.data.ChapterBarItem
 import io.music_assistant.client.data.MainDataSource
+import io.music_assistant.client.data.NowPlayingModes
+import io.music_assistant.client.data.NowPlayingTrack
+import io.music_assistant.client.data.NowPlayingTransport
 import io.music_assistant.client.data.PlayerBarState
 import io.music_assistant.client.data.model.client.LibraryFilters
 import io.music_assistant.client.data.model.client.MediaType
@@ -55,6 +58,7 @@ import io.music_assistant.client.data.repository.MediaItemRepository
 import io.music_assistant.client.data.repository.SearchResultData
 import io.music_assistant.client.logging.InMemoryLogWriter
 import io.music_assistant.client.logging.LogSharer
+import io.music_assistant.client.player.sendspin.SendspinState
 import io.music_assistant.client.settings.ConnectionHistoryEntry
 import io.music_assistant.client.settings.LiveActivityVisibility
 import io.music_assistant.client.settings.SettingsRepository
@@ -84,10 +88,13 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapNotNull
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
@@ -563,6 +570,144 @@ object KmpHelper : KoinComponent {
 
     fun hasCredentialsForWebRTC(remoteId: String): Boolean =
         settingsRepository.getTokenForServer(settingsRepository.getWebRTCServerIdentifier(remoteId)) != null
+
+    // MARK: - Now Playing channels (local player → Control Center / lock screen)
+    //
+    // Consumed by `NowPlayingCoordinator.swift`, the sole writer of Apple's
+    // system-media surfaces. Each observer replays the current value on
+    // subscribe — late subscribers (foreground return) catch up immediately.
+    // Callbacks arrive on the main thread; Swift needs no dispatch hop.
+    // `null` means "nothing to present" (no current track).
+
+    /**
+     * Subscribe to track metadata changes (identity, titles, artwork URL,
+     * duration, long-form flag).
+     */
+    fun observeNowPlayingTrack(onChanged: (NowPlayingTrack?) -> Unit): Cancellable {
+        val job = mainScope.launch {
+            mainDataSource.nowPlayingTrack.collect { onChanged(it) }
+        }
+        return Cancellable { job.cancel() }
+    }
+
+    /**
+     * Subscribe to transport anchor changes (playing state, position anchor,
+     * rate). The anchor timestamp is only meaningful on the Kotlin side;
+     * Swift re-stamps arrival with its own clock.
+     */
+    fun observeNowPlayingTransport(onChanged: (NowPlayingTransport?) -> Unit): Cancellable {
+        val job = mainScope.launch {
+            mainDataSource.nowPlayingTransport.collect { onChanged(it) }
+        }
+        return Cancellable { job.cancel() }
+    }
+
+    /** Subscribe to queue-mode changes (shuffle, repeat, toggle availability). */
+    fun observeNowPlayingModes(onChanged: (NowPlayingModes?) -> Unit): Cancellable {
+        val job = mainScope.launch {
+            mainDataSource.nowPlayingModes.collect { onChanged(it) }
+        }
+        return Cancellable { job.cancel() }
+    }
+
+    // MARK: - Local player (Sendspin) — settings read/write pairs plus a coarse
+    // status feed for the Settings section. Lifecycle is NOT driven from here:
+    // `MainDataSource` watches `sendspinEnabled` and starts/stops the player, so
+    // the toggle only writes the setting.
+
+    val sendspinEnabled: NativeStateFlow<Boolean>
+        get() = NativeStateFlow(settingsRepository.sendspinEnabled, mainScope)
+
+    fun setSendspinEnabled(enabled: Boolean) {
+        settingsRepository.setSendspinEnabled(enabled)
+    }
+
+    val sendspinDeviceName: NativeStateFlow<String>
+        get() = NativeStateFlow(settingsRepository.sendspinDeviceName, mainScope)
+
+    fun setSendspinDeviceName(name: String) {
+        settingsRepository.setSendspinDeviceName(name)
+    }
+
+    val sendspinUseCustomConnection: NativeStateFlow<Boolean>
+        get() = NativeStateFlow(settingsRepository.sendspinUseCustomConnection, mainScope)
+
+    fun setSendspinUseCustomConnection(enabled: Boolean) {
+        settingsRepository.setSendspinUseCustomConnection(enabled)
+    }
+
+    val sendspinHost: NativeStateFlow<String>
+        get() = NativeStateFlow(settingsRepository.sendspinHost, mainScope)
+
+    fun setSendspinHost(host: String) {
+        settingsRepository.setSendspinHost(host)
+    }
+
+    val sendspinPort: NativeStateFlow<Int>
+        get() = NativeStateFlow(settingsRepository.sendspinPort, mainScope)
+
+    fun setSendspinPort(port: Int) {
+        settingsRepository.setSendspinPort(port)
+    }
+
+    val sendspinPath: NativeStateFlow<String>
+        get() = NativeStateFlow(settingsRepository.sendspinPath, mainScope)
+
+    fun setSendspinPath(path: String) {
+        settingsRepository.setSendspinPath(path)
+    }
+
+    val sendspinUseTls: NativeStateFlow<Boolean>
+        get() = NativeStateFlow(settingsRepository.sendspinUseTls, mainScope)
+
+    fun setSendspinUseTls(enabled: Boolean) {
+        settingsRepository.setSendspinUseTls(enabled)
+    }
+
+    val sendspinRequireEncryption: NativeStateFlow<Boolean>
+        get() = NativeStateFlow(settingsRepository.sendspinRequireEncryption, mainScope)
+
+    fun setSendspinRequireEncryption(enabled: Boolean) {
+        settingsRepository.setSendspinRequireEncryption(enabled)
+    }
+
+    /**
+     * Coarse local-player status for the Settings section: "stopped" while no client
+     * exists, else a lifecycle label. Kept as a plain string (not the sealed
+     * `SendspinState`) so Swift renders text without pattern-matching exported
+     * Kotlin subclasses.
+     */
+    private val sendspinStatusFlow: StateFlow<String> by lazy {
+        mainDataSource.sendspinState
+            .map { state ->
+                when (state) {
+                    null -> "stopped"
+                    is SendspinState.Idle -> "idle"
+                    is SendspinState.Connecting -> "connecting"
+                    is SendspinState.Authenticating -> "authenticating"
+                    is SendspinState.Handshaking -> "handshaking"
+                    is SendspinState.Ready -> "ready"
+                    is SendspinState.Buffering -> "buffering"
+                    is SendspinState.Synchronized -> "playing"
+                    is SendspinState.Reconnecting -> "reconnecting"
+                    is SendspinState.Error -> "error"
+                }
+            }
+            .stateIn(mainScope, SharingStarted.Eagerly, "stopped")
+    }
+
+    val sendspinStatus: NativeStateFlow<String>
+        get() = NativeStateFlow(sendspinStatusFlow, mainScope)
+
+    /** True while a Sendspin client exists (any state) — drives the fields-locked UI. */
+    private val sendspinRunningFlow: StateFlow<Boolean> by lazy {
+        mainDataSource.sendspinState
+            .map { it != null }
+            .stateIn(mainScope, SharingStarted.Eagerly, mainDataSource.sendspinState.value != null)
+    }
+
+    val sendspinRunning: NativeStateFlow<Boolean>
+        get() = NativeStateFlow(sendspinRunningFlow, mainScope)
 
     fun theme(): ThemeSetting = settingsRepository.theme.value
 

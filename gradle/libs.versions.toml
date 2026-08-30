@@ -13,6 +13,7 @@ koin = "4.2.2"
 
 
 settingsMultiplatform = "1.3.0"
+cryptographyKotlin = "0.6.0"
 
 detekt = "1.23.8"
 turbine = "1.2.1"
@@ -46,6 +47,9 @@ koin-core = { module = "io.insert-koin:koin-core", version.ref = "koin" }
 
 settings-multiplatform = { module = "com.russhwolf:multiplatform-settings-no-arg", version.ref = "settingsMultiplatform" }
 settings-multiplatform-test = { module = "com.russhwolf:multiplatform-settings-test", version.ref = "settingsMultiplatform" }
+
+cryptography-core = { module = "dev.whyoleg.cryptography:cryptography-core", version.ref = "cryptographyKotlin" }
+cryptography-provider-cryptokit = { module = "dev.whyoleg.cryptography:cryptography-provider-cryptokit", version.ref = "cryptographyKotlin" }
 
 
 

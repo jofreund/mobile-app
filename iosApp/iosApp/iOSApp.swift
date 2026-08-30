@@ -88,6 +88,10 @@ struct iOSApp: App {
     /// background would tear the connection down every time someone glanced at a notification.
     @Environment(\.scenePhase) private var scenePhase
 
+    /// The local (Sendspin) player's audio sink. Strong ref for the process lifetime —
+    /// Kotlin reaches it through `PlatformPlayerProvider`, which holds it unretained.
+    private let localAudioPlayer = NativeAudioController()
+
     /// Strong ref: `ASWebAuthenticationSession` cancels itself when its owner deallocates,
     /// so the handler must outlive every login attempt.
     private let oauthWebSession = OAuthWebSession()
@@ -99,6 +103,15 @@ struct iOSApp: App {
     private let playerActivityController = PlayerActivityController()
 
     init() {
+        // Register the Swift audio player with Kotlin before KMP services are created —
+        // `MediaPlayerController` (created during bootstrapKmp) resolves it lazily via
+        // `PlatformPlayerProvider`, but registering first means even init-time streams land.
+        PlatformPlayerProvider.shared.player = localAudioPlayer
+
+        // Swift-only init phase of the Now Playing owner: audio-session category and
+        // remote-command targets. Its channel subscriptions start after bootstrapKmp().
+        _ = NowPlayingCoordinator.shared
+
         #if DEBUG
         // Route Kermit logs to the unified log un-redacted during development
         // Must run before bootstrapKmp() so init-time logs reach the sink.
@@ -134,6 +147,10 @@ struct iOSApp: App {
         // Must run for background launches too (a Live Activity intent tap cold-launches the
         // process with no scene), so init — not a view callback — is the only correct place.
         playerActivityController.start()
+
+        // Second init phase of the Now Playing owner: subscribe to the Kotlin
+        // now-playing channels. Requires Koin, so it must follow bootstrapKmp().
+        NowPlayingCoordinator.shared.startObserving()
     }
 
     var body: some Scene {
