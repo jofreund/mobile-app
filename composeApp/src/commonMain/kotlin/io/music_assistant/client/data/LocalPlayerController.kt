@@ -26,6 +26,7 @@ import io.music_assistant.client.player.sendspin.SendspinState
 import io.music_assistant.client.player.sendspin.WebRTCSendspinChannelExhausted
 import io.music_assistant.client.player.sendspin.model.GoodbyeReason
 import io.music_assistant.client.settings.SettingsRepository
+import io.music_assistant.client.settings.getServerIdentifier
 import io.music_assistant.client.ui.compose.common.DataState
 import io.music_assistant.client.ui.compose.common.action.PlayerAction
 import io.music_assistant.client.utils.SessionState
@@ -440,9 +441,13 @@ class LocalPlayerController(
      * Safe for background: this controller is a singleton held by the foreground service.
      */
     suspend fun start() = sendspinMutex.withLock {
-        // Get prerequisites
+        // Get prerequisites. Token lookup goes through the connection-derived server
+        // identifier ("direct:wss://host:port" / "webrtc:remoteId") — this fork keys the
+        // token store by how the connection was made, NOT by `serverInfo.serverId` as
+        // upstream does; the wrong key returns null and Sendspin never authenticates.
         val authToken = (apiClient.sessionState.value as? SessionState.Connected)
-            ?.serverInfo?.serverId?.let { settings.getTokenForServer(it) }
+            ?.let { settings.getServerIdentifier(it) }
+            ?.let { settings.getTokenForServer(it) }
 
         // Stop existing client if any (but preserve if it's actively connected, connecting, or reconnecting)
         sendspinClient?.let { existing ->

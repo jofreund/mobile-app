@@ -8,6 +8,7 @@ import io.music_assistant.client.data.model.server.OauthUrl
 import io.music_assistant.client.data.model.server.User
 import io.music_assistant.client.settings.ConnectionType
 import io.music_assistant.client.settings.SettingsRepository
+import io.music_assistant.client.settings.getServerIdentifier
 import io.music_assistant.client.utils.AuthProcessState
 import io.music_assistant.client.utils.DataConnectionState
 import io.music_assistant.client.utils.SessionState
@@ -390,22 +391,3 @@ class AuthenticationManager(
 }
 
 class ServerIdMismatchException : Exception()
-
-private fun SettingsRepository.getServerIdentifier(sessionState: SessionState): String? {
-    return when (sessionState) {
-        is SessionState.Connected -> getServerIdentifier(sessionState)
-        else -> null
-    }
-}
-
-private fun SettingsRepository.getServerIdentifier(sessionState: SessionState.Connected): String {
-    return when (sessionState) {
-        is SessionState.Connected.Direct -> this.getDirectServerIdentifier(
-            sessionState.connectionInfo.host,
-            sessionState.connectionInfo.port,
-            sessionState.connectionInfo.isTls,
-        )
-
-        is SessionState.Connected.WebRTC -> this.getWebRTCServerIdentifier(sessionState.remoteId.rawId)
-    }
-}
