@@ -5,9 +5,9 @@ import Foundation
 /// Everything the app target and the TaktgeberWidgets extension must agree on, in one file that
 /// compiles into both. The extension deliberately does NOT link MusicAssistantKit (a widget
 /// process has a ~30 MB memory ceiling and no use for the KMP graph), so anything Kotlin-touching
-/// here is fenced with `canImport` — in the extension those branches compile to nothing, which is
-/// fine: a `LiveActivityIntent` is always executed in the *app's* process, the extension's copy
-/// exists only so `Button(intent:)` can name the type.
+/// here is fenced with `#if !WIDGET_EXTENSION` — in the extension those branches compile to
+/// nothing, which is fine: a `LiveActivityIntent` is always executed in the *app's* process, the
+/// extension's copy exists only so `Button(intent:)` can name the type.
 
 // MARK: - Activity contract
 
@@ -63,7 +63,12 @@ struct PlayerPlayPauseIntent: LiveActivityIntent {
     }
 
     func perform() async throws -> some IntentResult {
-        #if canImport(MusicAssistantKit)
+        // Explicit target condition, NOT `canImport(MusicAssistantKit)`: the extension shares
+        // BUILT_PRODUCTS_DIR with the app, so once any build has produced the framework there,
+        // canImport flips true in the extension too — which then fails on
+        // `PlayerActivityCommand`, a type only the app target compiles. WIDGET_EXTENSION is set
+        // in the TaktgeberWidgets target's SWIFT_ACTIVE_COMPILATION_CONDITIONS.
+        #if !WIDGET_EXTENSION
         await PlayerActivityCommand.togglePlayPause(playerId: playerId)
         #endif
         return .result()

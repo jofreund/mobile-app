@@ -13,19 +13,21 @@ struct LocalPlayerSection: View {
 
     // Settings are single-writer (this view), so they're read once and written
     // through the KmpHelper setters; only the live status needs a subscription.
+    // NativeStateFlow<T>'s generic T loses Swift's automatic NSString bridging
+    // (see ConnectionSetupStore.swift), hence the explicit `as String?` casts.
     @State private var enabled = KmpHelper.shared.sendspinEnabled.value?.boolValue ?? false
-    @State private var deviceName = KmpHelper.shared.sendspinDeviceName.value ?? ""
+    @State private var deviceName = (KmpHelper.shared.sendspinDeviceName.value as String?) ?? ""
     @State private var requireEncryption =
         KmpHelper.shared.sendspinRequireEncryption.value?.boolValue ?? false
     @State private var useCustomConnection =
         KmpHelper.shared.sendspinUseCustomConnection.value?.boolValue ?? false
-    @State private var host = KmpHelper.shared.sendspinHost.value ?? ""
+    @State private var host = (KmpHelper.shared.sendspinHost.value as String?) ?? ""
     @State private var port = KmpHelper.shared.sendspinPort.value.map { "\($0.intValue)" } ?? "8095"
-    @State private var path = KmpHelper.shared.sendspinPath.value ?? "/sendspin"
+    @State private var path = (KmpHelper.shared.sendspinPath.value as String?) ?? "/sendspin"
     @State private var useTls = KmpHelper.shared.sendspinUseTls.value?.boolValue ?? false
 
     @State private var running = KmpHelper.shared.sendspinRunning.value?.boolValue ?? false
-    @State private var status = KmpHelper.shared.sendspinStatus.value ?? "stopped"
+    @State private var status = (KmpHelper.shared.sendspinStatus.value as String?) ?? "stopped"
     @State private var runningSub: Cancellable?
     @State private var statusSub: Cancellable?
 
@@ -130,7 +132,7 @@ struct LocalPlayerSection: View {
                 running = value?.boolValue ?? false
             }
             statusSub = KmpHelper.shared.sendspinStatus.subscribe { value in
-                status = value ?? "stopped"
+                status = (value as String?) ?? "stopped"
             }
         }
     }
