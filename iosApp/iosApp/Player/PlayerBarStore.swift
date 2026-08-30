@@ -70,6 +70,13 @@ final class PlayerBarStore {
         )
     }
 
+    /// Relative seek behind the spoken-word skip buttons. Kotlin resolves the offset against
+    /// the live position at send time (`KmpHelper.seekPlayerBarBy`) — a position computed here
+    /// off the interpolated ticker would drift from where the player actually is.
+    func seekBy(id: String, seconds: Int) {
+        KmpHelper.shared.seekPlayerBarBy(playerId: id, seconds: Int64(seconds))
+    }
+
     func toggleShuffle(id: String) {
         KmpHelper.shared.togglePlayerBarShuffle(playerId: id)
     }
@@ -221,6 +228,9 @@ struct PlayerBarItemView: Identifiable {
     /// Non-empty only when the current queue item is an audiobook — mirrors
     /// `QueueDisplayRows.kt`'s chapter-nesting rule.
     let currentItemChapters: [Chapter]
+    /// The current item is an audiobook or a podcast episode. Swaps the expanded player's
+    /// shuffle/repeat buttons for skip-back/skip-forward — see `ExpandedPlayerView.transportRow`.
+    let isSpokenWord: Bool
     /// `PlayerType.GROUP` — the group-settings pivot row drives group volume, not its own.
     let isGroup: Bool
     /// Sync-group leader with members — shows the extra group-volume row in group settings.
@@ -262,6 +272,7 @@ struct PlayerBarItemView: Identifiable {
         self.queueItems = queueItems
         self.currentQueueItemId = item.currentQueueItemId
         self.currentItemChapters = item.currentItemChapters
+        self.isSpokenWord = item.isSpokenWord
         self.isGroup = item.isGroup
         self.isGrouped = item.isGrouped
         self.groupVolume = item.groupVolume?.floatValue

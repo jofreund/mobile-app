@@ -1385,6 +1385,18 @@ object KmpHelper : KoinComponent {
         dispatchPlayerBarAction(playerId, PlayerAction.SeekTo(seconds.toLong()))
 
     /**
+     * Relative seek for the expanded player's skip-back/skip-forward buttons (spoken-word items).
+     *
+     * Deliberately [PlayerAction.SeekBy] rather than a position computed in Swift: Swift's
+     * `livePosition` is an interpolated ticker, so an offset applied to it drifts from where the
+     * player really is. `PlayerRequestFactory.resolve()` reads the live position at send time
+     * and clamps the result to `[0, duration]`, which is also what feeds the optimistic
+     * position anchor — so the scrubber jumps to the same place the server will report.
+     */
+    fun seekPlayerBarBy(playerId: String, seconds: Long) =
+        dispatchPlayerBarAction(playerId, PlayerAction.SeekBy(seconds))
+
+    /**
      * Seeks to a position read off a chapter-relative scrubber.
      *
      * [chapter] is the one Swift latched when the drag started, not whichever is current when

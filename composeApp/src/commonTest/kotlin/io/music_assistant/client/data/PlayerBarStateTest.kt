@@ -3,7 +3,11 @@ package io.music_assistant.client.data
 import io.music_assistant.client.data.model.client.PlayerData
 import io.music_assistant.client.data.model.client.PlayerDataFixtures
 import io.music_assistant.client.data.model.client.PlayerType
+import io.music_assistant.client.data.model.client.Queue
 import io.music_assistant.client.data.model.client.QueueTrack
+import io.music_assistant.client.data.model.client.items.PlayableItem
+import io.music_assistant.client.data.model.client.testAudiobook
+import io.music_assistant.client.data.model.client.testPodcastEpisode
 import io.music_assistant.client.data.model.client.testTrack
 import io.music_assistant.client.ui.compose.common.DataState
 import kotlin.test.Test
@@ -138,6 +142,46 @@ class PlayerBarStateTest {
         assertNull(item.currentQueueItemId)
         assertTrue(item.currentItemChapters.isEmpty())
         assertEquals(data.queueOrPlayerId, item.queueId)
+    }
+
+    /** [PlayerDataFixtures.playerData] with [item] installed as the current queue item. */
+    private fun playerDataPlaying(item: PlayableItem): PlayerData {
+        val base = PlayerDataFixtures.playerData()
+        val info = (base.queue as DataState.Data<Queue>).data.info
+        return base.copy(
+            queue = DataState.Data(
+                Queue(
+                    info = info.copy(
+                        currentIndex = 0,
+                        currentItem = QueueTrack(
+                            id = "queue-item-1",
+                            track = item,
+                            isPlayable = true,
+                            format = null,
+                            dsp = null,
+                            provider = "test",
+                        ),
+                    ),
+                    items = DataState.NoData(),
+                ),
+            ),
+        )
+    }
+
+    @Test
+    fun `spoken word covers audiobooks and podcast episodes but not music`() {
+        // Swift swaps the expanded player's shuffle/repeat buttons for skip back/forward on
+        // this flag alone, so a music track wrongly flagged loses two controls outright.
+        assertTrue(stateOf(playerDataPlaying(testAudiobook())).players.single().isSpokenWord)
+        assertTrue(stateOf(playerDataPlaying(testPodcastEpisode())).players.single().isSpokenWord)
+        assertFalse(stateOf(playerDataPlaying(testTrack())).players.single().isSpokenWord)
+    }
+
+    @Test
+    fun `a player with nothing playing is not spoken word`() {
+        // Null track, not "unknown": a player between items keeps the music transport rather
+        // than flipping its outer two buttons on every queue boundary.
+        assertFalse(stateOf(PlayerDataFixtures.playerData()).players.single().isSpokenWord)
     }
 
     // The `distinctUntilChanged` predicate behind `MainDataSource.playerBarState`. Most of these

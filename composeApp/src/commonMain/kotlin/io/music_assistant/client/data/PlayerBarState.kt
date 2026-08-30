@@ -7,6 +7,7 @@ import io.music_assistant.client.data.model.client.QueueTrack
 import io.music_assistant.client.data.model.client.RepeatMode
 import io.music_assistant.client.data.model.client.items.AppMediaItem
 import io.music_assistant.client.data.model.client.items.Audiobook
+import io.music_assistant.client.data.model.client.items.PodcastEpisode
 import io.music_assistant.client.ui.compose.common.DataState
 
 /**
@@ -59,6 +60,16 @@ data class PlayerBarItem(
     /** Only ever non-empty for the *currently playing* item, and only when it's an [Audiobook] —
      * mirrors `QueueDisplayRows.kt`'s chapter-nesting rule exactly. */
     val currentItemChapters: List<Chapter>,
+    /**
+     * True when the current item is spoken word — an [Audiobook] or a [PodcastEpisode].
+     *
+     * Swapping shuffle/repeat for the skip-back/skip-forward pair is the only thing that reads
+     * it: on a six-hour book or an hour-long episode, shuffling the queue or repeating the item
+     * is meaningless, while nudging past an ad break or back over a missed sentence is the
+     * control you actually reach for. False for anything else, including a null track, so a
+     * player between items keeps the music transport it had.
+     */
+    val isSpokenWord: Boolean,
     /** `PlayerType.GROUP` — the pivot card in group settings drives group volume, not its own. */
     val isGroup: Boolean,
     /** A non-GROUP player currently leading a sync group — shows the extra group-volume row. */
@@ -286,6 +297,8 @@ internal fun buildPlayerBarState(
                 queueItems = queueCache.project(data.playerId, data.queueItems),
                 currentQueueItemId = queue?.currentItem?.id,
                 currentItemChapters = (queue?.currentItem?.track as? Audiobook)?.chapters.orEmpty(),
+                isSpokenWord = queue?.currentItem?.track
+                    .let { it is Audiobook || it is PodcastEpisode },
                 isGroup = player.isGroup,
                 isGrouped = player.isGrouped,
                 groupVolume = player.groupVolume,
