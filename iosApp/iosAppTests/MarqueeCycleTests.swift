@@ -125,11 +125,63 @@ final class MarqueeCycleTests: XCTestCase {
         XCTAssertEqual(cycle.offset(elapsed: 3.9, sharedScroll: 0), 0)
     }
 
-    func testOffsetIsLinearAcrossTheSlide() {
+    func testOffsetFollowsTheEasingAcrossTheSlide() {
         let cycle = MarqueeCycle(contentWidth: 300, containerWidth: 120, gap: 44, speed: 43, pause: 4)
-        // Slide runs 4s→12s, so 8s is halfway and 10s is three quarters.
-        XCTAssertEqual(cycle.offset(elapsed: 8, sharedScroll: 0), -cycle.travel / 2, accuracy: 0.01)
-        XCTAssertEqual(cycle.offset(elapsed: 10, sharedScroll: 0), -cycle.travel * 0.75, accuracy: 0.01)
+        // Slide runs 4s→12s, so 8s is halfway through it in *time* — and, because the curve
+        // front-loads the distance, already 63.5% of the way across.
+        XCTAssertEqual(
+            cycle.offset(elapsed: 8, sharedScroll: 0),
+            -cycle.travel * CGFloat(MarqueeCycle.eased(0.5)),
+            accuracy: 0.01
+        )
+        XCTAssertGreaterThan(-cycle.offset(elapsed: 8, sharedScroll: 0), cycle.travel / 2)
+    }
+
+    // MARK: - The shape of the slide
+
+    /// Both ends are load-bearing, not decoration: a curve that doesn't reach 1 leaves the
+    /// trailing copy short of where the leading one started, and the loop visibly jumps.
+    func testEasingSpansTheWholeDistance() {
+        XCTAssertEqual(MarqueeCycle.eased(0), 0, accuracy: 0.0001)
+        XCTAssertEqual(MarqueeCycle.eased(1), 1, accuracy: 0.0001)
+    }
+
+    func testEasingIsClampedOutsideTheSlide() {
+        XCTAssertEqual(MarqueeCycle.eased(-2), 0, accuracy: 0.0001)
+        XCTAssertEqual(MarqueeCycle.eased(3), 1, accuracy: 0.0001)
+    }
+
+    func testEasingNeverGoesBackwards() {
+        var previous = -1.0
+        for step in 0...100 {
+            let value = MarqueeCycle.eased(Double(step) / 100)
+            XCTAssertGreaterThanOrEqual(value, previous)
+            previous = value
+        }
+    }
+
+    /// The change of pace at the end — the thing that makes this read as the system's marquee
+    /// rather than a loop of tape. The final tenth of the slide covers a small fraction of what
+    /// the middle tenth does.
+    func testTheSlideGlidesToAHalt() {
+        let last = MarqueeCycle.eased(1) - MarqueeCycle.eased(0.9)
+        let middle = MarqueeCycle.eased(0.5) - MarqueeCycle.eased(0.4)
+        XCTAssertLessThan(last, middle / 4)
+    }
+
+    /// …and it sets off gently too, rather than snapping straight to full speed out of the pause.
+    func testTheSlideEasesIn() {
+        let first = MarqueeCycle.eased(0.1) - MarqueeCycle.eased(0)
+        let middle = MarqueeCycle.eased(0.5) - MarqueeCycle.eased(0.4)
+        XCTAssertLessThan(first, middle)
+    }
+
+    /// Pinned against the recording it was fitted to: at the halfway point of the slide, Apple
+    /// Music has covered a little under two thirds of the distance.
+    func testEasingMatchesTheMeasuredCurve() {
+        XCTAssertEqual(MarqueeCycle.eased(0.25), 0.296, accuracy: 0.01)
+        XCTAssertEqual(MarqueeCycle.eased(0.5), 0.640, accuracy: 0.01)
+        XCTAssertEqual(MarqueeCycle.eased(0.75), 0.893, accuracy: 0.01)
     }
 
     func testTextThatFitsNeverMoves() {
@@ -158,7 +210,7 @@ final class MarqueeCycleTests: XCTestCase {
     /// Every default is a number taken off the system's own bar; changing one changes how the
     /// app feels, so it should be a deliberate edit and not a drive-by.
     func testDefaultsMatchTheSystemBar() {
-        XCTAssertEqual(MarqueeCycle.defaultSpeed, 45)
+        XCTAssertEqual(MarqueeCycle.defaultSpeed, 36)
         XCTAssertEqual(MarqueeCycle.defaultPause, 4)
         XCTAssertEqual(MarqueeCycle.defaultGap, 44)
     }
