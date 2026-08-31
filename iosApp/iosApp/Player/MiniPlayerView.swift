@@ -86,10 +86,7 @@ struct MiniPlayerView: View {
         .haptics(pagerHaptic)
     }
 
-    private var currentPlayerID: String? {
-        guard store.players.indices.contains(store.selectedIndex) else { return nil }
-        return store.players[store.selectedIndex].id
-    }
+    private var currentPlayerID: String? { store.selectedPlayerID }
 
     /// Pushes a Kotlin-driven selection change into the scroll position — the counterpart to
     /// Compose's `animateScrollToPage(target)`, guarded the same way (only acts when the
@@ -125,12 +122,40 @@ private struct MiniPlayerRow: View {
     @State private var haptic = HapticSignal()
     @State private var showPicker = false
 
+    /// The audiobook this player is on, when that's what it's on.
+    ///
+    /// Its own fields beat the flattened `title`/`subtitle` the server sends in `current_media`:
+    /// those describe whatever stream is open — often a per-file title with the book name
+    /// nowhere in it — while the book and its author are what identify what you're listening to.
+    private var audiobook: Audiobook? { player.trackItem as? Audiobook }
+
+    /// The book, not the file, whenever there is one.
+    private var titleLine: String {
+        audiobook?.displayName ?? player.title ?? player.name
+    }
+
     /// The player's name leads, ahead of the artist: in a multi-room app that's what tells you
-    /// which speaker you're about to control.
+    /// which speaker you're about to control. For a book the author takes the artist's place and
+    /// the chapter follows it — "where am I" is the one thing a six-hour item needs that a track
+    /// doesn't.
     private var detailLine: String {
-        [player.name, player.subtitle]
+        [player.name, audiobook?.subtitle ?? player.subtitle, chapterName]
             .compactMap { $0?.isEmpty == false ? $0 : nil }
             .joined(separator: " • ")
+    }
+
+    /// The chapter in play, for the settled page only.
+    ///
+    /// Kotlin resolves a chapter for the *selected* player alone — it's the only one whose
+    /// boundaries are worth holding a timer for — so a neighbour page mid-swipe would otherwise
+    /// be captioned with this player's chapter. It appears as the swipe settles, which is also
+    /// when the rest of the bar starts speaking for the player you landed on.
+    ///
+    /// Nil when the server's chapter-progress preference is off, same as the expanded player's
+    /// hero line: the two read the same book the same way.
+    private var chapterName: String? {
+        guard audiobook != nil, store.selectedPlayerID == player.id else { return nil }
+        return store.presentationChapter?.name
     }
 
     var body: some View {
@@ -203,7 +228,7 @@ private struct MiniPlayerRow: View {
             // which reads as two things happening rather than one.
             MarqueeGroup {
                 VStack(alignment: .leading, spacing: 1) {
-                    MarqueeText(text: player.title ?? player.name)
+                    MarqueeText(text: titleLine)
                         .font(.subheadline.weight(.medium))
                     if !detailLine.isEmpty {
                         MarqueeText(text: detailLine)

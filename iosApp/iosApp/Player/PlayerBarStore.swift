@@ -18,6 +18,13 @@ final class PlayerBarStore {
     private(set) var players: [PlayerBarItemView] = []
     private(set) var selectedIndex: Int = 0
 
+    /// The selected player's id, or nil while the list is empty (or the index is momentarily out
+    /// of range against a freshly shortened list). What "which player is this" questions ask,
+    /// rather than making each caller re-check the index against the list.
+    var selectedPlayerID: String? {
+        players.indices.contains(selectedIndex) ? players[selectedIndex].id : nil
+    }
+
     /// The chapter the selected player's scrubber presents, or nil for absolute time. Kotlin
     /// re-publishes this at each chapter boundary — nothing else announces the change — and
     /// resolves it to nil when the book has no chapters or the server preference is off.
