@@ -12,10 +12,31 @@ class NativeAudioController: NSObject, PlatformAudioPlayer {
     private var audioFormat: AudioStreamBasicDescription = AudioStreamBasicDescription()
 
     // MARK: - Audio Buffer
-    private var pcmBuffer: [Data] = []
+
+    /// Decoded PCM waiting for the AudioQueue, as one contiguous byte run rather than a
+    /// list of decoder chunks. A chunk larger than one queue buffer used to be silently
+    /// truncated by the copy, and a smaller one left the rest of the buffer unused.
+    private var pendingPCM = Data()
     private let bufferLock = NSLock()
-    private let kNumberOfBuffers = 5 // More buffers for smoother playback
-    private let kBufferSize: UInt32 = 65536 // 64KB per buffer for less stuttering
+
+    /// Buffers the queue handed back while no PCM was ready. They are parked here and
+    /// re-enqueued once audio arrives. Filling them with silence instead — what this used
+    /// to do — makes every underrun permanent: the silence plays out, so real audio ends
+    /// up one whole buffer further behind, for good.
+    private var idleBuffers: [AudioQueueBufferRef] = []
+
+    private let kNumberOfBuffers = 5
+    /// Milliseconds of audio per queue buffer. A buffer is the granularity of an underrun,
+    /// and the previous fixed 64 KB meant ~350 ms of damage per miss at CD rate.
+    private let kBufferMillis = 30
+    /// Milliseconds of PCM to collect before starting the queue. Replaces priming with
+    /// silence, which prepended ~1.4 s (4 × 64 KB at CD rate) to every start and — since
+    /// `pauseSink` tears the queue down — to every resume.
+    private let kPrimeMillis = 60
+    /// Start anyway if the stream never reaches [kPrimeMillis], so a short tail or a
+    /// stalling server can't leave audio stranded in the staging buffer.
+    private let kPrimeTimeoutSeconds = 0.2
+    private var primeTimerScheduled = false
 
 
     // MARK: - Decoder
@@ -44,6 +65,24 @@ class NativeAudioController: NSObject, PlatformAudioPlayer {
     // this is set — so we never spontaneously start playback that the user didn't
     // have running before the interruption.
     private var pausedByInterruption = false
+
+    // MARK: - Format Arithmetic
+
+    /// FLAC always decodes to Int32, and 24-bit PCM is unpacked to Int32 by
+    /// `PCMPassthroughDecoder`. Everything else keeps the negotiated depth.
+    private var effectiveBitDepth: Int32 {
+        (currentCodec == "flac" || currentBitDepth == 24) ? 32 : currentBitDepth
+    }
+
+    private var bytesPerFrame: Int {
+        max(1, Int(currentChannels) * Int(effectiveBitDepth / 8))
+    }
+
+    /// Whole frames only — a partial frame would shift the channel interleave.
+    private func byteCount(forMillis millis: Int) -> Int {
+        let raw = Int(currentSampleRate) * bytesPerFrame * millis / 1000
+        return max(bytesPerFrame, (raw / bytesPerFrame) * bytesPerFrame)
+    }
 
     // MARK: - Logging
     // Routes through Kermit (NativeLog) so these reach the shareable in-memory buffer
@@ -141,9 +180,6 @@ class NativeAudioController: NSObject, PlatformAudioPlayer {
         shouldPlay = false
         streamStarted = false
         stopAudioQueue()
-        bufferLock.lock()
-        pcmBuffer.removeAll()
-        bufferLock.unlock()
         remoteCommandHandler?.onCommand(command: "pause", source: "route_loss")
     }
 
@@ -168,13 +204,8 @@ class NativeAudioController: NSObject, PlatformAudioPlayer {
             self.codecHeader = nil
         }
 
-        // Stop any existing playback
+        // Stop any existing playback (also drops staged PCM from the previous format)
         stopAudioQueue()
-
-        // Clear buffers
-        bufferLock.lock()
-        pcmBuffer.removeAll()
-        bufferLock.unlock()
 
         // Create decoder for codec
         do {
@@ -220,29 +251,85 @@ class NativeAudioController: NSObject, PlatformAudioPlayer {
         // undo the pause before the server stops streaming.
         guard shouldPlay else { return }
 
-        // Start audio queue on first data
-        if !streamStarted {
-            streamStarted = true
-            logDebug("First data received (\(swiftData.count) bytes)")
-            NowPlayingCoordinator.shared.activatePlayback()
-            startAudioQueue()
-        }
-
+        // Decode before starting the queue, not after: the queue used to be built on the
+        // first *packet*, with no PCM ready, so its buffers were primed with silence.
         decoderLock.lock()
-        defer { decoderLock.unlock() }
-
         guard let decoder = decoder else {
+            decoderLock.unlock()
             logDebug("No decoder available — dropping packet")
             return
         }
-
+        let pcmData: Data
         do {
-            let pcmData = try decoder.decode(swiftData)
-            bufferLock.lock()
-            pcmBuffer.append(pcmData)
-            bufferLock.unlock()
+            pcmData = try decoder.decode(swiftData)
         } catch {
+            decoderLock.unlock()
             logDebug("Decode error: \(error)")
+            return
+        }
+        decoderLock.unlock()
+
+        bufferLock.lock()
+        pendingPCM.append(pcmData)
+        bufferLock.unlock()
+
+        guard streamStarted else {
+            startQueueIfPrimed(force: false)
+            if !streamStarted { schedulePrimeTimeout() }
+            return
+        }
+
+        drainIdleBuffers()
+    }
+
+    /// The single entry point for starting the queue, so the prime path and its timeout
+    /// fallback can never both build one.
+    private func startQueueIfPrimed(force: Bool) {
+        bufferLock.lock()
+        let buffered = pendingPCM.count
+        let ready = !streamStarted && buffered > 0 &&
+            (force || buffered >= byteCount(forMillis: kPrimeMillis))
+        if ready {
+            streamStarted = true
+            primeTimerScheduled = false
+        }
+        bufferLock.unlock()
+
+        guard ready else { return }
+        logDebug("Priming done (\(buffered) bytes, force=\(force)) — starting queue")
+        NowPlayingCoordinator.shared.activatePlayback()
+        startAudioQueue()
+    }
+
+    /// Arms a one-shot fallback start. Only ever one is in flight; it is disarmed by the
+    /// queue starting or by teardown, and it re-checks both before doing anything.
+    private func schedulePrimeTimeout() {
+        bufferLock.lock()
+        let alreadyScheduled = primeTimerScheduled
+        primeTimerScheduled = true
+        bufferLock.unlock()
+        guard !alreadyScheduled else { return }
+
+        DispatchQueue.global(qos: .userInitiated)
+            .asyncAfter(deadline: .now() + kPrimeTimeoutSeconds) { [weak self] in
+                guard let self = self, self.shouldPlay, !self.streamStarted else { return }
+                self.logDebug("Prime timeout — starting queue with what we have")
+                self.startQueueIfPrimed(force: true)
+            }
+    }
+
+    /// Re-enqueue buffers an underrun parked, now that there is audio for them.
+    private func drainIdleBuffers() {
+        guard let queue = audioQueue else { return }
+        while true {
+            bufferLock.lock()
+            let buffer = (pendingPCM.count >= bytesPerFrame && !idleBuffers.isEmpty)
+                ? idleBuffers.removeFirst()
+                : nil
+            bufferLock.unlock()
+
+            guard let buffer = buffer else { return }
+            fillBuffer(queue: queue, buffer: buffer)
         }
     }
 
@@ -251,10 +338,6 @@ class NativeAudioController: NSObject, PlatformAudioPlayer {
         shouldPlay = false
         streamStarted = false
         stopAudioQueue()
-
-        bufferLock.lock()
-        pcmBuffer.removeAll()
-        bufferLock.unlock()
     }
 
     /// Tear down rather than `AudioQueuePause`: a paused queue replays its stale
@@ -284,7 +367,7 @@ class NativeAudioController: NSObject, PlatformAudioPlayer {
     /// Drop buffered PCM (track transition / playback-delay re-phase).
     func flush() {
         bufferLock.lock()
-        pcmBuffer.removeAll()
+        pendingPCM.removeAll(keepingCapacity: true)
         bufferLock.unlock()
     }
 
@@ -318,19 +401,8 @@ class NativeAudioController: NSObject, PlatformAudioPlayer {
         audioFormat.mFramesPerPacket = 1
         audioFormat.mChannelsPerFrame = UInt32(currentChannels)
 
-        // FLAC decoder always outputs Int32 (scaled to full range).
-        // PCM 24-bit is unpacked to Int32 by PCMPassthroughDecoder.
-        // All other cases use the negotiated bit depth directly.
-        let effectiveBitDepth: Int32
-        if currentCodec == "flac" || currentBitDepth == 24 {
-            effectiveBitDepth = 32
-        } else {
-            effectiveBitDepth = currentBitDepth
-        }
-        let bytesPerSample = effectiveBitDepth / 8
-
         audioFormat.mBitsPerChannel = UInt32(effectiveBitDepth)
-        audioFormat.mBytesPerFrame = UInt32(currentChannels) * UInt32(bytesPerSample)
+        audioFormat.mBytesPerFrame = UInt32(bytesPerFrame)
         audioFormat.mBytesPerPacket = audioFormat.mBytesPerFrame
 
         logDebug("Audio format - \(currentSampleRate)Hz, \(currentChannels)ch, \(effectiveBitDepth)bit")
@@ -356,13 +428,18 @@ class NativeAudioController: NSObject, PlatformAudioPlayer {
 
         audioQueue = queue
 
-        // Allocate and prime buffers
+        // Fill buffers from the PCM staged during priming. `fillBuffer` parks whatever it
+        // cannot fill instead of enqueuing silence, so the queue starts with real audio
+        // only and `drainIdleBuffers` takes over from the next packet.
+        let bufferBytes = UInt32(byteCount(forMillis: kBufferMillis))
         for _ in 0..<kNumberOfBuffers {
             var buffer: AudioQueueBufferRef?
-            let allocStatus = AudioQueueAllocateBuffer(queue, kBufferSize, &buffer)
+            let allocStatus = AudioQueueAllocateBuffer(queue, bufferBytes, &buffer)
 
             if allocStatus == noErr, let buffer = buffer {
                 fillBuffer(queue: queue, buffer: buffer)
+            } else {
+                logError("Failed to allocate AudioQueue buffer: \(allocStatus)")
             }
         }
 
@@ -385,36 +462,50 @@ class NativeAudioController: NSObject, PlatformAudioPlayer {
     /// queue never replays stale audio. Leaves `pausedByInterruption` untouched —
     /// a pause issued during `.began` must still auto-resume on `.ended`.
     private func tearDownQueue() {
-        guard let queue = audioQueue else { return }
+        if let queue = audioQueue {
+            AudioQueueStop(queue, true)
+            AudioQueueDispose(queue, true)
+            audioQueue = nil
+            isPlaying = false
+            logInfo("AudioQueue stopped")
+        }
 
-        AudioQueueStop(queue, true)
-        AudioQueueDispose(queue, true)
-
-        audioQueue = nil
-        isPlaying = false
-        logInfo("AudioQueue stopped")
+        // Outside the queue check on purpose: `prepareStream` tears down before a queue
+        // exists, and staged PCM from the previous format must not survive into the new
+        // one. Dispose frees every buffer, parked ones included, so the pointers go too —
+        // a rebuilt queue must never be handed a dangling `AudioQueueBufferRef`.
+        bufferLock.lock()
+        idleBuffers.removeAll()
+        pendingPCM.removeAll(keepingCapacity: true)
+        primeTimerScheduled = false
+        bufferLock.unlock()
     }
 
     fileprivate func fillBuffer(queue: AudioQueueRef, buffer: AudioQueueBufferRef) {
-        // Get next PCM data from buffer
+        let capacity = Int(buffer.pointee.mAudioDataBytesCapacity)
+        let frame = bytesPerFrame
+
         bufferLock.lock()
-        let pcmData = pcmBuffer.isEmpty ? nil : pcmBuffer.removeFirst()
+        let take = (min(capacity, pendingPCM.count) / frame) * frame
+        if take > 0 {
+            pendingPCM.withUnsafeBytes { srcBytes in
+                _ = memcpy(buffer.pointee.mAudioData, srcBytes.baseAddress, take)
+            }
+            pendingPCM.removeFirst(take)
+            // `removeFirst` leaves a non-zero start index behind; resetting once the run is
+            // empty keeps the append/drain cycle from dragging a growing offset along.
+            if pendingPCM.isEmpty { pendingPCM.removeAll(keepingCapacity: true) }
+        } else {
+            // Starved. Park the buffer rather than enqueue silence; `drainIdleBuffers`
+            // returns it to the queue with the next packet, so a momentary gap costs the
+            // gap itself instead of a permanent buffer's worth of added latency.
+            idleBuffers.append(buffer)
+        }
         bufferLock.unlock()
 
-        if let data = pcmData {
-            // Copy PCM data to buffer
-            let copySize = min(data.count, Int(buffer.pointee.mAudioDataBytesCapacity))
-            _ = data.withUnsafeBytes { srcBytes in
-                memcpy(buffer.pointee.mAudioData, srcBytes.baseAddress, copySize)
-            }
-            buffer.pointee.mAudioDataByteSize = UInt32(copySize)
-        } else {
-            // No data - output silence
-            memset(buffer.pointee.mAudioData, 0, Int(buffer.pointee.mAudioDataBytesCapacity))
-            buffer.pointee.mAudioDataByteSize = buffer.pointee.mAudioDataBytesCapacity
-        }
+        guard take > 0 else { return }
 
-        // Re-enqueue buffer
+        buffer.pointee.mAudioDataByteSize = UInt32(take)
         AudioQueueEnqueueBuffer(queue, buffer, 0, nil)
     }
 
