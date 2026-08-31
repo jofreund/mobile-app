@@ -213,6 +213,7 @@ class MediaItemFactory(
     private fun createMetadata(server: ServerMetadata?): Metadata? = server?.let {
         Metadata(
             explicit = it.explicit == true,
+            description = it.description?.takeIf { text -> text.isNotBlank() },
             images = it.images?.map(::createImageInfo).orEmpty(),
             releaseDate = it.releaseDate,
             chapters = it.chapters?.map(::createChapter).orEmpty(),
