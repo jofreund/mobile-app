@@ -11,11 +11,14 @@ import UIKit
 /// noticeable rather than subtle.
 ///
 /// **A tap does not change the value, and a drag moves it relatively.** Touching the bar swells it
-/// and nothing else; once the touch travels far enough to be a drag, the value moves by however
-/// far the finger has moved, from where it already was. Changing on touch means every accidental
-/// brush of a bar this wide throws away your place in a track, or puts the volume somewhere you
-/// did not ask for — and moving to sit under the fingertip means the playhead teleports the
-/// instant a drag begins.
+/// and nothing else; once the touch travels far enough *sideways* to be a scrub, the value moves
+/// by however far the finger has moved, from where it already was. Changing on touch means every
+/// accidental brush of a bar this wide throws away your place in a track, or puts the volume
+/// somewhere you did not ask for — and moving to sit under the fingertip means the playhead
+/// teleports the instant a drag begins.
+///
+/// A touch that travels *downward* instead is not this control's at all, and is handed back to
+/// whatever scrolls behind it. `SliderTouchTracker` owns that call and explains it.
 ///
 /// Three things here are less obvious than they look:
 ///
@@ -62,18 +65,18 @@ struct CapsuleSlider: View {
 
     private let minimumSwell: TimeInterval = 0.3
 
-    /// Where the finger landed, in the control's own coordinates.
-    @State private var touchStartX: CGFloat?
-    /// Set once the touch has travelled far enough to count as a drag: where the drag began, and
-    /// the value it began from. Until then the bar is swollen but the value is untouched, which is
+    /// Set on the first movement `SliderTouchTracker` forwards: where the drag began, and the
+    /// value it began from. Until then the bar is swollen but the value is untouched, which is
     /// what keeps a press from changing it.
+    ///
+    /// There is no threshold check here any more. The tracker forwards nothing until it has
+    /// decided the gesture is a horizontal scrub, so the first movement that arrives is already
+    /// a drag by definition — see `SliderTouchTracker` for where that decision is made and why
+    /// it has to be made down there rather than up here.
     @State private var dragStartX: CGFloat?
     @State private var dragAnchorValue: Double?
 
     @Environment(\.isEnabled) private var isEnabled
-
-    /// How far a touch must travel before it counts as a drag rather than a tap.
-    private let dragActivation: CGFloat = 3
 
     /// How far each end reaches past its resting position while held, in points.
     ///
@@ -119,7 +122,7 @@ struct CapsuleSlider: View {
             // pixel. See `SliderTouchTracker` for why owning touch-down is only half the job.
             .overlay {
                 SliderTouchTracker(
-                    onBegan: { location in began(at: location) },
+                    onBegan: { began() },
                     onMoved: { location in moved(to: location, width: width) },
                     onEnded: { ended() }
                 )
@@ -145,9 +148,8 @@ struct CapsuleSlider: View {
         return width * CGFloat(min(max(fraction, 0), 1))
     }
 
-    private func began(at location: CGPoint) {
+    private func began() {
         guard isEnabled else { return }
-        touchStartX = location.x
         dragStartX = nil
         dragAnchorValue = nil
         // A touch arriving during a held-open swell takes it over rather than letting the old
@@ -162,17 +164,14 @@ struct CapsuleSlider: View {
     }
 
     private func moved(to location: CGPoint, width: CGFloat) {
-        guard isEnabled, let startX = touchStartX, width > 0 else { return }
+        guard isEnabled, width > 0 else { return }
 
         if dragStartX == nil {
-            // Still just a press. Nothing is written to `value`, so a touch that never becomes a
-            // drag leaves the value exactly where it was — the whole point of the threshold, and
-            // why a tap cannot seek.
-            guard abs(location.x - startX) >= dragActivation else { return }
-            // Anchored on the value as it stands *now*, not as it stood when the finger landed: a
-            // finger resting on a playing track would otherwise drag from a stale point. Taking
-            // the x from here too means crossing the threshold does not jolt by those first
-            // few points.
+            // First movement the tracker has let through, which means it has just committed the
+            // gesture to this slider. Anchored on the value as it stands *now*, not as it stood
+            // when the finger landed: a finger resting on a playing track would otherwise drag
+            // from a stale point. Taking the x from here too means the points the finger spent
+            // proving its intent do not land as a jolt.
             dragStartX = location.x
             dragAnchorValue = value
         }
@@ -196,7 +195,6 @@ struct CapsuleSlider: View {
 
     private func ended() {
         guard isEnabled else { return }
-        touchStartX = nil
         dragStartX = nil
         dragAnchorValue = nil
         // Immediately, so a committed seek or volume change is never held up by the animation.
@@ -223,22 +221,45 @@ struct CapsuleSlider: View {
     }
 }
 
-/// Hands the slider its touches through UIKit rather than a SwiftUI gesture.
+/// Hands the slider its touches through UIKit rather than a SwiftUI gesture, and decides which
+/// of the two — the slider or whatever scrolls behind it — the gesture actually belongs to.
 ///
 /// `UIControl` is exempt from the delay `UIScrollView` imposes on ordinary content while it works
 /// out whether a scroll is starting — measured at up to 780ms inside the expanded player's pager,
 /// and the reason the stock `Slider` this replaced always felt immediate.
 ///
-/// Owning the touch-down is only half of it. The pager's pan recognizer will still *cancel* a
-/// touch it wants, turning a horizontal scrub into a page swipe, so scrolling is switched off for
-/// as long as a finger is on the slider and switched back on when it lifts. `touchesShouldCancel`
-/// is not the lever here: that governs the scroll view's own cancellation path, while a gesture
-/// recognizer cancels touches in views by a different route entirely.
+/// Owning the touch-down is only half of it. A pan recognizer will still *cancel* a touch it
+/// wants, turning a horizontal scrub into a page swipe, so every ancestor that pans — scroll
+/// views, the sheet's drag-to-dismiss, the pager — is switched off for the duration of a scrub;
+/// `freezeAncestorPanning` covers why it has to be all of them. `touchesShouldCancel` is not the
+/// lever here: that governs the scroll view's own cancellation path, while a gesture recognizer
+/// cancels touches in views by a different route entirely.
+///
+/// **The decision waits for the finger to move.** This used to disable scrolling in
+/// `beginTracking` — correct in the expanded player, where the slider is one control on a page
+/// and the only thing behind it is a horizontal pager. It is wrong in the group settings sheet,
+/// where a `VolumeSlider` sits in nearly every row of a vertical list: a touch anywhere near a
+/// row would seize the whole gesture, so the list could barely be scrolled, and a scroll that
+/// wobbled sideways by a few points moved somebody's volume instead.
+///
+/// So a touch stays ambiguous until it has travelled `intentThreshold` on either axis, and the
+/// dominant axis settles it: horizontal is a scrub (claim the touch, freeze everything above it,
+/// start forwarding movement), vertical is a scroll (resign — end tracking without ever writing
+/// a value, and let the scroll view have it). Nothing is forwarded while undecided, which is
+/// also what keeps a tap from changing the value; the caller has no threshold of its own.
+///
+/// Once it is a scrub it stays one for the whole touch. Nothing behind the bar moves again until
+/// the finger lifts, however far the scrub wanders vertically on its way.
+///
+/// The threshold has to beat the scroll view's own hysteresis, which is around 10pt, or the pan
+/// would recognize first and cancel us. 8pt clears it with a little room. Losing that race is not
+/// fatal — disabling `isScrollEnabled` cancels a pan already in flight — but the list would twitch
+/// first, so winning it outright is worth the margin.
 ///
 /// Draws nothing — the capsule underneath is entirely SwiftUI. This exists only to own the touch.
 private struct SliderTouchTracker: UIViewRepresentable {
 
-    let onBegan: (CGPoint) -> Void
+    let onBegan: () -> Void
     let onMoved: (CGPoint) -> Void
     let onEnded: () -> Void
 
@@ -257,53 +278,139 @@ private struct SliderTouchTracker: UIViewRepresentable {
     }
 
     final class TrackingControl: UIControl {
-        var onBegan: ((CGPoint) -> Void)?
+        var onBegan: (() -> Void)?
         var onMoved: ((CGPoint) -> Void)?
         var onEnded: (() -> Void)?
 
-        /// The scroll view paused for the duration of a touch, held so it can be restored.
-        private weak var pausedScrollView: UIScrollView?
+        /// What this touch has turned out to be. See the type doc for how the call is made.
+        private enum Intent { case undecided, scrub, scroll }
 
-        private var enclosingScrollView: UIScrollView? {
-            var view = superview
-            while let current = view {
-                if let scrollView = current as? UIScrollView { return scrollView }
-                view = current.superview
-            }
-            return nil
-        }
+        private var intent: Intent = .undecided
+        /// Where the finger landed, in this control's coordinates — the origin the decision is
+        /// measured from.
+        private var touchStart: CGPoint?
+        /// Guards against reporting the end of one touch twice: returning `false` from
+        /// `continueTracking` ends tracking without `endTracking` being sent, so that path has to
+        /// finish the gesture itself, and a later cancellation must not finish it again.
+        private var hasFinished = false
+
+        /// Everything paused for the duration of a scrub, held so it can all be restored.
+        ///
+        /// Strong references, deliberately: they live only as long as a finger is down, and a
+        /// scroll view that vanished mid-scrub still has to be handed back its own setting rather
+        /// than being left disabled for whoever holds it next.
+        private var pausedScrollViews: [UIScrollView] = []
+        private var pausedRecognizers: [UIGestureRecognizer] = []
+
+        /// Dominant-axis travel that settles what the gesture is. Sized to land just inside a
+        /// scroll view's own recognition hysteresis — see the type doc.
+        private static let intentThreshold: CGFloat = 8
 
         override func beginTracking(_ touch: UITouch, with event: UIEvent?) -> Bool {
-            // A drag that starts on a slider is for the slider, never for the page behind it.
-            if let scrollView = enclosingScrollView, scrollView.isScrollEnabled {
-                scrollView.isScrollEnabled = false
-                pausedScrollView = scrollView
-            }
-            onBegan?(touch.location(in: self))
+            intent = .undecided
+            hasFinished = false
+            touchStart = touch.location(in: self)
+            // Scrolling is deliberately left alone here. The gesture has not said what it is yet,
+            // and seizing it on touch-down is what made a list of these unscrollable.
+            onBegan?()
             return true
         }
 
-        private func resumeScrolling() {
-            pausedScrollView?.isScrollEnabled = true
-            pausedScrollView = nil
-        }
-
         override func continueTracking(_ touch: UITouch, with event: UIEvent?) -> Bool {
-            onMoved?(touch.location(in: self))
+            let location = touch.location(in: self)
+
+            switch intent {
+            case .undecided:
+                guard let start = touchStart else { return true }
+                let dx = location.x - start.x
+                let dy = location.y - start.y
+                guard max(abs(dx), abs(dy)) >= Self.intentThreshold else { return true }
+
+                guard abs(dx) > abs(dy) else {
+                    // Theirs. Resign before a value is ever written, and stop tracking so the
+                    // scroll view — which was never disabled — carries the gesture from here.
+                    intent = .scroll
+                    finish()
+                    return false
+                }
+
+                intent = .scrub
+                // Ours, and only now.
+                freezeAncestorPanning()
+                onMoved?(location)
+
+            case .scrub:
+                onMoved?(location)
+
+            case .scroll:
+                break
+            }
             return true
         }
 
         override func endTracking(_ touch: UITouch?, with event: UIEvent?) {
-            resumeScrolling()
-            onEnded?()
+            finish()
         }
 
-        deinit { pausedScrollView?.isScrollEnabled = true }
-
-        /// Fires when the system takes the touch away — an incoming call, for instance. Without
-        /// it the bar would stay swollen with no finger on it, and the pager would stay frozen.
+        /// Fires when the system takes the touch away — an incoming call, or a pan recognizer
+        /// claiming a gesture we had not yet claimed ourselves. Without it the bar would stay
+        /// swollen with no finger on it, and the scroll view would stay frozen.
         override func cancelTracking(with event: UIEvent?) {
-            resumeScrolling()
+            finish()
+        }
+
+        deinit { restoreAncestorPanning() }
+
+        /// Stops *everything* above this control from panning for the rest of the scrub — not
+        /// just the list the slider sits in.
+        ///
+        /// Freezing the nearest scroll view alone was not enough. In the group settings sheet the
+        /// slider has three things above it that all pan: the list, the sheet's own
+        /// drag-to-dismiss, and (in the expanded player) the pager. `isScrollEnabled` speaks only
+        /// to the first — the sheet's dismissal is a recognizer on the presented view, not a
+        /// scroll view at all, so a scrub with any downward slant in it dragged the sheet while
+        /// the volume was being set.
+        ///
+        /// So: walk the whole ancestor chain, disable every scroll view and every pan recognizer
+        /// on the way up, and remember exactly what was turned off. Disabling a recognizer
+        /// mid-gesture cancels it, which is what makes this take effect on a pan that has already
+        /// begun rather than only on the next one.
+        ///
+        /// Broad on purpose. It lasts only while a finger is on the bar, and everything is handed
+        /// back in `restoreAncestorPanning` no matter how the touch ends.
+        private func freezeAncestorPanning() {
+            var view: UIView? = superview
+            while let current = view {
+                let scrollView = current as? UIScrollView
+                if let scrollView, scrollView.isScrollEnabled {
+                    scrollView.isScrollEnabled = false
+                    pausedScrollViews.append(scrollView)
+                }
+                for recognizer in current.gestureRecognizers ?? [] {
+                    // Already handled by `isScrollEnabled` above, and restoring it separately
+                    // would only risk re-enabling it out of step with its own scroll view.
+                    if recognizer === scrollView?.panGestureRecognizer { continue }
+                    guard recognizer is UIPanGestureRecognizer, recognizer.isEnabled else { continue }
+                    recognizer.isEnabled = false
+                    pausedRecognizers.append(recognizer)
+                }
+                view = current.superview
+            }
+        }
+
+        private func restoreAncestorPanning() {
+            for scrollView in pausedScrollViews { scrollView.isScrollEnabled = true }
+            for recognizer in pausedRecognizers { recognizer.isEnabled = true }
+            pausedScrollViews.removeAll()
+            pausedRecognizers.removeAll()
+        }
+
+        /// Idempotent: restores panning and reports the end exactly once per touch.
+        private func finish() {
+            touchStart = nil
+            restoreAncestorPanning()
+            guard !hasFinished else { return }
+            hasFinished = true
             onEnded?()
         }
     }
