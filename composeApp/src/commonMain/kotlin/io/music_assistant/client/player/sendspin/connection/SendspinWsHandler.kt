@@ -131,7 +131,9 @@ class SendspinWsHandler(
 
                         is Frame.Binary -> {
                             val data = frame.readBytes()
-                            logger.d { "Received binary message: ${data.size} bytes" }
+                            // Deliberately not logged: this is the audio-chunk path, ~50
+                            // frames a second, and the per-frame line drowned everything
+                            // else in the debug log for no diagnostic value.
                             emitEvent(InboundTransportEvent.Binary(listenerEpoch, data))
                         }
 
