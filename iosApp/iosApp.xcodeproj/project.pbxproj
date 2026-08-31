@@ -24,6 +24,7 @@
 		C29F123E61DAA17B671EC958 /* QueueMoveMathTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FE624765BDE4DC4138CA713 /* QueueMoveMathTests.swift */; };
 		C29F123E61DAA17B671EC959 /* ArtworkDiskCacheTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FE624765BDE4DC4138CA714 /* ArtworkDiskCacheTests.swift */; };
 		C29F123E61DAA17B671EC95A /* ArtworkRetryPolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FE624765BDE4DC4138CA715 /* ArtworkRetryPolicyTests.swift */; };
+		C8PL0006AA10000000000062 /* PlayerIconTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8PL0016AA10000000000061 /* PlayerIconTests.swift */; };
 		C29F123E61DAA17B671EC95B /* ArtworkCacheKeyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FE624765BDE4DC4138CA716 /* ArtworkCacheKeyTests.swift */; };
 		C29F123E61DAA17B671EC95C /* SharedLoadRegistryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FE624765BDE4DC4138CA717 /* SharedLoadRegistryTests.swift */; };
 		C29F123E61DAA17B671EC95D /* LibraryListReconcilerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FE624765BDE4DC4138CA718 /* LibraryListReconcilerTests.swift */; };
@@ -44,6 +45,8 @@
 		C8PL0004AA10000000000041 /* PlayPauseIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8PL0014AA10000000000042 /* PlayPauseIcon.swift */; };
 		C8PL0004AA10000000000043 /* CapsuleSlider.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8PL0014AA10000000000044 /* CapsuleSlider.swift */; };
 		C8PL0004AA10000000000045 /* PlayerPickerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8PL0014AA10000000000046 /* PlayerPickerSheet.swift */; };
+		C8PL0005AA10000000000053 /* PlayerIconCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8PL0015AA10000000000054 /* PlayerIconCatalog.swift */; };
+		C8PL0005AA10000000000051 /* PlayerIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8PL0015AA10000000000052 /* PlayerIcon.swift */; };
 		C8PL0004AA10000000000047 /* SleepTimerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8PL0014AA10000000000048 /* SleepTimerSheet.swift */; };
 		C8PL00052F70000000000005 /* ExpandedPlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8PL00152F70000000000015 /* ExpandedPlayerView.swift */; };
 		C8PL00072F70000000000007 /* GroupSettingsContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8PL00172F70000000000017 /* GroupSettingsContent.swift */; };
@@ -74,6 +77,8 @@
 		C8SP00B12F2D0000000000B1 /* ArtworkDiskCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SP00202F2D000000000020 /* ArtworkDiskCache.swift */; };
 		C8SP00B22F2D0000000000B2 /* ArtworkRetryPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SP00212F2D000000000021 /* ArtworkRetryPolicy.swift */; };
 		C8SP00B32F2D0000000000B3 /* ArtworkRetryPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SP00212F2D000000000021 /* ArtworkRetryPolicy.swift */; };
+		C8PL0007AA10000000000063 /* PlayerIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8PL0015AA10000000000052 /* PlayerIcon.swift */; };
+		C8PL0007AA10000000000064 /* PlayerIconCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8PL0015AA10000000000054 /* PlayerIconCatalog.swift */; };
 		C8SP00B42F2D0000000000B4 /* ArtworkCacheKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SP00222F2D000000000022 /* ArtworkCacheKey.swift */; };
 		C8SP00B52F2D0000000000B5 /* ArtworkCacheKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SP00222F2D000000000022 /* ArtworkCacheKey.swift */; };
 		C8SP00B62F2D0000000000B6 /* SharedLoadRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SP00232F2D000000000023 /* SharedLoadRegistry.swift */; };
@@ -110,6 +115,7 @@
 		2FE624765BDE4DC4138CA713 /* QueueMoveMathTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = QueueMoveMathTests.swift; sourceTree = "<group>"; };
 		2FE624765BDE4DC4138CA714 /* ArtworkDiskCacheTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ArtworkDiskCacheTests.swift; sourceTree = "<group>"; };
 		2FE624765BDE4DC4138CA715 /* ArtworkRetryPolicyTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ArtworkRetryPolicyTests.swift; sourceTree = "<group>"; };
+		C8PL0016AA10000000000061 /* PlayerIconTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PlayerIconTests.swift; sourceTree = "<group>"; };
 		2FE624765BDE4DC4138CA716 /* ArtworkCacheKeyTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ArtworkCacheKeyTests.swift; sourceTree = "<group>"; };
 		2FE624765BDE4DC4138CA717 /* SharedLoadRegistryTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SharedLoadRegistryTests.swift; sourceTree = "<group>"; };
 		2FE624765BDE4DC4138CA718 /* LibraryListReconcilerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LibraryListReconcilerTests.swift; sourceTree = "<group>"; };
@@ -139,6 +145,8 @@
 		C8PL0014AA10000000000042 /* PlayPauseIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayPauseIcon.swift; sourceTree = "<group>"; };
 		C8PL0014AA10000000000044 /* CapsuleSlider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CapsuleSlider.swift; sourceTree = "<group>"; };
 		C8PL0014AA10000000000046 /* PlayerPickerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerPickerSheet.swift; sourceTree = "<group>"; };
+		C8PL0015AA10000000000054 /* PlayerIconCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerIconCatalog.swift; sourceTree = "<group>"; };
+		C8PL0015AA10000000000052 /* PlayerIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerIcon.swift; sourceTree = "<group>"; };
 		C8PL0014AA10000000000048 /* SleepTimerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepTimerSheet.swift; sourceTree = "<group>"; };
 		C8PL00152F70000000000015 /* ExpandedPlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExpandedPlayerView.swift; sourceTree = "<group>"; };
 		C8PL00172F70000000000017 /* GroupSettingsContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupSettingsContent.swift; sourceTree = "<group>"; };
@@ -275,6 +283,7 @@
 				2FE624765BDE4DC4138CA718 /* LibraryListReconcilerTests.swift */,
 				2FE624765BDE4DC4138CA717 /* SharedLoadRegistryTests.swift */,
 				2FE624765BDE4DC4138CA716 /* ArtworkCacheKeyTests.swift */,
+				C8PL0016AA10000000000061 /* PlayerIconTests.swift */,
 				2FE624765BDE4DC4138CA715 /* ArtworkRetryPolicyTests.swift */,
 				2FE624765BDE4DC4138CA714 /* ArtworkDiskCacheTests.swift */,
 				2FE624765BDE4DC4138CA712 /* SVGRasterizerTests.swift */,
@@ -396,6 +405,8 @@
 				C8PL0014AA10000000000042 /* PlayPauseIcon.swift */,
 				C8PL0014AA10000000000044 /* CapsuleSlider.swift */,
 				C8PL0014AA10000000000046 /* PlayerPickerSheet.swift */,
+				C8PL0015AA10000000000054 /* PlayerIconCatalog.swift */,
+				C8PL0015AA10000000000052 /* PlayerIcon.swift */,
 				C8PL0014AA10000000000048 /* SleepTimerSheet.swift */,
 				C8PL00152F70000000000015 /* ExpandedPlayerView.swift */,
 				C8PL00172F70000000000017 /* GroupSettingsContent.swift */,
@@ -652,6 +663,7 @@
 				C29F123E61DAA17B671EC95D /* LibraryListReconcilerTests.swift in Sources */,
 				C29F123E61DAA17B671EC95C /* SharedLoadRegistryTests.swift in Sources */,
 				C29F123E61DAA17B671EC95B /* ArtworkCacheKeyTests.swift in Sources */,
+				C8PL0006AA10000000000062 /* PlayerIconTests.swift in Sources */,
 				C29F123E61DAA17B671EC95A /* ArtworkRetryPolicyTests.swift in Sources */,
 				C29F123E61DAA17B671EC959 /* ArtworkDiskCacheTests.swift in Sources */,
 				C29F123E61DAA17B671EC957 /* SVGRasterizerTests.swift in Sources */,
@@ -659,6 +671,8 @@
 				C8SP00B82F2D0000000000B8 /* LibraryListReconciler.swift in Sources */,
 				C8SP00B62F2D0000000000B6 /* SharedLoadRegistry.swift in Sources */,
 				C8SP00B42F2D0000000000B4 /* ArtworkCacheKey.swift in Sources */,
+				C8PL0007AA10000000000064 /* PlayerIconCatalog.swift in Sources */,
+				C8PL0007AA10000000000063 /* PlayerIcon.swift in Sources */,
 				C8SP00B22F2D0000000000B2 /* ArtworkRetryPolicy.swift in Sources */,
 				C8SP00B02F2D0000000000B0 /* ArtworkDiskCache.swift in Sources */,
 				C8SP00A62F2D0000000000A6 /* SVGRasterizer.swift in Sources */,
@@ -677,6 +691,8 @@
 				C8AU00032FB0000000000003 /* NowPlayingCoordinator.swift in Sources */,
 				C8AU00042FB0000000000004 /* NowPlayingInfoStore.swift in Sources */,
 				C8PL0004AA10000000000045 /* PlayerPickerSheet.swift in Sources */,
+				C8PL0005AA10000000000053 /* PlayerIconCatalog.swift in Sources */,
+				C8PL0005AA10000000000051 /* PlayerIcon.swift in Sources */,
 				C8PL0004AA10000000000047 /* SleepTimerSheet.swift in Sources */,
 				C8PL0004AA10000000000043 /* CapsuleSlider.swift in Sources */,
 				C8PL0004AA10000000000041 /* PlayPauseIcon.swift in Sources */,

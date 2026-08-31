@@ -204,7 +204,9 @@ final class PlayerBarStore {
 struct PlayerBarItemView: Identifiable {
     let id: String
     let name: String
-    /// The server's Material Design Icons name ("mdi-speaker"), unmapped. See `symbolName`.
+    /// The icon the server has for this player, unresolved — a shared-icon-set id
+    /// ("sonos") on a current server, a Material Design Icons name ("mdi-speaker")
+    /// on an older one. See `iconId`.
     let icon: String?
     let isPlaying: Bool
     let isPoweredOff: Bool
@@ -290,49 +292,9 @@ struct PlayerBarItemView: Identifiable {
         self.groupMembers = item.groupMembers.map(GroupMemberBarItemView.init)
     }
 
-    /// An SF Symbol for this player, translated from the server's Material Design Icons name.
-    ///
-    /// Music Assistant is a web-first project and names its player icons for Material — nothing
-    /// on iOS can draw those, so they have to be mapped rather than rendered. The table is
-    /// deliberately partial: it covers the kinds of device MA actually reports, and everything
-    /// else lands on a generic speaker, which is true of every player here by definition.
-    ///
-    /// Matching strips the `mdi-` prefix and then looks for a *contained* key rather than an
-    /// exact one, because MA's names are compounds of a base and qualifiers — `mdi-speaker`,
-    /// `mdi-speaker-wireless`, `mdi-cast-audio-variant`. Longest key first, so `speaker-multiple`
-    /// is not swallowed by `speaker`.
-    var symbolName: String {
-        let name = (icon ?? "")
-            .lowercased()
-            .replacingOccurrences(of: "mdi-", with: "")
-        guard !name.isEmpty else { return isGroup ? "hifispeaker.2" : "hifispeaker" }
-
-        let mappings: [(match: String, symbol: String)] = [
-            ("speaker-multiple", "hifispeaker.2"),
-            ("google-home", "homepod"),
-            ("home-assistant", "homepod"),
-            ("disc-player", "opticaldisc"),
-            ("desktop-tower", "desktopcomputer"),
-            ("cellphone", "iphone"),
-            ("television", "tv"),
-            ("headphones", "headphones"),
-            ("soundbar", "hifispeaker.fill"),
-            ("microphone", "mic"),
-            ("speaker", "hifispeaker"),
-            ("monitor", "desktopcomputer"),
-            ("laptop", "laptopcomputer"),
-            ("tablet", "ipad"),
-            ("radio", "radio"),
-            ("watch", "applewatch"),
-            ("cast", "airplayaudio"),
-            ("car", "car"),
-            ("web", "globe"),
-            ("tv", "tv"),
-        ]
-
-        return mappings.first { name.contains($0.match) }?.symbol
-            ?? (isGroup ? "hifispeaker.2" : "hifispeaker")
-    }
+    /// The shared-icon-set id to draw for this player — see `PlayerIcon`, which
+    /// resolves the server's raw value and owns the artwork.
+    var iconId: String { PlayerIcon.resolve(icon, isGroup: isGroup) }
 }
 
 /// SwiftUI-shaped projection of the Kotlin `GroupMemberBarItem` — one row in the group

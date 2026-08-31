@@ -186,7 +186,7 @@ private struct ExpandedPlayerRow: View {
             showPlayerPicker = true
         } label: {
             HStack(spacing: 8) {
-                Image(systemName: player.symbolName)
+                PlayerIcon(player.iconId, size: 17, relativeTo: .subheadline)
                 Text(player.name)
                     .lineLimit(1)
                 Image(systemName: "chevron.up.chevron.down")

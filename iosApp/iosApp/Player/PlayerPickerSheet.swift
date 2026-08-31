@@ -94,13 +94,18 @@ private struct PlayerPickerRow: View {
 
     @State private var isPressed = false
 
+    /// Scales with the icon it holds, so the column still fits the artwork at accessibility
+    /// text sizes instead of letting it spill into the name.
+    @ScaledMetric private var iconColumn: CGFloat = 24
+
     var body: some View {
         Button(action: onSelect) {
             HStack(spacing: 12) {
-                Image(systemName: candidate.symbolName)
-                    // Fixed width so names line up down the list rather than stepping in and out
-                    // with each glyph's own width.
-                    .frame(width: 24)
+                // Fixed width so names line up down the list rather than stepping in and out
+                // with each glyph's own width — the set's icons are square, but a slot wider
+                // than they are keeps the column steady if a future one is not.
+                PlayerIcon(candidate.iconId)
+                    .frame(width: iconColumn)
                     .foregroundStyle(.secondary)
 
                 Text(candidate.name)
