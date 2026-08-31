@@ -1,12 +1,15 @@
 import SwiftUI
+import UIKit
 import MusicAssistantKit
 
 /// The Home tab's root — Phase E5, part 1. Reimplements only `HomeScreen.kt`'s row content
-/// natively (a vertical list of horizontal recommendation/shortcut carousels, plus edit mode);
-/// the floating player bar (`PlayersPager`/`FloatingBar`) stays Compose-hosted via
-/// `FloatingBarCollapsedController`/`FloatingBarExpandedController` — see `AppTabView.swift`'s
-/// doc — since a full native rewrite of that gesture-heavy UI is its own, much larger, separately
-/// scoped piece of work.
+/// natively (a vertical list of horizontal recommendation/shortcut carousels, plus edit mode).
+///
+/// The floating player bar used to be the exception here, Compose-hosted via
+/// `FloatingBarCollapsedController`/`FloatingBarExpandedController` while this screen went
+/// native around it. It isn't any more: `ComposeScreenHosts.kt` is deleted, the bar is native
+/// SwiftUI in `.tabViewBottomAccessory` (`MiniPlayerView.swift`), and no Compose is mounted
+/// anywhere in the app — see `AppTabView.swift`'s doc.
 ///
 /// `HomeScreenViewModel` is deliberately **not** wrapped the way `AppRootRouter` was
 /// (`AppRouter.swift`'s `NativeFlow`-subscription pattern): its real complexity — the
@@ -90,7 +93,7 @@ struct HomeView: View {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 24) {
                         ForEach(visible) { row in
-                            carouselRow(row)
+                            HomeCarouselRow(row: row)
                         }
                     }
                     .padding(.vertical, 12)
@@ -116,30 +119,6 @@ struct HomeView: View {
         .refreshable { await load() }
     }
 
-    private func carouselRow(_ row: HomeRow) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(row.title)
-                .font(.title3.weight(.semibold))
-                .padding(.horizontal, 16)
-            ScrollView(.horizontal) {
-                LazyHStack(alignment: .top, spacing: 12) {
-                    ForEach(row.items) { item in
-                        HomeCarouselTile(item: item)
-                    }
-                }
-                .padding(.horizontal, 16)
-            }
-            .scrollIndicators(.hidden)
-            // The lift a long press starts scales the tile up *in place*, before the preview is
-            // handed to the context menu's own window — and this scroll view's bounds are exactly
-            // the tile's height, so that growth used to be sliced off flat along the top edge,
-            // right under the row title. It read as the title cutting into the artwork. Nothing
-            // here overflows in normal use (the content is the tiles' own height, and the scroll
-            // view is full-width, so there are no side edges to spill past); the clip was only
-            // ever catching that one animation.
-            .scrollClipDisabled()
-        }
-    }
 
     // MARK: - Toolbar
 
@@ -379,10 +358,98 @@ private struct ContentTypeBadge: View {
     }
 }
 
+/// One titled carousel.
+///
+/// **The `.frame(height:)` on the scroll view is load-bearing, not cosmetic.** Without it this
+/// row sits inside Home's `LazyVStack`, which proposes an unspecified height, so the horizontal
+/// `ScrollView` has to report an *ideal* height — and it can only get one by asking the
+/// `LazyHStack`, which under an unspecified proposal materializes **every** child rather than
+/// the visible window. That turns a 4-tile row into a 40-tile row, and each tile is far from
+/// free: `.itemContextMenu` builds its whole action list eagerly (see `ItemContextMenu.swift`),
+/// and every tile carries two `ArtworkView`s (the tile and the menu's lifted preview). Pinning
+/// the height removes the ideal-size query, so the `LazyHStack` only ever builds what is on
+/// screen.
+///
+/// The height is measured off a hidden prototype rather than hardcoded, so it tracks Dynamic
+/// Type. `estimatedHeight` seeds it from the same fonts' `UIFont` line heights: without a seed
+/// the very first pass would run unpinned — the expensive path this exists to avoid — and the
+/// two numbers agree closely enough that the correction is invisible.
+private struct HomeCarouselRow: View {
+
+    let row: HomeRow
+
+    @State private var measuredHeight: CGFloat?
+
+    /// A tile only draws a second line when it has a subtitle, and `LazyHStack(alignment: .top)`
+    /// takes the tallest tile — so the row is two lines tall as soon as *any* item has one.
+    private var hasSubtitle: Bool {
+        row.items.contains { $0.subtitle?.isEmpty == false }
+    }
+
+    private var estimatedHeight: CGFloat {
+        let title = UIFont.preferredFont(forTextStyle: .subheadline).lineHeight
+        let subtitle = UIFont.preferredFont(forTextStyle: .caption1).lineHeight
+        return HomeCarouselTile.width + 8 + title + (hasSubtitle ? 8 + subtitle : 0)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(row.title)
+                .font(.title3.weight(.semibold))
+                .padding(.horizontal, 16)
+            ScrollView(.horizontal) {
+                LazyHStack(alignment: .top, spacing: 12) {
+                    ForEach(row.items) { item in
+                        HomeCarouselTile(item: item)
+                    }
+                }
+                .padding(.horizontal, 16)
+            }
+            .frame(height: measuredHeight ?? estimatedHeight)
+            .scrollIndicators(.hidden)
+            // The lift a long press starts scales the tile up *in place*, before the preview is
+            // handed to the context menu's own window — and this scroll view's bounds are exactly
+            // the tile's height (that is what the frame above pins them to), so that growth used
+            // to be sliced off flat along the top edge, right under the row title. It read as the
+            // title cutting into the artwork. Nothing here overflows in normal use (the content
+            // is the tiles' own height, and the scroll view is full-width, so there are no side
+            // edges to spill past); the clip was only ever catching that one animation.
+            .scrollClipDisabled()
+            .background(alignment: .topLeading) { heightProbe }
+        }
+    }
+
+    /// A tile's layout without a tile's cost: the artwork is a fixed square, both labels are
+    /// single-line, and nothing here loads an image or resolves a menu. `.fixedSize()` keeps the
+    /// background from being stretched to the scroll view it is measuring for.
+    private var heightProbe: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Color.clear
+                .frame(width: HomeCarouselTile.width, height: HomeCarouselTile.width)
+            Text(verbatim: " ")
+                .font(.subheadline.weight(.medium))
+                .lineLimit(1)
+            if hasSubtitle {
+                Text(verbatim: " ")
+                    .font(.caption)
+                    .lineLimit(1)
+            }
+        }
+        .fixedSize()
+        .hidden()
+        .accessibilityHidden(true)
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { measuredHeight = $0 }
+    }
+}
+
 private struct HomeCarouselTile: View {
 
     let item: MediaItem
-    private let width: CGFloat = 140
+
+    /// Fixed, and `static` so `HomeCarouselRow` can size its prototype against it without
+    /// building a real tile.
+    static let width: CGFloat = 140
+    private var width: CGFloat { Self.width }
 
     var body: some View {
         Group {
