@@ -1,8 +1,8 @@
 import SwiftUI
 
 /// A single line of text that scrolls itself when it is too long to fit, the way the system's own
-/// now-playing bar does: a pause at the start, a steady slide left, a gap, and then the same text
-/// again. Track titles in a 120pt-wide column are routinely longer than the column — truncating
+/// now-playing bar does: a pause at the start, a slide left that eases in and glides to a halt, a
+/// gap, and then the same text again. Track titles in a 120pt-wide column are routinely longer than the column — truncating
 /// them ("We Didn't Know We Were Rea…") hides exactly the part that distinguishes one mix or
 /// feature credit from another, which is the part you look at the mini player to check.
 ///
@@ -28,6 +28,18 @@ struct MarqueeText: View {
     /// How much of each edge the fade covers. Matched by eye to the system bar — enough that
     /// glyphs dissolve rather than being sliced, not so much that a short word is half-ghosted.
     private static let fadeWidth: CGFloat = 12
+
+    /// How far past the text's resting position the visible area reaches on the leading side.
+    ///
+    /// The whole point of it: the leading fade lives *here*, outside where the text comes to
+    /// rest, so at rest — and at the end of every loop, which looks the same — the first
+    /// character is fully solid. Sit the text inside its own fade instead and the last thing a
+    /// cycle does is snap that text from ghosted to solid, which is the one moment of a marquee
+    /// anybody notices. The system bar leaves itself exactly this much room; the same trick is
+    /// why its text seems to dissolve into the artwork rather than stop short of it.
+    ///
+    /// It bleeds into the row's 12pt gap beside the artwork, which is space no one was using.
+    private static let leadingBleed: CGFloat = 12
 
     /// The width the row actually gives this line…
     @State private var containerWidth: CGFloat = 0
@@ -96,35 +108,44 @@ struct MarqueeText: View {
                     elapsed: context.date.timeIntervalSince(clock.epoch),
                     sharedScroll: clock.scrollDuration
                 )
-                // `Color.clear` takes the anchor's size, so the mask below is the size of the
-                // column and the copies sliding through it are clipped to it.
+                // `Color.clear` takes whatever it is offered — here the column plus the bleed
+                // below — so the mask is the size of the visible area and the copies sliding
+                // through it are clipped to exactly that.
                 Color.clear
                     .overlay(alignment: .leading) {
                         HStack(spacing: cycle.gap) {
                             line.lineLimit(1).fixedSize()
                             line.lineLimit(1).fixedSize()
                         }
-                        .offset(x: offset)
+                        // Rest at the far edge of the bleed, so `offset == 0` puts the text
+                        // exactly where the plain `Text` it replaces would have sat.
+                        .offset(x: Self.leadingBleed + offset)
                     }
-                    // The leading fade comes in with the scroll rather than sitting there
-                    // permanently: at rest the first character is fully solid, as it is in the
-                    // system bar, and it only dissolves once there is text to its left.
-                    .mask { fade(leading: min(1, -offset / Self.fadeWidth)) }
+                    .mask { fade }
+                    // Claims the bleed without spending it: the negative padding hands the
+                    // masked area an extra `leadingBleed` on the left and then reports the
+                    // original width upwards, so nothing in the row moves.
+                    .padding(.leading, -Self.leadingBleed)
             }
         } else {
             line.lineLimit(1)
         }
     }
 
-    /// Opaque in the middle, transparent at the trailing edge, and as transparent at the leading
-    /// edge as `leading` (0…1) says.
-    private func fade(leading: CGFloat) -> some View {
-        let inset = min(Self.fadeWidth / max(containerWidth, 1), 0.5)
+    /// Opaque in the middle, dissolving at both edges — and fixed, because the bleed above has
+    /// already put the leading fade somewhere the text does not sit still.
+    ///
+    /// Sized against the bled width, so the leading ramp finishes exactly where the text rests
+    /// and the trailing one starts a fade's width from the far edge.
+    private var fade: some View {
+        let width = max(containerWidth + Self.leadingBleed, 1)
+        let leading = min(Self.leadingBleed / width, 0.5)
+        let trailing = min(Self.fadeWidth / width, 0.5)
         return LinearGradient(
             stops: [
-                .init(color: .white.opacity(Double(1 - max(0, leading))), location: 0),
-                .init(color: .white, location: inset),
-                .init(color: .white, location: 1 - inset),
+                .init(color: .white.opacity(0), location: 0),
+                .init(color: .white, location: leading),
+                .init(color: .white, location: 1 - trailing),
                 .init(color: .white.opacity(0), location: 1),
             ],
             startPoint: .leading,
