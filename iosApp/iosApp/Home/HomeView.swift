@@ -130,6 +130,14 @@ struct HomeView: View {
                 .padding(.horizontal, 16)
             }
             .scrollIndicators(.hidden)
+            // The lift a long press starts scales the tile up *in place*, before the preview is
+            // handed to the context menu's own window — and this scroll view's bounds are exactly
+            // the tile's height, so that growth used to be sliced off flat along the top edge,
+            // right under the row title. It read as the title cutting into the artwork. Nothing
+            // here overflows in normal use (the content is the tiles' own height, and the scroll
+            // view is full-width, so there are no side edges to spill past); the clip was only
+            // ever catching that one animation.
+            .scrollClipDisabled()
         }
     }
 

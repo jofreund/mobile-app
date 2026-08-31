@@ -215,6 +215,18 @@ private struct ItemContextMenuModifier: ViewModifier {
                 menuButtons
             } preview: {
                 ArtworkView(url: item.artworkURL, kind: item.kind, sizing: .fixed(artworkPreviewSize))
+                    // Inset so the artwork keeps the *tile's* corner radius rather than the
+                    // platter's. The platter the system lifts a custom preview onto rounds itself
+                    // at roughly twice the ~11%-of-the-edge radius `ArtworkView` clips a 140pt
+                    // tile to, and it rounds last: a clip can only cut more away, so nothing
+                    // inside the preview can round it less, and `.contentShape(.contextMenuPreview,
+                    // …)` reshapes only the lift, not the settled preview (confirmed by DTS on
+                    // Apple's forums, thread 784012). Padding is the one lever left — it moves the
+                    // platter's wider curve out into the margin, where it clips nothing, and the
+                    // corner the eye lands on is the artwork's own. 12pt clears it with room to
+                    // spare: the curves stop intersecting at 0.293 × (platter − artwork radius),
+                    // about 5pt here.
+                    .padding(12)
             }
         } else {
             content.contextMenu {
