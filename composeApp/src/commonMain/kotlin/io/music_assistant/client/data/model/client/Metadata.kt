@@ -8,6 +8,10 @@ package io.music_assistant.client.data.model.client
  */
 data class Metadata(
     val explicit: Boolean,
+    // Free-text blurb the provider ships with the item (an audiobook's jacket copy, a
+    // podcast's "about"). In Swift this arrives as `description_`: Kotlin/Native renames
+    // members that clash with `NSObject.description`.
+    val description: String?,
     val images: List<ImageInfo>,
     val releaseDate: String?,
     val chapters: List<Chapter>,

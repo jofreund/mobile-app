@@ -47,6 +47,7 @@ class PlayerRequestFactoryTest {
     private fun podcastWithChapters(): PlayableItem = testPodcastEpisode().copy(
         metadata = Metadata(
             explicit = false,
+            description = null,
             images = emptyList(),
             releaseDate = null,
             chapters = chapterList,

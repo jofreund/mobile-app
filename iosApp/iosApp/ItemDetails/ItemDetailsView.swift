@@ -156,10 +156,15 @@ private struct DetailContent: View {
     let onPlaylistTrackRemoved: () -> Void
     let onRefresh: () async -> Void
 
+    @State private var isDescriptionExpanded = false
+
+    private let collapsedDescriptionLines = 4
+
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
                 header
+                descriptionSection
                 sectionHeader
                 subList
             }
@@ -227,6 +232,39 @@ private struct DetailContent: View {
                 }
             }
             .controlSize(.large)
+        }
+    }
+
+    /// The provider's blurb, for the types that have one. Collapsed to a few lines with a
+    /// More/Less toggle: an audiobook description runs several paragraphs and would otherwise
+    /// push the chapter list off the screen.
+    @ViewBuilder
+    private var descriptionSection: some View {
+        // `description_`, not `description`: Kotlin/Native renames members that collide with
+        // `NSObject.description` when it exports them to Objective-C.
+        if let text = item.metadata?.description_, !text.isEmpty {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(text)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(isDescriptionExpanded ? nil : collapsedDescriptionLines)
+                    .animation(.default, value: isDescriptionExpanded)
+
+                // Shown unconditionally: SwiftUI gives no truthful "is this text truncated?"
+                // signal, and measuring the string against the line limit would have to guess
+                // at the font metrics. Tapping More on a short description is a no-op, which
+                // is the harmless side of that trade.
+                Button(isDescriptionExpanded
+                       ? String(localized: "action_show_less")
+                       : String(localized: "action_show_more")) {
+                    isDescriptionExpanded.toggle()
+                }
+                .font(.subheadline.weight(.semibold))
+                .buttonStyle(.plain)
+                .foregroundStyle(.tint)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 16)
         }
     }
 
