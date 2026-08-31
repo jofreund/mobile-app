@@ -6,7 +6,9 @@ import SwiftUI
 /// them ("We Didn't Know We Were Rea…") hides exactly the part that distinguishes one mix or
 /// feature credit from another, which is the part you look at the mini player to check.
 ///
-/// Timing lives in `MarqueeCycle`; this view is the drawing of it.
+/// Timing lives in `MarqueeCycle`; this view is the drawing of it. Wrap several in a
+/// `MarqueeGroup` — as the mini player's two lines are — and they keep step with each other
+/// instead of drifting apart; on its own a line simply runs its own loop.
 ///
 /// **Lays out exactly like the `Text` it replaces.** The visible copies are an *overlay* over a
 /// hidden, ordinary, truncating `Text`, so the row's HStack sizes off that anchor and not off the
@@ -33,6 +35,7 @@ struct MarqueeText: View {
     @State private var contentWidth: CGFloat = 0
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.marqueeClock) private var clock
 
     private var cycle: MarqueeCycle {
         MarqueeCycle(
@@ -53,6 +56,12 @@ struct MarqueeText: View {
             .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { containerWidth = $0 }
             .background(alignment: .leading) { measuringCopy }
             .overlay(alignment: .leading) { visibleCopies }
+            // What this line needs from the group's loop. A line that doesn't overflow still
+            // reports its text, so the group can tell a track change from a re-measure.
+            .preference(
+                key: MarqueeMeasurementKey.self,
+                value: MarqueeMeasurement(texts: [text], scrollDuration: cycle.scrollDuration)
+            )
             // One string to a VoiceOver user, whatever it is doing on screen. The anchor and the
             // copies are all `.hidden()` or decorative, so without this the line would read as
             // nothing at all.
@@ -78,7 +87,15 @@ struct MarqueeText: View {
     @ViewBuilder
     private var visibleCopies: some View {
         if cycle.scrolls, !reduceMotion {
-            KeyframeAnimator(initialValue: CGFloat.zero, repeating: true) { offset in
+            // The position is computed from the group's clock every frame rather than handed to
+            // an animation to run. An animation owns its own progress, so two of them started a
+            // moment apart — or one restarted when its text changed — are permanently out of
+            // step; two lines reading the same clock cannot be.
+            TimelineView(.animation) { context in
+                let offset = cycle.offset(
+                    elapsed: context.date.timeIntervalSince(clock.epoch),
+                    sharedScroll: clock.scrollDuration
+                )
                 // `Color.clear` takes the anchor's size, so the mask below is the size of the
                 // column and the copies sliding through it are clipped to it.
                 Color.clear
@@ -93,15 +110,7 @@ struct MarqueeText: View {
                     // permanently: at rest the first character is fully solid, as it is in the
                     // system bar, and it only dissolves once there is text to its left.
                     .mask { fade(leading: min(1, -offset / Self.fadeWidth)) }
-            } keyframes: { _ in
-                KeyframeTrack {
-                    LinearKeyframe(CGFloat.zero, duration: cycle.pause)
-                    LinearKeyframe(-cycle.travel, duration: cycle.scrollDuration)
-                }
             }
-            // A new track — or a resize that changes the sums — starts a fresh cycle from the
-            // beginning of the title, instead of continuing wherever the old one had got to.
-            .id("\(text)|\(cycle.travel)")
         } else {
             line.lineLimit(1)
         }

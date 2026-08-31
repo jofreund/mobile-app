@@ -3,11 +3,19 @@ import CoreGraphics
 /// The timing of one marquee loop, kept apart from the view that draws it so it can be reasoned
 /// about — and tested — without a running animation.
 ///
-/// A cycle is *pause, then travel*: the text sits still long enough to be read from the start,
+/// A cycle is *pause, slide, wait*: the text sits still long enough to be read from the start,
 /// then slides left at a constant speed until the trailing copy has taken the leading copy's
-/// place, at which point the offset resets by exactly one travel and the next cycle looks like a
-/// seamless continuation. That reset is only invisible because `travel` counts the gap between
-/// the two copies as well as the text itself — get that wrong by a point and the loop stutters.
+/// place, and then holds there until the rest of its group has caught up. Because the trailing
+/// copy lands exactly where the leading one started, that hold and the next cycle's pause are
+/// indistinguishable, and the wrap between them is invisible — but only because `travel` counts
+/// the gap between the two copies as well as the text itself. Get that wrong by a point and the
+/// loop stutters.
+///
+/// **The wait is what keeps a title and its artist line together.** They are different lengths,
+/// so at a shared speed they finish at different times; left to their own clocks they drift into
+/// scrolling over each other, which is not what the system bar does. Instead every line in a
+/// group runs a loop of the same length — the pause plus the *longest* slide in the group — and
+/// spends the difference parked at the end. They therefore always set off together.
 ///
 /// The speed is taken off a screen recording of Apple Music's mini player rather than invented —
 /// roughly 45pt/s; slower reads as sluggish next to the system's own bar, faster is hard to
@@ -63,5 +71,28 @@ struct MarqueeCycle: Equatable {
 
         travel = contentWidth + gap
         scrollDuration = Double(travel / speed)
+    }
+
+    /// How long one loop takes, given the longest slide in the group. Every line in a group gets
+    /// the same answer, which is the whole point: same length, same start, same beat.
+    func duration(sharedScroll: Double) -> Double {
+        pause + max(scrollDuration, max(0, sharedScroll))
+    }
+
+    /// Where the text sits `elapsed` seconds after the group's loop began — 0 at rest, negative
+    /// once moving, `-travel` while parked at the end waiting for a longer line to finish.
+    ///
+    /// A position derived from elapsed time rather than accumulated by an animation: two lines
+    /// reading the same clock cannot drift apart, however they were laid out or when each of
+    /// them first appeared.
+    func offset(elapsed: Double, sharedScroll: Double) -> CGFloat {
+        let total = duration(sharedScroll: sharedScroll)
+        guard scrolls, total > 0, elapsed.isFinite else { return 0 }
+
+        let phase = max(0, elapsed).truncatingRemainder(dividingBy: total) - pause
+        guard phase > 0 else { return 0 }
+        guard phase < scrollDuration else { return -travel }
+
+        return -travel * CGFloat(phase / scrollDuration)
     }
 }
