@@ -99,6 +99,11 @@ struct AppTabView: View {
         // it doesn't make it taller. There is no way to ask for a taller accessory: the API is
         // content plus `isEnabled` and nothing else.
         .tabBarMinimizeBehavior(.onScrollDown)
+        // Home, Library, Search and every screen they push share one set of long-press
+        // confirmation dialogs and one Add-to-Playlist sheet, instead of every cell carrying its
+        // own — see `ItemMenuPresenter`. Below the `fullScreenCover`s deliberately: the expanded
+        // player is its own presenting context and mounts its own host.
+        .itemMenuHost()
         .modifier(
             PlayerBarAccessory(store: playerBarStore, scrollID: $miniPlayerScrollID) {
                 playerExpanded = true

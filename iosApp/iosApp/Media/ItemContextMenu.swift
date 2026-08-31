@@ -156,6 +156,10 @@ extension View {
     /// keeps this a memory-cache hit (`ArtworkLoader`'s key includes `maxPixel`), so the
     /// preview never flashes a placeholder mid-animation. Rows keep the default snapshot —
     /// full-width, over their own slot, nothing to overlap.
+    ///
+    /// **Requires an `itemMenuHost()` somewhere above it** in the same presenting context: the
+    /// three actions that put something on screen are raised through that host rather than
+    /// presented per cell. See `ItemMenuPresenter` for why.
     func itemContextMenu(
         item: MediaItem,
         context: ItemMenuContext = ItemMenuContext(),
@@ -170,46 +174,10 @@ private struct ItemContextMenuModifier: ViewModifier {
     let context: ItemMenuContext
     let artworkPreviewSize: CGFloat?
 
-    @State private var showRemoveLibraryConfirm = false
-    @State private var showRemoveFromPlaylistConfirm = false
-    @State private var showAddToPlaylistSheet = false
-
-    func body(content: Content) -> some View {
-        withContextMenu(content)
-            .confirmationDialog(
-                String(localized: "dialog_remove_from_library_title"),
-                isPresented: $showRemoveLibraryConfirm,
-                titleVisibility: .visible
-            ) {
-                Button(String(localized: "action_remove"), role: .destructive) {
-                    _ = KmpHelper.shared.setInLibrary(item: item.kotlin, inLibrary: false)
-                }
-                Button(String(localized: "common_cancel"), role: .cancel) {}
-            } message: {
-                Text(String(localized: "dialog_remove_from_library_message"))
-            }
-            .confirmationDialog(
-                String(localized: "dialog_remove_from_playlist_title"),
-                isPresented: $showRemoveFromPlaylistConfirm,
-                titleVisibility: .visible
-            ) {
-                Button(String(localized: "action_remove"), role: .destructive) {
-                    guard let target = context.removeFromPlaylist else { return }
-                    KmpHelper.shared.removeFromPlaylist(playlistId: target.playlistId, position: Int32(target.position)) { success in
-                        if success.boolValue { target.onSuccess() }
-                    }
-                }
-                Button(String(localized: "common_cancel"), role: .cancel) {}
-            } message: {
-                Text(String(localized: "dialog_remove_from_playlist_message"))
-            }
-            .sheet(isPresented: $showAddToPlaylistSheet) {
-                AddToPlaylistSheet(item: item.kotlin)
-            }
-    }
+    @Environment(\.itemMenuPresenter) private var presenter
 
     @ViewBuilder
-    private func withContextMenu(_ content: Content) -> some View {
+    func body(content: Content) -> some View {
         if let artworkPreviewSize {
             content.contextMenu {
                 menuButtons
@@ -245,6 +213,21 @@ private struct ItemContextMenuModifier: ViewModifier {
         }
     }
 
+    /// The three actions that need something presented hand off to the screen's one
+    /// `itemMenuHost()` rather than presenting for themselves — see `ItemMenuPresenter`. A nil
+    /// presenter means a call site forgot the host; the action is dropped, so say so rather than
+    /// letting a long press appear to do nothing.
+    private func present(_ mutate: (ItemMenuPresenter) -> Void) {
+        guard let presenter else {
+            NativeLog.shared.warn(
+                tag: "ItemContextMenu",
+                message: "no itemMenuHost() in this screen's hierarchy — action dropped"
+            )
+            return
+        }
+        mutate(presenter)
+    }
+
     private func perform(_ action: ItemMenuAction) {
         let kotlin = item.kotlin
         switch action {
@@ -264,15 +247,23 @@ private struct ItemContextMenuModifier: ViewModifier {
         case .addToLibrary:
             _ = KmpHelper.shared.setInLibrary(item: kotlin, inLibrary: true)
         case .removeFromLibrary:
-            showRemoveLibraryConfirm = true
+            present { $0.removeFromLibrary = item }
         case .favorite:
             _ = KmpHelper.shared.setFavorite(item: kotlin, favorite: true)
         case .unfavorite:
             _ = KmpHelper.shared.setFavorite(item: kotlin, favorite: false)
         case .addToPlaylist:
-            showAddToPlaylistSheet = true
+            present { $0.addToPlaylist = item }
         case .removeFromPlaylist:
-            showRemoveFromPlaylistConfirm = true
+            guard let target = context.removeFromPlaylist else { return }
+            present {
+                $0.removeFromPlaylist = ItemMenuPresenter.PlaylistRemoval(
+                    item: item,
+                    playlistId: target.playlistId,
+                    position: target.position,
+                    onSuccess: target.onSuccess
+                )
+            }
         case .markPlayed:
             KmpHelper.shared.setMarkPlayed(item: kotlin, played: true) { _ in }
         case .markUnplayed:
@@ -281,6 +272,125 @@ private struct ItemContextMenuModifier: ViewModifier {
             guard let target = context.removeFromQueue else { return }
             KmpHelper.shared.removeQueueItem(queueId: target.queueId, queueItemId: target.queueItemId)
         }
+    }
+}
+
+// MARK: - Presentation host
+
+/// What a long-press menu wants put on screen, held once per screen instead of once per cell.
+///
+/// The three presenting actions — remove-from-library, remove-from-playlist, add-to-playlist —
+/// used to be a `confirmationDialog`, a second `confirmationDialog` and a `sheet` attached by
+/// `ItemContextMenuModifier` itself, so **every** cell carried all three. That is not free the
+/// way an unused modifier sounds like it should be: `contextMenu`'s and `confirmationDialog`'s
+/// content closures are non-escaping, so SwiftUI evaluates them while building the cell's body.
+/// Each tile was therefore constructing its whole action list (a `KmpHelper` bridge call and a
+/// handful of Kotlin property reads), roughly sixteen `String(localized:)` lookups, and about
+/// twenty-five view values — for a menu nobody had opened — and then carrying three presentation
+/// modifiers in the view graph on top. On a screen of carousels that multiplies by every visible
+/// tile, on every body pass.
+///
+/// Only the `sheet` was genuinely deferred (its content closure *is* `@escaping`).
+///
+/// Cells now keep only the `contextMenu` itself, whose eager action list is inherent to the API,
+/// and route the rest here. One host per presenting context — see `itemMenuHost()`.
+@Observable
+@MainActor
+final class ItemMenuPresenter {
+
+    var removeFromLibrary: MediaItem?
+    var addToPlaylist: MediaItem?
+    var removeFromPlaylist: PlaylistRemoval?
+
+    /// Carries the row's position and its caller's refresh closure across from the cell that
+    /// raised the menu, since the host presenting the dialog has no idea which list it came from.
+    struct PlaylistRemoval {
+        let item: MediaItem
+        let playlistId: String
+        let position: Int
+        let onSuccess: () -> Void
+    }
+}
+
+extension EnvironmentValues {
+    /// Optional rather than defaulted: a defaulted presenter would swallow actions silently in a
+    /// screen that forgot the host. `ItemContextMenuModifier.present` logs the nil case instead.
+    @Entry var itemMenuPresenter: ItemMenuPresenter?
+}
+
+extension View {
+    /// Mounts the shared confirmation dialogs and the Add-to-Playlist sheet for every
+    /// `itemContextMenu` beneath this view.
+    ///
+    /// Needed **once per presenting context**, not once per screen: a `fullScreenCover` or
+    /// `sheet` is its own presentation environment, and a dialog anchored outside it will not
+    /// appear over it. Today that means `AppTabView` (covering Home, Library, Search and every
+    /// pushed detail screen) and `ExpandedPlayerView` (its queue rows). Nesting is fine — the
+    /// inner host shadows the outer one through the environment.
+    func itemMenuHost() -> some View {
+        modifier(ItemMenuHostModifier())
+    }
+}
+
+private struct ItemMenuHostModifier: ViewModifier {
+
+    @State private var presenter = ItemMenuPresenter()
+
+    func body(content: Content) -> some View {
+        content
+            .environment(\.itemMenuPresenter, presenter)
+            .confirmationDialog(
+                String(localized: "dialog_remove_from_library_title"),
+                isPresented: presented(\.removeFromLibrary),
+                titleVisibility: .visible,
+                presenting: presenter.removeFromLibrary
+            ) { item in
+                Button(String(localized: "action_remove"), role: .destructive) {
+                    _ = KmpHelper.shared.setInLibrary(item: item.kotlin, inLibrary: false)
+                }
+                Button(String(localized: "common_cancel"), role: .cancel) {}
+            } message: { _ in
+                Text(String(localized: "dialog_remove_from_library_message"))
+            }
+            .confirmationDialog(
+                String(localized: "dialog_remove_from_playlist_title"),
+                isPresented: presented(\.removeFromPlaylist),
+                titleVisibility: .visible,
+                presenting: presenter.removeFromPlaylist
+            ) { removal in
+                Button(String(localized: "action_remove"), role: .destructive) {
+                    KmpHelper.shared.removeFromPlaylist(
+                        playlistId: removal.playlistId,
+                        position: Int32(removal.position)
+                    ) { success in
+                        if success.boolValue { removal.onSuccess() }
+                    }
+                }
+                Button(String(localized: "common_cancel"), role: .cancel) {}
+            } message: { _ in
+                Text(String(localized: "dialog_remove_from_playlist_message"))
+            }
+            .sheet(item: binding(\.addToPlaylist)) { item in
+                AddToPlaylistSheet(item: item.kotlin)
+            }
+    }
+
+    /// `presenting:` supplies the value; this only has to say whether anything is pending, and
+    /// clear it on dismissal.
+    private func presented<T>(_ keyPath: ReferenceWritableKeyPath<ItemMenuPresenter, T?>) -> Binding<Bool> {
+        Binding(
+            get: { presenter[keyPath: keyPath] != nil },
+            set: { isPresented in
+                if !isPresented { presenter[keyPath: keyPath] = nil }
+            }
+        )
+    }
+
+    private func binding<T>(_ keyPath: ReferenceWritableKeyPath<ItemMenuPresenter, T?>) -> Binding<T?> {
+        Binding(
+            get: { presenter[keyPath: keyPath] },
+            set: { presenter[keyPath: keyPath] = $0 }
+        )
     }
 }
 

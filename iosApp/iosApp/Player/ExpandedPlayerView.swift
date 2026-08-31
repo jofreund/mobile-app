@@ -53,6 +53,9 @@ struct ExpandedPlayerView: View {
                 )
             }
         }
+        // Its own, not `AppTabView`'s: this is a `fullScreenCover`, so a dialog anchored outside
+        // it would never appear over it. See `itemMenuHost()`.
+        .itemMenuHost()
     }
 
     private var currentPlayer: PlayerBarItemView? {
