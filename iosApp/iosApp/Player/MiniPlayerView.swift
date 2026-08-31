@@ -196,15 +196,17 @@ private struct MiniPlayerRow: View {
         HStack(spacing: 12) {
             ArtworkView(url: player.artworkURL, kind: .track, sizing: .fixed(36))
 
+            // Both lines scroll themselves when they overflow — see `MarqueeText`. The two run
+            // on their own clocks rather than in lockstep: they are different lengths, so a
+            // shared one would either drag the short line through a long empty gap or cut the
+            // long one off, and the system bar doesn't tie them together either.
             VStack(alignment: .leading, spacing: 1) {
-                Text(player.title ?? player.name)
+                MarqueeText(text: player.title ?? player.name)
                     .font(.subheadline.weight(.medium))
-                    .lineLimit(1)
                 if !detailLine.isEmpty {
-                    Text(detailLine)
+                    MarqueeText(text: detailLine)
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                        .lineLimit(1)
                 }
             }
 
