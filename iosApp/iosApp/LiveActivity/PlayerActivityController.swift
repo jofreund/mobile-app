@@ -24,15 +24,36 @@ final class PlayerActivityController {
 
     private var stateSub: Cancellable?
     private var localTrackSub: Cancellable?
+    private var localIdSub: Cancellable?
     private var visibilitySub: Cancellable?
     private var isForeground = false
     private var activity: Activity<PlayerActivityAttributes>?
 
-    /// True while the local (Sendspin) player has something to present. The system's own
-    /// Now Playing surface (fed by `NowPlayingCoordinator` off the real audio session) owns
-    /// the lock screen then; publishing a Live Activity beside it would show two competing
-    /// cards for the same playback. Exactly one of the two drives the lock screen at a time.
-    private var localPlayerPresents = false
+    /// The local (Sendspin) player's id while it has something to present, else nil. The
+    /// system's own Now Playing surface (fed by `NowPlayingCoordinator` off the real audio
+    /// session) owns the lock screen for *that player's* playback then, so an activity showing
+    /// the same player would be a second card for one playback — exactly one of the two drives
+    /// the lock screen at a time.
+    ///
+    /// Deliberately an id and not a bool. The gate this feeds is "would the activity present the
+    /// player the system card already presents", not "is the local player in use at all": while
+    /// the phone renders one queue, the selected player can be a completely different (server)
+    /// player, and its card is the only thing on screen showing that playback. A bool here — the
+    /// shape this shipped with — suppressed the activity globally for as long as the local
+    /// player had *anything* loaded, which outlives playing it (`currentItem` survives pause and
+    /// stop), so once the phone had played something the Live Activity never came back under
+    /// either visibility setting.
+    private var localPresentingPlayerId: String? { localPlayerHasTrack ? localPlayerId : nil }
+
+    /// `nowPlayingTrack != nil` — the local player has a current queue item. Says nothing about
+    /// *which* player that is, hence the id below.
+    private var localPlayerHasTrack = false
+
+    /// `KmpHelper.localPlayerId`, tracked rather than read on demand because it changes when the
+    /// connection mode resolves (legacy UUID → the device's public-key identity). Persisted on
+    /// the Kotlin side, so it is non-nil even with the local player off — only meaningful paired
+    /// with [localPlayerHasTrack].
+    private var localPlayerId: String?
 
     /// The user's `settings_live_activity` choice. Read in `start()`, not in a property
     /// initializer: this controller is a stored property of the `App` struct, so it is built
@@ -60,6 +81,14 @@ final class PlayerActivityController {
 
     func start() {
         guard stateSub == nil else { return }
+        // Seed from the application state rather than waiting for `scenePhaseChanged`, which is
+        // driven by `.onChange(of: scenePhase)` — and `onChange` does not fire for the value the
+        // scene already has when the modifier is installed. A launch that comes up `.active`
+        // straight away therefore delivers no callback, and `Activity.request` (gated on this
+        // flag) would be skipped until the app had been backgrounded and returned once.
+        // `.inactive` counts as foreground here: requesting is allowed in it, and it is what a
+        // launch passes through.
+        isForeground = UIApplication.shared.applicationState != .background
         // Adopt the surviving activity from a previous run (a background intent launch must
         // update the very card being tapped, not replace it); end any extras defensively —
         // there should never be more than one, but a duplicate would linger 8 hours.
@@ -80,13 +109,19 @@ final class PlayerActivityController {
             self.visibility = visibility
             self.handle(KmpHelper.shared.playerBarState.value)
         }
+        localPlayerId = KmpHelper.shared.localPlayerId.value as String?
+        localIdSub = KmpHelper.shared.localPlayerId.subscribe { [weak self] id in
+            guard let self, (id as String?) != self.localPlayerId else { return }
+            self.localPlayerId = id as String?
+            self.handle(KmpHelper.shared.playerBarState.value)
+        }
         localTrackSub = KmpHelper.shared.observeNowPlayingTrack { [weak self] track in
             guard let self else { return }
-            let presents = track != nil
-            guard presents != self.localPlayerPresents else { return }
-            self.localPlayerPresents = presents
-            // Stand down when the local player takes the lock screen; re-sync from the
-            // current bar state when it lets go.
+            let hasTrack = track != nil
+            guard hasTrack != self.localPlayerHasTrack else { return }
+            self.localPlayerHasTrack = hasTrack
+            // Stand down when the local player takes the lock screen for the player the
+            // activity would show; re-sync from the current bar state when it lets go.
             self.handle(KmpHelper.shared.playerBarState.value)
         }
     }
@@ -103,8 +138,11 @@ final class PlayerActivityController {
     // MARK: - State → activity
 
     private func handle(_ state: PlayerBarState?) {
-        guard !localPlayerPresents,
-              let content = Self.desiredContent(from: state, visibility: visibility) else {
+        // The local-player check runs *after* the content is resolved, not before: it needs to
+        // know which player the card would show. Suppressing on the local player's mere
+        // existence takes the activity away from every other player too.
+        guard let content = Self.desiredContent(from: state, visibility: visibility),
+              content.playerId != localPresentingPlayerId else {
             endActivity()
             return
         }
@@ -148,20 +186,30 @@ final class PlayerActivityController {
         content.artworkFileName = (wantedArtworkUrl == artworkUrlOnDisk) ? artworkFileName : nil
 
         if content != lastPublished {
-            lastPublished = content
             let activityContent = ActivityContent(
                 state: content,
                 staleDate: Date().addingTimeInterval(Self.staleInterval)
             )
+            // `lastPublished` is assigned only where something was actually handed to
+            // ActivityKit — it is the "don't repeat yourself" guard, not a record of what was
+            // asked for. Setting it up front (the shape this shipped with) made a skipped
+            // publish permanent: a state that arrived while backgrounded, or a `request` that
+            // threw, was remembered as published, and the next `handle` — `scenePhaseChanged`
+            // on return to the foreground, say — saw no diff and never requested. Leaving it
+            // untouched means the same state is retried on the next emission instead.
+            //
             // `.stale` still accepts updates — and updating is how it returns to `.active`.
             // Requesting a second activity while a stale one lives would stack duplicates.
             if let activity, activity.activityState == .active || activity.activityState == .stale {
+                lastPublished = content
                 Task { await activity.update(activityContent) }
-            } else if isForeground, ActivityAuthorizationInfo().areActivitiesEnabled {
-                activity = try? Activity.request(
-                    attributes: PlayerActivityAttributes(),
-                    content: activityContent
-                )
+            } else if isForeground, ActivityAuthorizationInfo().areActivitiesEnabled,
+                      let requested = try? Activity.request(
+                          attributes: PlayerActivityAttributes(),
+                          content: activityContent
+                      ) {
+                activity = requested
+                lastPublished = content
             }
         }
 
@@ -205,9 +253,12 @@ final class PlayerActivityController {
     }
 
     /// Re-checks against live state before republishing artwork — the track may have changed
-    /// again while the image was loading.
+    /// again while the image was loading, and the local player may have taken the lock screen
+    /// for this player meanwhile. Anything but a still-matching state falls back to the full
+    /// `handle` path, which ends the activity when that is what the new state calls for.
     private func publishCurrentIfStillWanted(_ content: PlayerActivityAttributes.ContentState) {
         guard let desired = Self.desiredContent(from: KmpHelper.shared.playerBarState.value, visibility: visibility),
+              desired.playerId != localPresentingPlayerId,
               desired.playerId == content.playerId, desired.title == content.title else {
             handle(KmpHelper.shared.playerBarState.value)
             return
