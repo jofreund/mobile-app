@@ -77,7 +77,7 @@ final class MarqueeCycleTests: XCTestCase {
     /// app feels, so it should be a deliberate edit and not a drive-by.
     func testDefaultsMatchTheSystemBar() {
         XCTAssertEqual(MarqueeCycle.defaultSpeed, 45)
-        XCTAssertEqual(MarqueeCycle.defaultPause, 2)
+        XCTAssertEqual(MarqueeCycle.defaultPause, 4)
         XCTAssertEqual(MarqueeCycle.defaultGap, 44)
     }
 }

@@ -9,15 +9,18 @@ import CoreGraphics
 /// seamless continuation. That reset is only invisible because `travel` counts the gap between
 /// the two copies as well as the text itself — get that wrong by a point and the loop stutters.
 ///
-/// Numbers are taken off a screen recording of Apple Music's mini player rather than invented:
-/// roughly 45pt/s, a beat over two seconds before it starts moving. Slower reads as sluggish
-/// next to the system's own bar; faster is hard to follow in a 120pt-wide column.
+/// The speed is taken off a screen recording of Apple Music's mini player rather than invented —
+/// roughly 45pt/s; slower reads as sluggish next to the system's own bar, faster is hard to
+/// follow in a 120pt-wide column. The rest between cycles is deliberately longer than the system
+/// bar's: text that is *always* sliding is text you can never simply glance at, and the start of
+/// a title is the part worth holding still.
 struct MarqueeCycle: Equatable {
 
     /// Points per second, in the scrolling stretch.
     static let defaultSpeed: CGFloat = 45
-    /// How long the start of the text is held still, at the top of every cycle.
-    static let defaultPause: Double = 2
+    /// How long the start of the text is held still, at the top of every cycle — and so also the
+    /// rest between one loop and the next, since the two are the same beat.
+    static let defaultPause: Double = 4
     /// Empty space between the end of one copy and the start of the next. Wide enough that the
     /// wrap reads as "it started again" rather than as part of the sentence.
     static let defaultGap: CGFloat = 44
