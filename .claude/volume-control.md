@@ -49,6 +49,56 @@ Both platforms behave the same way today:
 
 Effectively at parity. The iOS `getCurrentSystemVolume()` stub is a cosmetic gap, not a functional one.
 
+## Attempted 2026-08-31: in-app slider for the built-in player (reverted)
+
+Someone asked why the local player has no volume slider, and the attempt to add one was
+reverted the same day. Recording it so the next person doesn't repeat it.
+
+**What was tried, in order:**
+
+1. **Declare the volume/mute capability.** `SendspinCapabilities.buildClientHello()` sends
+   `supported_commands: []`, so the server never learns the client can take a `volume`
+   command. Declaring `[VOLUME, MUTE]` was expected to make MA expose `volume_set` for the
+   player, which is what `Player.isVolumeSliderAccessible` gates on. Note `LegacyWireGoldenTest`
+   pins the client/hello wire shape, so changing this requires updating that golden.
+2. **Route volume through the server anyway.** With the slider forced visible, dragging it
+   produced `players/cmd/volume_set` → **`error_code 9`, "not supported"**. The MA server
+   refuses volume control for this player. Whether a server restart or provider reload would
+   change that after (1) was never tested.
+3. **Make volume client-owned.** Intercept the four volume actions in
+   `LocalPlayerController.handleLocalCommand` before a request is built, apply them straight
+   to the sink, persist the level in settings, and re-stamp the fields in
+   `onServerPlayerUpdate` (which replaces the local player wholesale from the server payload,
+   and would otherwise drop the slider mid-playback). This worked, and was still reverted.
+
+**Why it was dropped:** an in-app slider and the hardware buttons are two independent controls
+over the same output — the app's gain and the OS's — and having both is worse than having one.
+That is the same conclusion the "Design intent" section above already reaches; the attempt
+simply rediscovered it the long way. For reference, iOS gives no sanctioned API to set the
+system volume (`AVAudioSession.outputVolume` is read-only, `MPVolumeView` is a user-driven
+control), so a slider that moves the *device* volume rather than an app-level gain is not
+available to us anyway.
+
+**Two real defects found along the way, both still present** (they need a volume command from
+the server to manifest, which is the only volume path that exists today):
+
+- `NativeAudioController.setMuted()` writes `kAudioQueueParam_Volume`, the *same* parameter as
+  `setVolume()`. Unmuting snaps output to `1.0`, so muting at 30% and unmuting jumps to full.
+- Neither setter stores the level, and `setupAudioQueue()` never applies one. The queue is torn
+  down and rebuilt on format change, so a server-set volume silently resets to full on the next
+  track at a different sample rate. Both setters also drop the value entirely when no queue
+  exists yet.
+
+Fixing both is small — hold `gain`/`muted` on the controller, have one writer apply
+`muted ? 0 : gain`, and re-apply it after `AudioQueueNewOutput` succeeds.
+
+**Also confirmed:** `PlayerStateObject` (`sendspin/model/Messages.kt`) carries only `state` —
+there is no volume or mute field on the wire, despite `StateReporter`'s docstring claiming it
+reports them. So `SendspinClient.currentVolume`/`currentMuted` are tracked and sent nowhere,
+and the device→server row in the table above cannot be wired without a protocol change. This
+also means the `getCurrentSystemVolume()` stub noted above is even less consequential than
+described: nothing downstream reads it at all.
+
 ## Historical note
 
 A previous version of this document described a `MediaSessionHelper` + `ContentObserver` design for Android with continuous bidirectional sync. That code is not present in the current Sendspin-based codebase — it appears to have described an earlier ExoPlayer-era integration that was replaced. The bidirectional-sync intent was deliberately not carried forward.

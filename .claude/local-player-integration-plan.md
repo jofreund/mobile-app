@@ -233,6 +233,10 @@ patterns (`settings-screen.md` States 1–4 and Scenario 5 are the spec).
 
 ## Explicit non-goals
 
+- **In-app volume slider for the local player.** Attempted and reverted 2026-08-31 — an
+  in-app gain plus the hardware buttons is two controls over one output. The full writeup
+  (including the server's `error_code 9` on `volume_set`, and two real audio-layer defects
+  it turned up that are still unfixed) is in `.claude/volume-control.md`.
 - Android/Android Auto anything (`androidMain` is not ported).
 - CarPlay and Siri (out of scope for this fork, per README).
 - Compose UI (fork is native SwiftUI).
