@@ -709,6 +709,21 @@ object KmpHelper : KoinComponent {
     val sendspinRunning: NativeStateFlow<Boolean>
         get() = NativeStateFlow(sendspinRunningFlow, mainScope)
 
+    /**
+     * The player id the local (Sendspin) player is addressed by — `sendspinEffectivePlayerId`,
+     * the same value `MainDataSource` compares against to mark a player `isLocal`. Observable
+     * because it changes when the connection mode resolves (a legacy UUID becomes the device's
+     * public-key identity).
+     *
+     * Read by `PlayerActivityController` for the one-lock-screen-owner rule: the Live Activity
+     * stands down only for the player whose playback the system's own Now Playing card is
+     * already presenting, which is this one. Note it is a *persisted* id, non-empty even with
+     * the local player switched off — pair it with a live "the local player has something to
+     * present" signal (`observeNowPlayingTrack`) rather than treating it as one.
+     */
+    val localPlayerId: NativeStateFlow<String>
+        get() = NativeStateFlow(settingsRepository.sendspinEffectivePlayerId, mainScope)
+
     fun theme(): ThemeSetting = settingsRepository.theme.value
 
     /**
