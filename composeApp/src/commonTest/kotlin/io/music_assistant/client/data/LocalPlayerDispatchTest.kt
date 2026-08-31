@@ -386,8 +386,6 @@ private class RecordingClient(
         get() = error("not used")
     override val isReadyForCommands: StateFlow<Boolean>
         get() = error("not used")
-    override val externalConsumerActive: StateFlow<Boolean>
-        get() = error("not used")
     override val events: Flow<Event<out Any>>
         get() = error("not used")
     override val webrtcSendspinChannel: DataChannelWrapper? = null
@@ -411,9 +409,7 @@ private class RecordingClient(
     override fun disconnectByUser() = Unit
     override fun connect(connection: ConnectionInfo) = Unit
     override fun connectWebRTC(remoteId: RemoteId) = Unit
-    override fun onExternalConsumerActive() = Unit
     override fun onPlaybackActive() = Unit
-    override fun onExternalConsumerInactive() = Unit
     override fun onPlaybackInactive() = Unit
     override fun forceDisconnect(reason: Exception) = Unit
     override fun noServer() = Unit
