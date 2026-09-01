@@ -20,7 +20,7 @@ private let playerLog = Logger(
 ///
 /// The queue list (tap-to-play, drag-to-reorder via native `List.onMove`, long-press via the
 /// shared `ItemContextMenu.swift` plus a queue-specific "Delete", chapter rows nested under the
-/// current audiobook item, auto-scroll-to-current) is also here — toggled from the icon row,
+/// current audiobook item, auto-scroll to the next upcoming row) is also here — toggled from the icon row,
 /// styled after Apple Music: the hero shrinks to a small peek row and the queue fills the space
 /// between it and the seek/transport/volume controls, which stay pinned and usable throughout
 /// rather than being replaced the way Compose's `CollapsibleQueue` replaces the whole hero.
@@ -560,8 +560,8 @@ private struct ExpandedPlayerRow: View {
                     .listStyle(.plain)
                     .scrollContentBackground(.hidden)
                     .environment(\.editMode, .constant(.active))
-                    .onAppear { scrollToCurrent(proxy: proxy, animated: false) }
-                    .onChange(of: player.currentQueueItemId) { _, _ in scrollToCurrent(proxy: proxy, animated: true) }
+                    .onAppear { scrollToNext(rows: rows, proxy: proxy, animated: false) }
+                    .onChange(of: player.currentQueueItemId) { _, _ in scrollToNext(rows: rows, proxy: proxy, animated: true) }
                 }
             }
             .frame(maxHeight: .infinity)
@@ -708,13 +708,25 @@ private struct ExpandedPlayerRow: View {
         )
     }
 
-    private func scrollToCurrent(proxy: ScrollViewProxy, animated: Bool) {
-        guard let currentId = player.currentQueueItemId else { return }
-        let targetID = "queue:\(currentId)"
+    /// Scrolls the queue so what comes *next* is on screen, with the played history parked above
+    /// the fold. The current item has no row of its own (see `queueSection`), so the previous
+    /// target — `"queue:\(currentQueueItemId)"` — named a row that was never built and the
+    /// scroll silently did nothing, leaving the list at the top on the played tracks. The target
+    /// is now the first row at or past the current position: the next track, or the current
+    /// item's first chapter row when it has chapters. Anchored `.top` rather than `.center` so
+    /// the upcoming tracks are what fills the list.
+    private func scrollToNext(rows: [QueueDisplayRow], proxy: ScrollViewProxy, animated: Bool) {
+        guard let currentIndex = currentQueueIndex else { return }
+        // Chapter rows carry no queue index, but they only ever stand exactly where the current
+        // item's row would be — so they count as "not before the current position" and can be
+        // the target themselves.
+        guard let target = rows.first(where: { row in
+            row.queueIndex.map { $0 > currentIndex } ?? true
+        }) else { return }
         if animated {
-            withAnimation { proxy.scrollTo(targetID, anchor: .center) }
+            withAnimation { proxy.scrollTo(target.id, anchor: .top) }
         } else {
-            proxy.scrollTo(targetID, anchor: .center)
+            proxy.scrollTo(target.id, anchor: .top)
         }
     }
 
