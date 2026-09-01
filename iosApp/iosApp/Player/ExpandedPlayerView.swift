@@ -101,6 +101,10 @@ private struct ExpandedPlayerRow: View {
     /// `remember(items) { mutableStateOf(items) }` reset-on-server-echo.
     @State private var displayOrder: [String]?
 
+    /// The queue `List`'s own width, fed to `queueSeparatorTrailing` — see there for why the
+    /// separators can't just use their default trailing edge.
+    @State private var queueListWidth: CGFloat = 0
+
     @State private var haptic = HapticSignal()
 
     var body: some View {
@@ -560,6 +564,7 @@ private struct ExpandedPlayerRow: View {
                     .listStyle(.plain)
                     .scrollContentBackground(.hidden)
                     .environment(\.editMode, .constant(.active))
+                    .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { queueListWidth = $0 }
                     .onAppear { scrollToNext(rows: rows, proxy: proxy, animated: false) }
                     .onChange(of: player.currentQueueItemId) { _, _ in scrollToNext(rows: rows, proxy: proxy, animated: true) }
                 }
@@ -633,6 +638,7 @@ private struct ExpandedPlayerRow: View {
         // leading inset would otherwise drag it left with the content, since SwiftUI aligns it to
         // wherever the row's content begins.
         .alignmentGuide(.listRowSeparatorLeading) { _ in Self.queueTextInset }
+        .alignmentGuide(.listRowSeparatorTrailing) { d in queueSeparatorTrailing(d) }
     }
 
     private func queueChapterRow(_ chapter: Chapter, indented: Bool) -> some View {
@@ -645,6 +651,18 @@ private struct ExpandedPlayerRow: View {
         .moveDisabled(true)
         .listRowBackground(Color.clear)
         .listRowInsets(Self.queueRowInsets)
+        .alignmentGuide(.listRowSeparatorTrailing) { d in queueSeparatorTrailing(d) }
+    }
+
+    /// Where a queue row's separator ends: the List's trailing edge, not the row content's. In
+    /// the always-active edit mode, draggable rows cede a trailing gutter to the system reorder
+    /// grip and their separators stop with the content — visibly short of where the progress bar
+    /// below ends. The rows start at the List's leading edge (`queueRowInsets` zeroes the
+    /// horizontal insets), so the measured list width *is* the trailing edge in row coordinates.
+    /// Until the width lands, fall back to the row's own trailing edge rather than collapsing
+    /// the separator to nothing.
+    private func queueSeparatorTrailing(_ d: ViewDimensions) -> CGFloat {
+        max(queueListWidth, d.width)
     }
 
     /// Zero horizontally, so a queue row starts exactly where the peek row above it does — both
