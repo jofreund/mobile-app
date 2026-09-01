@@ -42,11 +42,14 @@ a `Spacer`. Add a trailing `Menu` labelled `Image(systemName: "ellipsis")`, acce
 `cd_more`, styled like the chevron (`.title3.weight(.semibold)`):
 
 ```
-⋯  →  [✓] Autoplay                               (queue_autoplay)
-      [ ] Crossfade                              (queue_crossfade)  — only when supported
+⋯  →  [✓] Autoplay          (infinity)               (queue_autoplay)
+      [ ] Crossfade         (arrow.triangle.merge)   (queue_crossfade)  — only when supported
       ──────────────────────────────
-      [arrow.left.arrow.right] Transfer queue    (queue_transfer)
+      [arrow.left.arrow.right] Transfer queue         (queue_transfer)
 ```
+
+Each toggle's glyph shows while the setting is off; switched on, the checkmark takes the row's
+single image slot — the constraint `PlayerPickerSheet` already documents.
 
 The two settings are `Toggle`s, which SwiftUI renders inside a `Menu` as a checkmark row: the
 current value is visible without opening anything further, and one tap flips it. Transfer sits

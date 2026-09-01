@@ -200,12 +200,26 @@ private struct ExpandedPlayerRow: View {
     /// Transfer sits under a divider as the one entry that opens something rather than
     /// changing a setting. The whole menu needs a queue to act on, so it is disabled without
     /// one.
+    ///
+    /// **The two toggles show their icon only while switched off.** A menu row has one image
+    /// slot and the checkmark owns it — the same constraint `PlayerPickerSheet` documents as
+    /// its reason for being a sheet — so an enabled setting reads as a checkmark and a
+    /// disabled one as its glyph. The icons are still worth it: they make the three entries
+    /// scannable, and the row that loses its glyph is exactly the row whose checkmark is
+    /// carrying the meaning.
     private var overflowMenu: some View {
         Menu {
-            Toggle(String(localized: "queue_autoplay"), isOn: autoplayBinding)
+            Toggle(isOn: autoplayBinding) {
+                // The queue never runs dry — music keeps coming after the last item.
+                Label(String(localized: "queue_autoplay"), systemImage: "infinity")
+            }
             // Old servers never report crossfade; the row is left out rather than drawn dead.
             if player.crossfadeSupported {
-                Toggle(String(localized: "queue_crossfade"), isOn: crossfadeBinding)
+                Toggle(isOn: crossfadeBinding) {
+                    // Two lines running into one: the tail of a track blended into the head
+                    // of the next.
+                    Label(String(localized: "queue_crossfade"), systemImage: "arrow.triangle.merge")
+                }
             }
             Divider()
             Button {
