@@ -1473,9 +1473,9 @@ object KmpHelper : KoinComponent {
     // its `else -> Unit`) — found the hard way when the native shuffle/repeat buttons turned out
     // to do nothing. Shuffle/repeat/mute toggles follow the same "pass the current value, Kotlin
     // computes the next one" shape `PlayerRequestFactory.resolve()` already uses server-side
-    // (e.g. repeat cycles OFF→ALL→ONE→OFF there, not in Swift). Group volume, DSP, queue
-    // transfer, and the rest of PlayerAction's cases stay unreached for now — the expanded
-    // player's overflow menu and queue list aren't ported yet.
+    // (e.g. repeat cycles OFF→ALL→ONE→OFF there, not in Swift). Group volume, DSP, and the
+    // rest of PlayerAction's cases stay unreached for now. Queue transfer and the two queue
+    // settings the overflow menu carries live further down, under "Player queue".
 
     /**
      * Library lifecycle changes — favourites, mark-played, add/remove from library — as they
@@ -1653,6 +1653,27 @@ object KmpHelper : KoinComponent {
 
     fun removeQueueItem(queueId: String, queueItemId: String) =
         mainDataSource.queueAction(QueueAction.RemoveItems(queueId, listOf(queueItemId)))
+
+    /**
+     * Hands the whole queue to another player. [autoplay] maps to the server's `auto_play`:
+     * the expanded player's menu passes whether the source was playing, so a paused queue
+     * arrives paused and a playing one keeps going.
+     */
+    fun transferQueue(sourceQueueId: String, targetQueueId: String, autoplay: Boolean) =
+        mainDataSource.queueAction(QueueAction.Transfer(sourceQueueId, targetQueueId, autoplay))
+
+    // MARK: - Queue settings (overflow menu toggles)
+    //
+    // Both take the value as it stands and let Kotlin compute the flip — the same shape as the
+    // shuffle/repeat/mute bridges above, and what PlayerRequestFactory expects. Both go through
+    // [dispatchPlayerBarAction] (the PlayerData-based overload); the string-id overload's `when`
+    // is the incomplete one this file warns about above and would drop them silently.
+
+    fun togglePlayerBarAutoplay(playerId: String, isEnabledNow: Boolean) =
+        dispatchPlayerBarAction(playerId, PlayerAction.ToggleDontStopTheMusic(isEnabledNow))
+
+    fun togglePlayerBarCrossfade(playerId: String, isEnabledNow: Boolean) =
+        dispatchPlayerBarAction(playerId, PlayerAction.ToggleCrossfade(isEnabledNow))
 
     // MARK: - Player grouping (native group settings sheet)
     //

@@ -20,6 +20,7 @@ open iosApp/iosApp.xcodeproj
 ## Features
 
 - Queue management and playback control for Music Assistant players
+- Queue-wide options in the expanded player's ⋯ menu: Autoplay, Crossfade, transfer to another player
 - Library browsing (Artists, Albums, Tracks, Playlists)
 - Authentication: login/pass, OAuth, long-lived access token
 - Remote access via WebRTC (planned - see `.claude/webrtc-implementation-plan.md`)
@@ -37,10 +38,10 @@ open iosApp/iosApp.xcodeproj
 ## UI Documentation
 
 - **Settings Screen**: See `.claude/settings-screen.md` for complete documentation on server connection, authentication flows, and local player configuration
+- **Expanded Player**: See `.claude/player-overflow-menu-plan.md` for the header ⋯ menu — Autoplay, Crossfade and "Transfer queue" — and why each is gated the way it is
 - **CarPlay & Siri**: See `.claude/carplay.md` for CarPlay architecture, template constraints, and the Siri media-domain integration (`INPlayMediaIntent` donation, `INUpdateMediaAffinityIntent`, `INSearchForMediaIntent`)
 
 ## Planned Features
 
 - **WebRTC Remote Access**: See `.claude/webrtc-implementation-plan.md` for comprehensive implementation plan, protocol details, and architecture design
 - **Local Player (Sendspin) Integration**: See `.claude/local-player-integration-plan.md` for the plan to port the on-device Sendspin player back from upstream (restores background audio and lock-screen/Control Center integration)
-- **Transfer Queue**: See `.claude/transfer-queue-plan.md` for the plan to port upstream's "Transfer queue" action into a new overflow menu in the expanded player's header

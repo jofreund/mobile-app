@@ -45,6 +45,10 @@
 		C8PL0004AA10000000000041 /* PlayPauseIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8PL0014AA10000000000042 /* PlayPauseIcon.swift */; };
 		C8PL0004AA10000000000043 /* CapsuleSlider.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8PL0014AA10000000000044 /* CapsuleSlider.swift */; };
 		C8PL0004AA10000000000045 /* PlayerPickerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8PL0014AA10000000000046 /* PlayerPickerSheet.swift */; };
+		C8TQ00012FD0000000000001 /* TransferQueueTargets.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8TQ00112FD0000000000011 /* TransferQueueTargets.swift */; };
+		C8TQ00022FD0000000000002 /* TransferQueueTargets.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8TQ00112FD0000000000011 /* TransferQueueTargets.swift */; };
+		C8TQ00032FD0000000000003 /* TransferQueueSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8TQ00122FD0000000000012 /* TransferQueueSheet.swift */; };
+		C8TQ00042FD0000000000004 /* TransferQueueTargetsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8TQ00132FD0000000000013 /* TransferQueueTargetsTests.swift */; };
 		C8PL0005AA10000000000053 /* PlayerIconCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8PL0015AA10000000000054 /* PlayerIconCatalog.swift */; };
 		C8PL0005AA10000000000051 /* PlayerIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8PL0015AA10000000000052 /* PlayerIcon.swift */; };
 		C8PL0004AA10000000000047 /* SleepTimerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8PL0014AA10000000000048 /* SleepTimerSheet.swift */; };
@@ -145,6 +149,9 @@
 		C8PL0014AA10000000000042 /* PlayPauseIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayPauseIcon.swift; sourceTree = "<group>"; };
 		C8PL0014AA10000000000044 /* CapsuleSlider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CapsuleSlider.swift; sourceTree = "<group>"; };
 		C8PL0014AA10000000000046 /* PlayerPickerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerPickerSheet.swift; sourceTree = "<group>"; };
+		C8TQ00112FD0000000000011 /* TransferQueueTargets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransferQueueTargets.swift; sourceTree = "<group>"; };
+		C8TQ00122FD0000000000012 /* TransferQueueSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransferQueueSheet.swift; sourceTree = "<group>"; };
+		C8TQ00132FD0000000000013 /* TransferQueueTargetsTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TransferQueueTargetsTests.swift; sourceTree = "<group>"; };
 		C8PL0015AA10000000000054 /* PlayerIconCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerIconCatalog.swift; sourceTree = "<group>"; };
 		C8PL0015AA10000000000052 /* PlayerIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerIcon.swift; sourceTree = "<group>"; };
 		C8PL0014AA10000000000048 /* SleepTimerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepTimerSheet.swift; sourceTree = "<group>"; };
@@ -288,6 +295,7 @@
 				2FE624765BDE4DC4138CA714 /* ArtworkDiskCacheTests.swift */,
 				2FE624765BDE4DC4138CA712 /* SVGRasterizerTests.swift */,
 				2FE624765BDE4DC4138CA713 /* QueueMoveMathTests.swift */,
+				C8TQ00132FD0000000000013 /* TransferQueueTargetsTests.swift */,
 				C8MQ00122FC0000000000012 /* MarqueeCycleTests.swift */,
 			);
 			path = iosAppTests;
@@ -405,6 +413,8 @@
 				C8PL0014AA10000000000042 /* PlayPauseIcon.swift */,
 				C8PL0014AA10000000000044 /* CapsuleSlider.swift */,
 				C8PL0014AA10000000000046 /* PlayerPickerSheet.swift */,
+				C8TQ00122FD0000000000012 /* TransferQueueSheet.swift */,
+				C8TQ00112FD0000000000011 /* TransferQueueTargets.swift */,
 				C8PL0015AA10000000000054 /* PlayerIconCatalog.swift */,
 				C8PL0015AA10000000000052 /* PlayerIcon.swift */,
 				C8PL0014AA10000000000048 /* SleepTimerSheet.swift */,
@@ -677,6 +687,8 @@
 				C8SP00B02F2D0000000000B0 /* ArtworkDiskCache.swift in Sources */,
 				C8SP00A62F2D0000000000A6 /* SVGRasterizer.swift in Sources */,
 				C8PL000B2F7000000000000B /* QueueMoveMath.swift in Sources */,
+				C8TQ00022FD0000000000002 /* TransferQueueTargets.swift in Sources */,
+				C8TQ00042FD0000000000004 /* TransferQueueTargetsTests.swift in Sources */,
 				C8MQ00212FC0000000000021 /* MarqueeCycle.swift in Sources */,
 				C8MQ00232FC0000000000023 /* MarqueeCycleTests.swift in Sources */,
 			);
@@ -691,6 +703,8 @@
 				C8AU00032FB0000000000003 /* NowPlayingCoordinator.swift in Sources */,
 				C8AU00042FB0000000000004 /* NowPlayingInfoStore.swift in Sources */,
 				C8PL0004AA10000000000045 /* PlayerPickerSheet.swift in Sources */,
+				C8TQ00032FD0000000000003 /* TransferQueueSheet.swift in Sources */,
+				C8TQ00012FD0000000000001 /* TransferQueueTargets.swift in Sources */,
 				C8PL0005AA10000000000053 /* PlayerIconCatalog.swift in Sources */,
 				C8PL0005AA10000000000051 /* PlayerIcon.swift in Sources */,
 				C8PL0004AA10000000000047 /* SleepTimerSheet.swift in Sources */,

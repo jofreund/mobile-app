@@ -12,7 +12,6 @@ import kotlin.test.assertEquals
  * `music/favorites/add_item` had the server ffprobe a web page and answer `invalid_data`.
  */
 class ReferenceUriTest {
-
     private val feedUrl = "https://geschichten-aus-der-geschichte.podigee.io/feed/mp3"
 
     @Test

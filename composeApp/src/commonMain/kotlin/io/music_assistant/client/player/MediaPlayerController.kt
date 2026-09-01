@@ -51,4 +51,3 @@ expect class MediaPlayerController(platformContext: PlatformContext) {
 
     fun setLongFormSeekIntervals(backSeconds: Long, forwardSeconds: Long)
 }
-
