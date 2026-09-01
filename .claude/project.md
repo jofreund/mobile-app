@@ -43,3 +43,4 @@ open iosApp/iosApp.xcodeproj
 
 - **WebRTC Remote Access**: See `.claude/webrtc-implementation-plan.md` for comprehensive implementation plan, protocol details, and architecture design
 - **Local Player (Sendspin) Integration**: See `.claude/local-player-integration-plan.md` for the plan to port the on-device Sendspin player back from upstream (restores background audio and lock-screen/Control Center integration)
+- **Transfer Queue**: See `.claude/transfer-queue-plan.md` for the plan to port upstream's "Transfer queue" action into a new overflow menu in the expanded player's header
