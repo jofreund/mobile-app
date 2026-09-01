@@ -139,9 +139,22 @@ private struct MiniPlayerRow: View {
     /// the chapter follows it — "where am I" is the one thing a six-hour item needs that a track
     /// doesn't.
     private var detailLine: String {
-        [player.name, audiobook?.subtitle ?? player.subtitle, chapterName]
+        [player.name, audiobook?.subtitle ?? trackSubtitle, chapterName]
             .compactMap { $0?.isEmpty == false ? $0 : nil }
             .joined(separator: " • ")
+    }
+
+    /// "Artist • Album" rebuilt from the structured `Track`, the same way the expanded player's
+    /// hero line does it: the primary artist only. `player.subtitle` carries the server's
+    /// pre-joined `current_media.artist` string, which separates multiple artists with "/" — a
+    /// join nothing else in the app uses — so the bar and the expanded player disagreed on the
+    /// same track. Falls back to that subtitle when there's no structured track to read (a radio
+    /// stream, or a track with neither artists nor album).
+    private var trackSubtitle: String? {
+        guard let track = player.trackItem as? Track else { return player.subtitle }
+        let parts = [track.artists.first?.displayName, track.album?.displayName]
+            .compactMap { $0?.isEmpty == false ? $0 : nil }
+        return parts.isEmpty ? player.subtitle : parts.joined(separator: " • ")
     }
 
     /// The chapter in play, for the settled page only.
