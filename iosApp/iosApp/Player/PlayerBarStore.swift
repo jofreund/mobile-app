@@ -122,6 +122,27 @@ final class PlayerBarStore {
         KmpHelper.shared.moveQueueItem(queueId: queueId, queueItemId: queueItemId, from: Int32(from), to: Int32(to))
     }
 
+    /// Hands `sourceQueueId`'s whole queue to `targetQueueId`. `autoplay` is the server's
+    /// `auto_play`: pass whether the source was playing, so a paused queue arrives paused.
+    func transferQueue(sourceQueueId: String, targetQueueId: String, autoplay: Bool) {
+        KmpHelper.shared.transferQueue(
+            sourceQueueId: sourceQueueId,
+            targetQueueId: targetQueueId,
+            autoplay: autoplay
+        )
+    }
+
+    /// Both take the value as it stands and let Kotlin compute the flip, same as
+    /// `toggleShuffle`/`cycleRepeatMode`. No optimistic state: the server echoes a queue
+    /// update and `playerBarState` re-projects.
+    func toggleAutoplay(id: String, isEnabledNow: Bool) {
+        KmpHelper.shared.togglePlayerBarAutoplay(playerId: id, isEnabledNow: isEnabledNow)
+    }
+
+    func toggleCrossfade(id: String, isEnabledNow: Bool) {
+        KmpHelper.shared.togglePlayerBarCrossfade(playerId: id, isEnabledNow: isEnabledNow)
+    }
+
     func addGroupMember(parentId: String, childId: String) {
         KmpHelper.shared.addGroupMember(parentId: parentId, childId: childId)
     }
@@ -219,6 +240,14 @@ struct PlayerBarItemView: Identifiable {
     let shuffleEnabled: Bool
     let repeatMode: RepeatMode?
     let isDynamicPlaylist: Bool
+    /// "Autoplay" — what the server used to call "don't stop the music". Drives the overflow
+    /// menu's first toggle.
+    let autoplayEnabled: Bool
+    /// Only meaningful while `crossfadeSupported`; false otherwise.
+    let crossfadeEnabled: Bool
+    /// The server reported `crossfade_enabled` for this queue. Older servers don't, and the
+    /// Crossfade row is left out of the menu entirely rather than drawn dead.
+    let crossfadeSupported: Bool
     let volumeLevel: Float?
     let isMuted: Bool
     let canMute: Bool
@@ -272,6 +301,9 @@ struct PlayerBarItemView: Identifiable {
         self.shuffleEnabled = item.shuffleEnabled
         self.repeatMode = item.repeatMode
         self.isDynamicPlaylist = item.isDynamicPlaylist
+        self.autoplayEnabled = item.autoplayEnabled
+        self.crossfadeEnabled = item.crossfadeEnabled
+        self.crossfadeSupported = item.crossfadeSupported
         self.volumeLevel = item.volumeLevel?.floatValue
         self.isMuted = item.isMuted
         self.canMute = item.canMute
@@ -296,6 +328,12 @@ struct PlayerBarItemView: Identifiable {
     /// resolves the server's raw value and owns the artwork.
     var iconId: String { PlayerIcon.resolve(icon, isGroup: isGroup) }
 }
+
+/// `id`, `queueId` and `canPlay` are already exactly what the transfer filter asks for, so the
+/// conformance is empty. It lives here rather than in `TransferQueueTargets.swift` because that
+/// file is compiled into the test target too, where this type — and the Kotlin framework behind
+/// it — isn't available.
+extension PlayerBarItemView: TransferQueueCandidate {}
 
 /// SwiftUI-shaped projection of the Kotlin `GroupMemberBarItem` — one row in the group
 /// settings sheet (a bound member or a groupable candidate).

@@ -29,10 +29,13 @@ private let playerLog = Logger(
 /// between the volume slider and the player picker, in thumb reach. (Favoriting was once
 /// predicted to land in an overflow menu instead; the icon row superseded that.)
 ///
+/// The header's ⋯ menu carries what acts on the queue as a whole: Autoplay, Crossfade (only on
+/// servers that report it) and "Transfer queue", which opens `TransferQueueSheet`.
+///
 /// Deliberately **not** here yet (unreachable until a later phase builds each natively): group
-/// management, DSP settings, playback speed, lyrics, and the rest of the overflow (⋮) menu
-/// (power, "don't stop the music", queue transfer, go-to-artist/album). None of the underlying
-/// Kotlin/server logic is touched — only their Swift entry point is gone.
+/// management, DSP settings, playback speed, lyrics, and the rest of the overflow menu (power,
+/// clear queue, go-to-artist/album). None of the underlying Kotlin/server logic is touched —
+/// only their Swift entry point is gone.
 struct ExpandedPlayerView: View {
 
     var store: PlayerBarStore
@@ -92,6 +95,7 @@ private struct ExpandedPlayerRow: View {
     @State private var showQueue = false
     @State private var showPlayerPicker = false
     @State private var showSleepTimer = false
+    @State private var showTransferTargets = false
     /// Optimistic local reorder — reset to `nil` (falling back to `player.queueItems`' own
     /// order) whenever the Kotlin-driven order changes, mirroring Compose's
     /// `remember(items) { mutableStateOf(items) }` reset-on-server-echo.
@@ -161,13 +165,16 @@ private struct ExpandedPlayerRow: View {
         .sheet(isPresented: $showSleepTimer) {
             SleepTimerSheet(player: player, store: store)
         }
+        .sheet(isPresented: $showTransferTargets) {
+            TransferQueueSheet(player: player, store: store)
+        }
     }
 
     // MARK: - Header
 
-    /// Just the collapse chevron now: the player name moved to the picker at the bottom, and the
-    /// queue toggle moved into `iconRow` with the other secondary actions, where a thumb can
-    /// actually reach it. The Spacer keeps the chevron leading-aligned.
+    /// The collapse chevron, and — trailing — the overflow menu holding the queue-wide options.
+    /// The player name moved to the picker at the bottom and the queue toggle to `iconRow`,
+    /// both within thumb reach; what is left up here is the chrome you reach for deliberately.
     private var header: some View {
         HStack {
             Button(action: onCollapse) {
@@ -175,7 +182,64 @@ private struct ExpandedPlayerRow: View {
                     .font(.title3.weight(.semibold))
             }
             Spacer(minLength: 0)
+            overflowMenu
         }
+    }
+
+    // MARK: - Overflow menu (queue settings + transfer)
+
+    /// Autoplay, Crossfade and "Transfer queue" — everything that acts on the queue as a whole
+    /// rather than on what is playing right now.
+    ///
+    /// The two settings are `Toggle`s, which a `Menu` draws as checkmark rows: the current
+    /// value is readable without opening anything further, and one tap flips it. They dispatch
+    /// through Kotlin with the value as it stands and let it compute the flip — the same
+    /// contract the shuffle and repeat buttons use — so nothing here is optimistic; the row
+    /// re-draws when the server echoes the change back through `playerBarState`.
+    ///
+    /// Transfer sits under a divider as the one entry that opens something rather than
+    /// changing a setting. The whole menu needs a queue to act on, so it is disabled without
+    /// one.
+    private var overflowMenu: some View {
+        Menu {
+            Toggle(String(localized: "queue_autoplay"), isOn: autoplayBinding)
+            // Old servers never report crossfade; the row is left out rather than drawn dead.
+            if player.crossfadeSupported {
+                Toggle(String(localized: "queue_crossfade"), isOn: crossfadeBinding)
+            }
+            Divider()
+            Button {
+                showTransferTargets = true
+            } label: {
+                Label(String(localized: "queue_transfer"), systemImage: "arrow.left.arrow.right")
+            }
+        } label: {
+            Image(systemName: "ellipsis")
+                .font(.title3.weight(.semibold))
+                // A bare glyph has almost no area to hit; the menu is the one control up here
+                // that isn't a whole-row target.
+                .frame(width: 44, height: 44, alignment: .trailing)
+                .contentShape(.rect)
+        }
+        .disabled(player.queueId == nil)
+        .accessibilityLabel(String(localized: "cd_more"))
+    }
+
+    /// `set` ignores the incoming value on purpose: Kotlin derives the next state from the
+    /// current one, so passing SwiftUI's optimistic guess would be the one thing that could
+    /// disagree with the server.
+    private var autoplayBinding: Binding<Bool> {
+        Binding(
+            get: { player.autoplayEnabled },
+            set: { _ in store.toggleAutoplay(id: player.id, isEnabledNow: player.autoplayEnabled) }
+        )
+    }
+
+    private var crossfadeBinding: Binding<Bool> {
+        Binding(
+            get: { player.crossfadeEnabled },
+            set: { _ in store.toggleCrossfade(id: player.id, isEnabledNow: player.crossfadeEnabled) }
+        )
     }
 
     /// Lives under the controls rather than in the header, where a thumb can actually reach it.

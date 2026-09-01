@@ -3,6 +3,13 @@
 A new overflow (⋯) menu in the top right of the expanded player's header, carrying three
 queue-level options: **Autoplay**, **Crossfade** and **Transfer queue**.
 
+**Status: built.** Kept as the design record — the reasoning behind the payload-shaped
+feature gate (§7.2), the candidate rules (§3) and the transfer semantics (§4) is not
+obvious from the diff. Two things landed differently from the plan and are noted where
+they occur: `TransferQueueTargets` filters a `TransferQueueCandidate` protocol rather than
+`PlayerBarItemView` (the test target compiles no Kotlin), and the
+`ToggleDontStopTheMusic` → `ToggleAutoplay` rename in §7.3.5 was left undone.
+
 Upstream (the Compose client this app was rewritten from) had all of these but crossfade in its
 player card's overflow menu. How much of each already exists here differs a lot:
 
