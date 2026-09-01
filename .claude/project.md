@@ -39,7 +39,7 @@ open iosApp/iosApp.xcodeproj
 
 - **Settings Screen**: See `.claude/settings-screen.md` for complete documentation on server connection, authentication flows, and local player configuration
 - **Expanded Player**: See `.claude/player-overflow-menu-plan.md` for the header ⋯ menu — Autoplay, Crossfade and "Transfer queue" — and why each is gated the way it is
-- **CarPlay & Siri**: See `.claude/carplay.md` for CarPlay architecture, template constraints, and the Siri media-domain integration (`INPlayMediaIntent` donation, `INUpdateMediaAffinityIntent`, `INSearchForMediaIntent`)
+- **CarPlay & Siri**: See `.claude/carplay.md` for CarPlay architecture, template constraints, and the Siri media-domain integration (`INPlayMediaIntent` donation, `INUpdateMediaAffinityIntent`, `INSearchForMediaIntent`). Both were removed from this fork; see `.claude/siri-integration-overview.md` for how upstream's Siri integration works today, where it has drifted past `carplay.md`, and what a port back would need
 
 ## Planned Features
 
