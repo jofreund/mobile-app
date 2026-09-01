@@ -24,7 +24,9 @@ sealed interface PlayerAction {
     data class ToggleShuffle(val current: Boolean) : PlayerAction
     data class ToggleRepeatMode(val current: RepeatMode) : PlayerAction
 
+    /** The server now calls this setting "autoplay"; the name here predates that rename. */
     data class ToggleDontStopTheMusic(val current: Boolean) : PlayerAction
+    data class ToggleCrossfade(val current: Boolean) : PlayerAction
     data class SeekTo(val position: Long) : PlayerAction
     data class SeekBy(val offsetSeconds: Long) : PlayerAction
     data class SetPlaybackSpeed(val speed: Double) : PlayerAction

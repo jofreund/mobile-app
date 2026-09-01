@@ -25,7 +25,13 @@ object APICommands {
     const val PLAYER_QUEUES_REPEAT = "player_queues/repeat"
     const val PLAYER_QUEUES_SHUFFLE = "player_queues/shuffle"
     const val PLAYER_QUEUES_PLAY_MEDIA = "player_queues/play_media"
+    const val PLAYER_QUEUES_AUTOPLAY = "player_queues/autoplay"
+
+    // Deprecated server-side spelling of PLAYER_QUEUES_AUTOPLAY, kept there as an alias.
+    // Still the only one an older server understands — see QueueInfo.supportsAutoplayCommand.
     const val PLAYER_QUEUES_DONT_STOP_THE_MUSIC = "player_queues/dont_stop_the_music"
+
+    const val PLAYER_QUEUES_CROSSFADE = "player_queues/crossfade"
     const val PLAYER_QUEUES_SET_PLAYBACK_SPEED = "player_queues/set_playback_speed"
 
     // Playlist commands

@@ -33,6 +33,40 @@ class ServerQueueSerializationTest {
     }
 
     @Test
+    fun readsAutoplayUnderItsCurrentNameAndFlagsTheCommandAsSupported() {
+        val json = """{"queue_id": "q1", "autoplay_enabled": true, "dont_stop_the_music_enabled": true}"""
+
+        val info = queueFactory.create(myJson.decodeFromString<ServerQueue>(json))
+
+        assertEquals(true, info.autoPlayEnabled)
+        assertEquals(true, info.supportsAutoplayCommand)
+    }
+
+    @Test
+    fun fallsBackToTheDeprecatedAutoplayKeyOnAnOlderServer() {
+        val json = """{"queue_id": "q1", "dont_stop_the_music_enabled": true}"""
+
+        val info = queueFactory.create(myJson.decodeFromString<ServerQueue>(json))
+
+        // Same setting, read under the only name this server sends — but the matching command
+        // is the deprecated alias, which is what supportsAutoplayCommand == false selects.
+        assertEquals(true, info.autoPlayEnabled)
+        assertEquals(false, info.supportsAutoplayCommand)
+    }
+
+    @Test
+    fun crossfadeStaysNullWhenTheServerNeverMentionsIt() {
+        val absent = queueFactory.create(myJson.decodeFromString<ServerQueue>("""{"queue_id": "q1"}"""))
+        assertNull(absent.crossfadeEnabled)
+
+        val json = """{"queue_id": "q1", "crossfade_enabled": false}"""
+        val reported = queueFactory.create(myJson.decodeFromString<ServerQueue>(json))
+        // Reported-and-off is not the same as unsupported: one draws an unchecked toggle, the
+        // other draws no row at all.
+        assertEquals(false, reported.crossfadeEnabled)
+    }
+
+    @Test
     fun mapsUnknownRepeatModeToOff() {
         val json = """{"queue_id": "q1", "repeat_mode": "random_future_mode"}"""
 

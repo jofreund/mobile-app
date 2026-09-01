@@ -41,6 +41,20 @@ data class PlayerBarItem(
     val repeatMode: RepeatMode?,
     /** Disables shuffle/repeat in the expanded view, same as Compose. */
     val isDynamicPlaylist: Boolean,
+    /**
+     * "Autoplay" — the setting the server used to call "don't stop the music". False rather
+     * than nullable: a queue that never reported it simply has it off, and the overflow menu's
+     * toggle needs a definite position to draw.
+     */
+    val autoplayEnabled: Boolean,
+    /** Meaningless unless [crossfadeSupported]; false there so Swift never draws a half-state. */
+    val crossfadeEnabled: Boolean,
+    /**
+     * The server reported `crossfade_enabled` for this queue, so the crossfade toggle is worth
+     * showing. Split from [crossfadeEnabled] rather than bridging one `Boolean?`, per this
+     * file's own rule — Swift never sees a `KotlinBoolean?` (cf. [GroupMemberBarItem.canMute]).
+     */
+    val crossfadeSupported: Boolean,
     /** Null when the player has no accessible volume control (mirrors `isVolumeSliderAccessible`). */
     val volumeLevel: Float?,
     val isMuted: Boolean,
@@ -288,6 +302,9 @@ internal fun buildPlayerBarState(
                 shuffleEnabled = queue?.shuffleEnabled ?: false,
                 repeatMode = queue?.repeatMode,
                 isDynamicPlaylist = queue?.isDynamicPlaylist ?: false,
+                autoplayEnabled = queue?.autoPlayEnabled ?: false,
+                crossfadeEnabled = queue?.crossfadeEnabled ?: false,
+                crossfadeSupported = queue?.crossfadeEnabled != null,
                 volumeLevel = player.currentVolume.takeIf { player.isVolumeSliderAccessible },
                 isMuted = player.currentMuteState,
                 canMute = player.canMute,

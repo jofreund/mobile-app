@@ -258,6 +258,35 @@ data class Request @OptIn(ExperimentalUuidApi::class) constructor(
             },
         )
 
+        /**
+         * The server renamed this setting to "autoplay"; [APICommands.PLAYER_QUEUES_DONT_STOP_THE_MUSIC]
+         * survives there only as an alias. Callers pick between the two on
+         * [io.music_assistant.client.data.model.client.QueueInfo.supportsAutoplayCommand] — a server
+         * that reports `autoplay_enabled` understands this one.
+         */
+        fun setAutoplay(
+            queueId: String,
+            enabled: Boolean,
+        ) = Request(
+            command = APICommands.PLAYER_QUEUES_AUTOPLAY,
+            args = buildJsonObject {
+                put("queue_id", JsonPrimitive(queueId))
+                put("autoplay_enabled", JsonPrimitive(enabled))
+            },
+        )
+
+        fun setCrossfade(
+            queueId: String,
+            enabled: Boolean,
+        ) = Request(
+            command = APICommands.PLAYER_QUEUES_CROSSFADE,
+            args = buildJsonObject {
+                put("queue_id", JsonPrimitive(queueId))
+                put("crossfade_enabled", JsonPrimitive(enabled))
+            },
+        )
+
+        /** The pre-rename spelling of [setAutoplay], for servers that only know that one. */
         fun setDontStopTheMusic(
             queueId: String,
             enabled: Boolean,

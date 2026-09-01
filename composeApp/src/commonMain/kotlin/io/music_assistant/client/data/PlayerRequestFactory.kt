@@ -83,8 +83,17 @@ class PlayerRequestFactory(
             }
 
             is PlayerAction.ToggleDontStopTheMusic -> {
+                val queue = data.queueInfo ?: return null
+                if (queue.supportsAutoplayCommand) {
+                    Request.Queue.setAutoplay(queueId = queue.id, enabled = !action.current)
+                } else {
+                    Request.Queue.setDontStopTheMusic(queueId = queue.id, enabled = !action.current)
+                }
+            }
+
+            is PlayerAction.ToggleCrossfade -> {
                 val queueId = data.queueInfo?.id ?: return null
-                Request.Queue.setDontStopTheMusic(queueId = queueId, enabled = !action.current)
+                Request.Queue.setCrossfade(queueId = queueId, enabled = !action.current)
             }
 
             is PlayerAction.SetPlaybackSpeed -> {

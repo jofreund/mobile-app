@@ -18,8 +18,21 @@ data class ServerQueue(
     // @SerialName("items") val items: Int,
     @SerialName("shuffle_enabled") val shuffleEnabled: Boolean = false,
     @SerialName("repeat_mode") val repeatMode: String? = null,
-    // TODO replace with "auto_play" when available. This one is deprecated.
+    /**
+     * The current spelling of the setting this client long called "don't stop the music"; the
+     * server renamed it to autoplay and now mirrors the value back into
+     * [dontStopTheMusicEnabled] purely for clients that predate the rename. Nullable so its
+     * absence doubles as the feature gate for the `player_queues/autoplay` command — see
+     * [io.music_assistant.client.data.model.client.QueueInfo.supportsAutoplayCommand].
+     */
+    @SerialName("autoplay_enabled") val autoplayEnabled: Boolean? = null,
+    /** Pre-rename spelling of [autoplayEnabled]; still the only one an older server sends. */
     @SerialName("dont_stop_the_music_enabled") val dontStopTheMusicEnabled: Boolean? = null,
+    /**
+     * Nullable as a feature gate, same reasoning as [playbackSpeed]: a server that never sends
+     * `crossfade_enabled` has no crossfade to toggle, and the UI hides the control.
+     */
+    @SerialName("crossfade_enabled") val crossfadeEnabled: Boolean? = null,
     @SerialName("is_dynamic") val isDynamic: Boolean = false,
     @SerialName("current_index") val currentIndex: Int? = null,
     // @SerialName("index_in_buffer") val indexInBuffer: Int? = null,

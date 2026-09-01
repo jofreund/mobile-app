@@ -51,6 +51,50 @@ class PlayerBarStateTest {
     }
 
     @Test
+    fun `crossfade support is projected apart from the crossfade value`() {
+        // A server that never reports crossfade and one that reports it off both leave
+        // crossfadeEnabled false; only crossfadeSupported separates "no row" from "row, off",
+        // which is the whole reason the nullable is split in two across the bridge.
+        val unsupported = queueSettingsPlayer(crossfadeEnabled = null)
+        assertEquals(false, stateOf(unsupported).players.single().crossfadeSupported)
+        assertEquals(false, stateOf(unsupported).players.single().crossfadeEnabled)
+
+        val off = queueSettingsPlayer(crossfadeEnabled = false)
+        assertEquals(true, stateOf(off).players.single().crossfadeSupported)
+        assertEquals(false, stateOf(off).players.single().crossfadeEnabled)
+
+        val on = queueSettingsPlayer(crossfadeEnabled = true)
+        assertEquals(true, stateOf(on).players.single().crossfadeSupported)
+        assertEquals(true, stateOf(on).players.single().crossfadeEnabled)
+    }
+
+    @Test
+    fun `autoplay projects as a definite boolean even when the queue never reported it`() {
+        assertEquals(true, stateOf(queueSettingsPlayer(autoPlayEnabled = true)).players.single().autoplayEnabled)
+        assertEquals(false, stateOf(queueSettingsPlayer(autoPlayEnabled = null)).players.single().autoplayEnabled)
+    }
+
+    /** A player whose queue carries the two overflow-menu settings at the given values. */
+    private fun queueSettingsPlayer(
+        autoPlayEnabled: Boolean? = false,
+        crossfadeEnabled: Boolean? = null,
+    ): PlayerData {
+        val base = PlayerDataFixtures.playerData()
+        val info = base.queueInfo ?: error("fixture has no queue")
+        return base.copy(
+            queue = DataState.Data(
+                Queue(
+                    info = info.copy(
+                        autoPlayEnabled = autoPlayEnabled,
+                        crossfadeEnabled = crossfadeEnabled,
+                    ),
+                    items = DataState.NoData(),
+                ),
+            ),
+        )
+    }
+
+    @Test
     fun `a grouped player reports group volume but keeps its own as ownVolume`() {
         // The expanded player's inline slider drives the group as a whole, while the group
         // settings sheet's pivot row edits this speaker alone — so both have to survive the

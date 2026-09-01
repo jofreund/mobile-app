@@ -9,6 +9,15 @@ data class QueueInfo(
     val shuffleEnabled: Boolean,
     val repeatMode: RepeatMode?,
     val autoPlayEnabled: Boolean?,
+    /**
+     * True when the server reported the setting under its current name (`autoplay_enabled`) and
+     * therefore understands `player_queues/autoplay`; false selects the deprecated
+     * `player_queues/dont_stop_the_music` alias. A payload-shaped feature gate rather than a
+     * schema constant — the server answers the question itself, per queue.
+     */
+    val supportsAutoplayCommand: Boolean = false,
+    /** Null when the server sends no `crossfade_enabled` at all: no crossfade control to show. */
+    val crossfadeEnabled: Boolean? = null,
     val elapsedTime: Double?,
     /**
      * Unix epoch seconds (UTC) when [elapsedTime] was last recomputed
