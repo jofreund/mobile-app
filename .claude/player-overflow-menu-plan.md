@@ -56,6 +56,11 @@ current value is visible without opening anything further, and one tap flips it.
 under a `Divider` because it is the one entry that opens something rather than changing a
 setting. The whole menu is disabled when `player.queueId == nil` — all three act on a queue.
 
+The menu stays open after a setting row is tapped (`menuActionDismissBehavior(.disabled)` on
+the `Menu`): each row shows its own value, so flipping one and reading the result is the whole
+interaction, and closing on every tap meant reopening to flip the next. Transfer alone
+re-enables dismissal on its `Button`, since it presents a sheet.
+
 The menu is also the seam the rest of upstream's overflow lands in later (power on/off, clear
 queue, DSP settings, playback speed), none of which is in this scope.
 
