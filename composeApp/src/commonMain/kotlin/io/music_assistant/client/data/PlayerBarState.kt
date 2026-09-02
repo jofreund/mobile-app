@@ -55,6 +55,15 @@ data class PlayerBarItem(
      * file's own rule — Swift never sees a `KotlinBoolean?` (cf. [GroupMemberBarItem.canMute]).
      */
     val crossfadeSupported: Boolean,
+    /**
+     * The queue's playback speed (1.0 = normal), or null when the server never sent
+     * `playback_speed` — older servers don't, and the speed row stays out of the overflow menu.
+     * Nullable is fine here (a `KotlinDouble?` bridges cleanly, cf. [sleepTimerExpiresAt]);
+     * only `Boolean?` is the shape this file avoids. The server accepts the command for
+     * audiobooks and podcast episodes alone, so Swift additionally gates the row on
+     * [isSpokenWord].
+     */
+    val playbackSpeed: Double?,
     /** Null when the player has no accessible volume control (mirrors `isVolumeSliderAccessible`). */
     val volumeLevel: Float?,
     val isMuted: Boolean,
@@ -305,6 +314,7 @@ internal fun buildPlayerBarState(
                 autoplayEnabled = queue?.autoPlayEnabled ?: false,
                 crossfadeEnabled = queue?.crossfadeEnabled ?: false,
                 crossfadeSupported = queue?.crossfadeEnabled != null,
+                playbackSpeed = queue?.playbackSpeed,
                 volumeLevel = player.currentVolume.takeIf { player.isVolumeSliderAccessible },
                 isMuted = player.currentMuteState,
                 canMute = player.canMute,

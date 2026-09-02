@@ -143,6 +143,12 @@ final class PlayerBarStore {
         KmpHelper.shared.togglePlayerBarCrossfade(playerId: id, isEnabledNow: isEnabledNow)
     }
 
+    /// Sends the chosen speed as-is; no flip to compute, and no optimistic echo either — the
+    /// menu's checkmark moves when the server confirms through `playerBarState`.
+    func setPlaybackSpeed(id: String, speed: Double) {
+        KmpHelper.shared.setPlayerBarPlaybackSpeed(playerId: id, speed: speed)
+    }
+
     func addGroupMember(parentId: String, childId: String) {
         KmpHelper.shared.addGroupMember(parentId: parentId, childId: childId)
     }
@@ -248,6 +254,9 @@ struct PlayerBarItemView: Identifiable {
     /// The server reported `crossfade_enabled` for this queue. Older servers don't, and the
     /// Crossfade row is left out of the menu entirely rather than drawn dead.
     let crossfadeSupported: Bool
+    /// The queue's speed (1.0 = normal), nil when the server reports none — then there is no
+    /// speed row to draw. See `PlaybackSpeedOptions` for how the value becomes menu rows.
+    let playbackSpeed: Double?
     let volumeLevel: Float?
     let isMuted: Bool
     let canMute: Bool
@@ -304,6 +313,7 @@ struct PlayerBarItemView: Identifiable {
         self.autoplayEnabled = item.autoplayEnabled
         self.crossfadeEnabled = item.crossfadeEnabled
         self.crossfadeSupported = item.crossfadeSupported
+        self.playbackSpeed = item.playbackSpeed?.doubleValue
         self.volumeLevel = item.volumeLevel?.floatValue
         self.isMuted = item.isMuted
         self.canMute = item.canMute

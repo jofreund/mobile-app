@@ -30,11 +30,12 @@ private let playerLog = Logger(
 /// predicted to land in an overflow menu instead; the icon row superseded that.)
 ///
 /// The header's ⋯ menu carries what acts on the queue as a whole: Autoplay, Crossfade (only on
-/// servers that report it) and "Transfer queue", which opens `TransferQueueSheet`.
+/// servers that report it), Playback speed (only for audiobooks and podcast episodes on servers
+/// that report it) and "Transfer queue", which opens `TransferQueueSheet`.
 ///
 /// Deliberately **not** here yet (unreachable until a later phase builds each natively): group
-/// management, DSP settings, playback speed, lyrics, and the rest of the overflow menu (power,
-/// clear queue, go-to-artist/album). None of the underlying Kotlin/server logic is touched —
+/// management, DSP settings, lyrics, and the rest of the overflow menu (power, clear queue,
+/// go-to-artist/album). None of the underlying Kotlin/server logic is touched —
 /// only their Swift entry point is gone.
 struct ExpandedPlayerView: View {
 
@@ -192,37 +193,69 @@ private struct ExpandedPlayerRow: View {
 
     // MARK: - Overflow menu (queue settings + transfer)
 
-    /// Autoplay, Crossfade and "Transfer queue" — everything that acts on the queue as a whole
-    /// rather than on what is playing right now.
+    /// Autoplay, Crossfade, Playback speed and "Transfer queue" — everything that acts on the
+    /// queue as a whole rather than on what is playing right now.
     ///
-    /// The two settings are `Toggle`s, which a `Menu` draws as checkmark rows: the current
-    /// value is readable without opening anything further, and one tap flips it. They dispatch
-    /// through Kotlin with the value as it stands and let it compute the flip — the same
-    /// contract the shuffle and repeat buttons use — so nothing here is optimistic; the row
-    /// re-draws when the server echoes the change back through `playerBarState`.
+    /// The two settings are `Button`s whose label carries the state as a subtitle — "On" or
+    /// "Off" under the name — and one tap flips it. They dispatch through Kotlin with the value
+    /// as it stands and let it compute the flip — the same contract the shuffle and repeat
+    /// buttons use — so nothing here is optimistic; the row re-draws when the server echoes the
+    /// change back through `playerBarState`.
+    ///
+    /// **Why buttons and not `Toggle`s.** A `Toggle` in a `Menu` draws as a checkmark row, and
+    /// a menu row has one image slot that the checkmark owns — so a toggle's icon shows only
+    /// while it is off and disappears the moment it is on, which read as odd. A subtitle keeps
+    /// the icon on every row and states the value in words, and it makes the two settings the
+    /// same shape as the speed row below, whose subtitle is its value.
+    ///
+    /// Playback speed is a submenu holding a `Picker`, which a `Menu` draws as radio rows: the
+    /// current speed is the checked one and the label's subtitle repeats it so it can be read
+    /// without opening the submenu. The rows come from `PlaybackSpeedOptions`. The server only
+    /// honours speed for audiobooks and podcast episodes (it rejects the command for music) and
+    /// only reports one at all on versions that have the feature, so the entry needs both a
+    /// spoken-word item and a reported value.
     ///
     /// Transfer sits under a divider as the one entry that opens something rather than
     /// changing a setting. The whole menu needs a queue to act on, so it is disabled without
     /// one.
-    ///
-    /// **The two toggles show their icon only while switched off.** A menu row has one image
-    /// slot and the checkmark owns it — the same constraint `PlayerPickerSheet` documents as
-    /// its reason for being a sheet — so an enabled setting reads as a checkmark and a
-    /// disabled one as its glyph. The icons are still worth it: they make the three entries
-    /// scannable, and the row that loses its glyph is exactly the row whose checkmark is
-    /// carrying the meaning.
     private var overflowMenu: some View {
         Menu {
-            Toggle(isOn: autoplayBinding) {
+            settingRow(
+                title: String(localized: "queue_autoplay"),
+                isOn: player.autoplayEnabled,
                 // The queue never runs dry — music keeps coming after the last item.
-                Label(String(localized: "queue_autoplay"), systemImage: "infinity")
+                systemImage: "infinity"
+            ) {
+                store.toggleAutoplay(id: player.id, isEnabledNow: player.autoplayEnabled)
             }
             // Old servers never report crossfade; the row is left out rather than drawn dead.
             if player.crossfadeSupported {
-                Toggle(isOn: crossfadeBinding) {
+                settingRow(
+                    title: String(localized: "queue_crossfade"),
+                    isOn: player.crossfadeEnabled,
                     // Two lines running into one: the tail of a track blended into the head
                     // of the next.
-                    Label(String(localized: "queue_crossfade"), systemImage: "arrow.triangle.merge")
+                    systemImage: "arrow.triangle.merge"
+                ) {
+                    store.toggleCrossfade(id: player.id, isEnabledNow: player.crossfadeEnabled)
+                }
+            }
+            if player.isSpokenWord, let speed = player.playbackSpeed {
+                Menu {
+                    Picker(
+                        String(localized: "playback_speed_dialog_title"),
+                        selection: playbackSpeedBinding(current: speed)
+                    ) {
+                        ForEach(PlaybackSpeedOptions.rows(current: speed), id: \.self) { option in
+                            Text(PlaybackSpeedOptions.label(for: option)).tag(option)
+                        }
+                    }
+                    .pickerStyle(.inline)
+                } label: {
+                    // Same three-sibling form as `settingRow`, for the same reason.
+                    Text(String(localized: "playback_speed_dialog_title"))
+                    Text(PlaybackSpeedOptions.label(for: speed))
+                    Image(systemName: "gauge.with.dots.needle.67percent")
                 }
             }
             Divider()
@@ -243,20 +276,32 @@ private struct ExpandedPlayerRow: View {
         .accessibilityLabel(String(localized: "cd_more"))
     }
 
-    /// `set` ignores the incoming value on purpose: Kotlin derives the next state from the
-    /// current one, so passing SwiftUI's optimistic guess would be the one thing that could
-    /// disagree with the server.
-    private var autoplayBinding: Binding<Bool> {
-        Binding(
-            get: { player.autoplayEnabled },
-            set: { _ in store.toggleAutoplay(id: player.id, isEnabledNow: player.autoplayEnabled) }
-        )
+    /// One on/off setting as a menu row: icon, name, and the state as the subtitle. `flip`
+    /// passes the value as it stands to Kotlin, which derives the next one — sending SwiftUI's
+    /// own guess would be the one thing that could disagree with the server.
+    private func settingRow(
+        title: String,
+        isOn: Bool,
+        systemImage: String,
+        flip: @escaping () -> Void
+    ) -> some View {
+        // Title, subtitle, icon — as three siblings, not a `Label`: a menu reads a `Label`'s
+        // title as one line and drops the second `Text` on the floor, so the state never showed.
+        Button(action: flip) {
+            Text(title)
+            Text(String(localized: isOn ? "common_on" : "common_off"))
+            Image(systemName: systemImage)
+        }
+        .accessibilityValue(String(localized: isOn ? "common_on" : "common_off"))
     }
 
-    private var crossfadeBinding: Binding<Bool> {
+    /// Same contract as the toggles, minus the flip: the picked value goes to Kotlin as chosen
+    /// and the checkmark moves when the server echoes it back. `get` normalises so a value
+    /// like 1.2500001 still lights up its preset row.
+    private func playbackSpeedBinding(current: Double) -> Binding<Double> {
         Binding(
-            get: { player.crossfadeEnabled },
-            set: { _ in store.toggleCrossfade(id: player.id, isEnabledNow: player.crossfadeEnabled) }
+            get: { PlaybackSpeedOptions.normalized(current) },
+            set: { store.setPlaybackSpeed(id: player.id, speed: $0) }
         )
     }
 

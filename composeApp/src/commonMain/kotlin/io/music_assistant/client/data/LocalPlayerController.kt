@@ -271,6 +271,10 @@ class LocalPlayerController(
                 updateOptimisticQueueInfo { it.copy(crossfadeEnabled = !action.current) }
             }
 
+            is PlayerAction.SetPlaybackSpeed -> {
+                updateOptimisticQueueInfo { it.copy(playbackSpeed = action.speed) }
+            }
+
             is PlayerAction.SeekTo -> {
                 // Freeze until Sendspin confirms audio, not merely until the server echoes the seek.
                 updateOptimisticQueueInfo { it.copy(elapsedTime = action.position.toDouble()) }
@@ -836,6 +840,12 @@ class LocalPlayerController(
                 is PlayerAction.ToggleCrossfade -> {
                     val idx = commandQueue.indexOfFirst { it.action is PlayerAction.ToggleCrossfade }
                     if (idx >= 0) commandQueue.removeAt(idx) else commandQueue.add(entry)
+                }
+
+                // Absolute value, so the latest pick simply replaces any earlier one.
+                is PlayerAction.SetPlaybackSpeed -> {
+                    commandQueue.removeAll { it.action is PlayerAction.SetPlaybackSpeed }
+                    commandQueue.add(entry)
                 }
 
                 is PlayerAction.SeekTo -> {

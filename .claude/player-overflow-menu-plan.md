@@ -329,3 +329,29 @@ all — `overlay_*`, `smart_fades_active`, `smart_shuffle_active`.
    vocabulary across client, server and UI label; it costs a mechanical diff through
    `LocalPlayerController`, which is the most delicate file the change touches.
 3. **`sr` and `zh-Hans` translations** for the two new keys (§7.5) need a reviewer.
+
+## 8. Playback speed (added 2026-09-02)
+
+A fourth entry, between Crossfade and the divider: a **submenu** whose `Picker` lists
+`PlaybackSpeedOptions.presets` (0.5× … 3×, the nine chips upstream's slider dialog used) with
+the current speed checked and repeated as the row's subtitle. The Kotlin side already existed
+whole from upstream #566 (`PlayerAction.SetPlaybackSpeed`, `Request.Queue.setPlaybackSpeed`,
+`QueueInfo.playbackSpeed`); what was added is `PlayerBarItem.playbackSpeed`, the
+`KmpHelper.setPlayerBarPlaybackSpeed` bridge, a local-player optimistic update, and the Swift.
+
+**Gate: `isSpokenWord && playbackSpeed != null`.** The server (`player_queues/set_playback_speed`)
+raises `InvalidCommand` for anything but audiobooks and podcast episodes, validates 0.5–3.0,
+and omits `playback_speed` from the queue payload on versions without the feature — so the value
+being present is the version gate (same payload-shaped reasoning as §7.2) and the media type is
+the server's own rule, not a UI preference. If the queue arrives at a speed off the preset grid
+(another client's slider), `PlaybackSpeedOptions.rows(current:)` splices it in so the picker
+still has a checked row.
+
+## 9. Row style: subtitle buttons, not checkmark toggles (2026-09-02)
+
+Autoplay and Crossfade were first built as `Toggle`s, which a `Menu` draws as checkmark rows —
+and since a menu row has one image slot, the checkmark displaced each row's icon while on. That
+read as odd, so both are now `Button`s whose label carries the state as a subtitle ("On"/"Off",
+keys `common_on`/`common_off`), keeping the icon on every row and matching the speed row, whose
+subtitle is its value. The dispatch contract is unchanged: the current value goes to Kotlin,
+which computes the flip. See `settingRow` in `ExpandedPlayerView`.

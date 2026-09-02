@@ -14,14 +14,15 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
 /**
- * Pins the two queue settings the expanded player's overflow menu drives.
+ * Pins the queue settings the expanded player's overflow menu drives.
  *
  * Autoplay is the setting the server renamed: `player_queues/dont_stop_the_music` survives
  * there only as an alias of `player_queues/autoplay`, and which one a given server understands
  * is answered by the queue payload itself ([QueueInfo.supportsAutoplayCommand]) rather than by
  * a pinned schema version. Crossfade is plain, but shares the "pass the current value, Kotlin
  * flips it" contract every other toggle uses — a factory that echoed the value back instead of
- * inverting it would leave the menu unable to switch anything off.
+ * inverting it would leave the menu unable to switch anything off. Playback speed is the one
+ * entry that carries a value instead of a flip: it goes out exactly as chosen.
  */
 class QueueSettingsRequestTest {
     private val factory = PlayerRequestFactory(PlayerPositionTracker(), UserPreferences())
@@ -99,11 +100,21 @@ class QueueSettingsRequestTest {
     }
 
     @Test
-    fun bothToggleTheirWayToNothingWithoutAQueue() {
+    fun playbackSpeedIsSentAsChosenOnTheQueue() {
+        val request = factory.buildRequest(dataWith(), PlayerAction.SetPlaybackSpeed(1.25))
+
+        assertEquals(APICommands.PLAYER_QUEUES_SET_PLAYBACK_SPEED, request?.command)
+        assertEquals(JsonPrimitive(QUEUE_ID), request?.args?.get("queue_id"))
+        assertEquals(JsonPrimitive(1.25), request?.args?.get("speed"))
+    }
+
+    @Test
+    fun allOfThemResolveToNothingWithoutAQueue() {
         val noQueue = PlayerDataFixtures.playerData().copy(queue = DataState.NoData())
 
         assertNull(factory.buildRequest(noQueue, PlayerAction.ToggleDontStopTheMusic(false)))
         assertNull(factory.buildRequest(noQueue, PlayerAction.ToggleCrossfade(false)))
+        assertNull(factory.buildRequest(noQueue, PlayerAction.SetPlaybackSpeed(1.5)))
     }
 
     private companion object {

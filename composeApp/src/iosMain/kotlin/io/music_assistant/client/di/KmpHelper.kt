@@ -1662,18 +1662,29 @@ object KmpHelper : KoinComponent {
     fun transferQueue(sourceQueueId: String, targetQueueId: String, autoplay: Boolean) =
         mainDataSource.queueAction(QueueAction.Transfer(sourceQueueId, targetQueueId, autoplay))
 
-    // MARK: - Queue settings (overflow menu toggles)
+    // MARK: - Queue settings (overflow menu)
     //
-    // Both take the value as it stands and let Kotlin compute the flip — the same shape as the
-    // shuffle/repeat/mute bridges above, and what PlayerRequestFactory expects. Both go through
-    // [dispatchPlayerBarAction] (the PlayerData-based overload); the string-id overload's `when`
-    // is the incomplete one this file warns about above and would drop them silently.
+    // The two toggles take the value as it stands and let Kotlin compute the flip — the same
+    // shape as the shuffle/repeat/mute bridges above, and what PlayerRequestFactory expects. All
+    // three go through [dispatchPlayerBarAction] (the PlayerData-based overload); the string-id
+    // overload's `when` is the incomplete one this file warns about above and would drop them
+    // silently.
 
     fun togglePlayerBarAutoplay(playerId: String, isEnabledNow: Boolean) =
         dispatchPlayerBarAction(playerId, PlayerAction.ToggleDontStopTheMusic(isEnabledNow))
 
     fun togglePlayerBarCrossfade(playerId: String, isEnabledNow: Boolean) =
         dispatchPlayerBarAction(playerId, PlayerAction.ToggleCrossfade(isEnabledNow))
+
+    /**
+     * Sets the queue's playback speed outright (server range 0.5–3.0, 1.0 = normal) — the one
+     * menu entry that carries a value rather than a flip. The server accepts it for audiobooks
+     * and podcast episodes only and rejects the command for anything else, which is why the
+     * Swift row is gated on `isSpokenWord` as well as on the queue reporting a speed at all.
+     * Nothing optimistic for remote players: the checkmark moves when the server echoes it.
+     */
+    fun setPlayerBarPlaybackSpeed(playerId: String, speed: Double) =
+        dispatchPlayerBarAction(playerId, PlayerAction.SetPlaybackSpeed(speed))
 
     // MARK: - Player grouping (native group settings sheet)
     //

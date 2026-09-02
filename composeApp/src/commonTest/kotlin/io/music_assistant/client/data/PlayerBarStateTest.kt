@@ -74,10 +74,19 @@ class PlayerBarStateTest {
         assertEquals(false, stateOf(queueSettingsPlayer(autoPlayEnabled = null)).players.single().autoplayEnabled)
     }
 
-    /** A player whose queue carries the two overflow-menu settings at the given values. */
+    @Test
+    fun `playback speed is passed through and null stands for a server without it`() {
+        // Unlike crossfade there is no separate "supported" flag: the value itself is the gate,
+        // and Swift draws the row only when it is present (and the item is spoken word).
+        assertNull(stateOf(queueSettingsPlayer(playbackSpeed = null)).players.single().playbackSpeed)
+        assertEquals(1.5, stateOf(queueSettingsPlayer(playbackSpeed = 1.5)).players.single().playbackSpeed)
+    }
+
+    /** A player whose queue carries the overflow-menu settings at the given values. */
     private fun queueSettingsPlayer(
         autoPlayEnabled: Boolean? = false,
         crossfadeEnabled: Boolean? = null,
+        playbackSpeed: Double? = null,
     ): PlayerData {
         val base = PlayerDataFixtures.playerData()
         val info = base.queueInfo ?: error("fixture has no queue")
@@ -87,6 +96,7 @@ class PlayerBarStateTest {
                     info = info.copy(
                         autoPlayEnabled = autoPlayEnabled,
                         crossfadeEnabled = crossfadeEnabled,
+                        playbackSpeed = playbackSpeed,
                     ),
                     items = DataState.NoData(),
                 ),
