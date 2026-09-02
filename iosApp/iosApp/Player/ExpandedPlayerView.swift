@@ -218,6 +218,13 @@ private struct ExpandedPlayerRow: View {
     /// Transfer sits under a divider as the one entry that opens something rather than
     /// changing a setting. The whole menu needs a queue to act on, so it is disabled without
     /// one.
+    ///
+    /// **Why the menu stays open.** Every row but Transfer changes a setting whose value is
+    /// drawn in the row itself, so flipping one and watching the subtitle change is the whole
+    /// interaction — closing the menu on each tap meant reopening it to flip the next, or to
+    /// check the server took the change. `menuActionDismissBehavior(.disabled)` keeps it up;
+    /// Transfer opts back into dismissal because it presents a sheet, which has no business
+    /// appearing over an open menu.
     private var overflowMenu: some View {
         Menu {
             settingRow(
@@ -264,6 +271,7 @@ private struct ExpandedPlayerRow: View {
             } label: {
                 Label(String(localized: "queue_transfer"), systemImage: "arrow.left.arrow.right")
             }
+            .menuActionDismissBehavior(.enabled)
         } label: {
             Image(systemName: "ellipsis")
                 .font(.title3.weight(.semibold))
@@ -272,6 +280,7 @@ private struct ExpandedPlayerRow: View {
                 .frame(width: 44, height: 44, alignment: .trailing)
                 .contentShape(.rect)
         }
+        .menuActionDismissBehavior(.disabled)
         .disabled(player.queueId == nil)
         .accessibilityLabel(String(localized: "cd_more"))
     }
