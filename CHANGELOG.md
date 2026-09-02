@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Fixed - 2026-09-02
+
+- Resuming a paused audiobook or podcast episode now picks up at the resume point the server
+  keeps for it when another player moved that point in the meantime, instead of replaying from
+  where this player paused. While connected, a paused player's position also follows the
+  progress another player reports for the same item.
+
 ### Changed - 2026-01-08
 
 #### Settings Screen Refactoring

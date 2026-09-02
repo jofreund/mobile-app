@@ -78,6 +78,13 @@ This follows the server's `audiobook_chapter_progress` setting, which is toggled
 Assistant web interface: with it off, everything stays on whole-book time and the transport
 buttons move between queue items.
 
+Audiobooks and podcast episodes also keep their place across players. Pause one here, carry
+on listening on another player, and resuming here picks up where that player left off rather
+than where this one paused: before resuming, the app checks the resume point the server keeps
+for the item and seeks there when it has moved. While the app is open and the other player
+reports progress, the paused player's position follows along, so the seek bar already shows
+where a resume will land.
+
 Two things live in the expanded player's header:
 
 - **Queue** — the upcoming list. Tap to jump, drag to reorder, long-press for the item menu

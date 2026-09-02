@@ -683,6 +683,14 @@ data class Request @OptIn(ExperimentalUuidApi::class) constructor(
             },
         )
 
+        /** The full item behind a uri, with its live progress fields (`resume_position_ms`). */
+        fun getByUri(uri: String) = Request(
+            command = APICommands.MUSIC_ITEM_BY_URI,
+            args = buildJsonObject {
+                put("uri", JsonPrimitive(uri))
+            },
+        )
+
         fun add(
             itemUri: String,
         ) = Request(

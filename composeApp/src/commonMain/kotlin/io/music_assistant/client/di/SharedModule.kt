@@ -11,6 +11,7 @@ import io.music_assistant.client.data.LocalPlayerController
 import io.music_assistant.client.data.MainDataSource
 import io.music_assistant.client.data.PlayerPositionTracker
 import io.music_assistant.client.data.PlayerRequestFactory
+import io.music_assistant.client.data.ResumePointResolver
 import io.music_assistant.client.data.UserPreferences
 import io.music_assistant.client.data.factory.MediaItemFactory
 import io.music_assistant.client.data.factory.PlayerFactory
@@ -67,6 +68,7 @@ fun sharedModule(
         single { UserPreferences() }        // Server-synced auth/me preferences
         singleOf(::LocalPlayerController)    // Local player: lifecycle + state + commands
         singleOf(::PlayerRequestFactory)    // Pure PlayerAction → Request mapper
+        singleOf(::ResumePointResolver)     // Re-syncs a paused audiobook/episode to the server's resume point
         singleOf(::MediaItemFactory)        // Stateless DTO → domain mapper
         singleOf(::PlayerFactory)           // Stateless DTO → domain mapper
         singleOf(::QueueFactory)            // Stateless DTO → domain mapper (depends on MediaItemFactory)

@@ -62,6 +62,10 @@ class PlayerRequestFactory(
                 Request.Player.seek(queueId = data.playerId, position = action.position)
             }
 
+            // A seek starts playback server-side, so the relocated resume needs no separate play.
+            is PlayerAction.PlayFrom ->
+                Request.Player.seek(queueId = data.playerId, position = action.position)
+
             // Resolved to SeekTo in resolve(); never reaches here.
             is PlayerAction.SeekBy -> null
 

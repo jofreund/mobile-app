@@ -28,6 +28,13 @@ sealed interface PlayerAction {
     data class ToggleDontStopTheMusic(val current: Boolean) : PlayerAction
     data class ToggleCrossfade(val current: Boolean) : PlayerAction
     data class SeekTo(val position: Long) : PlayerAction
+
+    /**
+     * Resume at [position] seconds: a resume that `ResumePointResolver` relocated to the
+     * server's resume point. Distinct from [SeekTo] because a seek on a paused player is
+     * followed by a pause restore, and this one must stay playing.
+     */
+    data class PlayFrom(val position: Long) : PlayerAction
     data class SeekBy(val offsetSeconds: Long) : PlayerAction
     data class SetPlaybackSpeed(val speed: Double) : PlayerAction
 }
