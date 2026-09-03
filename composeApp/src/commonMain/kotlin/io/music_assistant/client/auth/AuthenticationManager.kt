@@ -296,27 +296,8 @@ class AuthenticationManager(
         _authState.value = reason?.let { AuthState.Error(it) } ?: AuthState.Idle
     }
 
-    /**
-     * Route an incoming URL that may be an OAuth callback. The single entry point for
-     * both delivery paths: the in-app auth session and the deep-link handler.
-     *
-     * @return true when the URL was an OAuth callback and has been dealt with, so a
-     *   deep-link dispatcher knows not to forward it anywhere else.
-     */
-    fun handleOAuthCallbackUrl(urlString: String): Boolean =
-        when (val result = OAuthCallback.parse(urlString)) {
-            is OAuthCallbackResult.Code -> {
-                handleOAuthCallback(result.token)
-                true
-            }
-
-            is OAuthCallbackResult.Failed -> {
-                cancelOAuthFlow(result.reason)
-                true
-            }
-
-            OAuthCallbackResult.NotOAuth -> false
-        }
+    // Reading a callback URL is Swift's job now (`OAuthCallbackParser` in `DeepLinks.swift`);
+    // both delivery paths there end in [handleOAuthCallback] or [cancelOAuthFlow].
 
     fun handleOAuthCallback(token: String) {
         Logger.d("OAuth callback received")

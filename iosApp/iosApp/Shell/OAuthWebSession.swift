@@ -50,7 +50,7 @@ final class OAuthWebSession: NSObject, OAuthHandler, ASWebAuthenticationPresenta
         // A fresh session per attempt — a second start() on the same instance returns false.
         let session = ASWebAuthenticationSession(
             url: authURL,
-            callback: .customScheme(KmpHelper.shared.oauthCallbackScheme())
+            callback: .customScheme(OAuthCallbackParser.scheme)
         ) { [weak self] callbackURL, error in
             self?.session = nil
             self?.finish(callbackURL: callbackURL, error: error)
@@ -73,11 +73,9 @@ final class OAuthWebSession: NSObject, OAuthHandler, ASWebAuthenticationPresenta
 
     private func finish(callbackURL: URL?, error: Error?) {
         if let callbackURL {
-            // Parsing and dispatch live in Kotlin so both delivery paths — this session
-            // and the deep link in `iOSApp.swift` — behave identically.
-            let handled = KmpHelper.shared.authManager
-                .handleOAuthCallbackUrl(urlString: callbackURL.absoluteString)
-            if !handled {
+            // Parsing and dispatch are shared with the deep link in `iOSApp.swift`, so both
+            // delivery paths behave identically.
+            if !OAuthCallbackDispatch.handle(callbackURL) {
                 // The session only ever calls back on our own scheme, so this means the
                 // callback shape changed under us. Surface it rather than hang.
                 fail("Unexpected OAuth callback")

@@ -1,9 +1,12 @@
+@file:OptIn(io.ktor.utils.io.ExperimentalKtorApi::class)
+
 package io.music_assistant.client.api
 
 import co.touchlab.kermit.Logger
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.websocket.WebSockets
 import io.ktor.client.plugins.websocket.pingInterval
+import io.ktor.client.webrtc.WebRtcClient
 import io.ktor.http.URLBuilder
 import io.ktor.http.Url
 import io.ktor.http.appendPathSegments
@@ -61,9 +64,6 @@ import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.decodeFromJsonElement
-import org.koin.core.component.KoinComponent
-import org.koin.core.component.inject
-import org.koin.core.qualifier.named
 import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.resume
 import kotlin.time.Duration.Companion.seconds
@@ -71,7 +71,12 @@ import kotlin.time.Duration.Companion.seconds
 class KtorServiceClient(
     private val settings: SettingsRepository,
     private val errorBus: ErrorMessageBus,
-) : ServiceClient, CoroutineScope, KoinComponent {
+    private val networkMonitor: NetworkMonitor,
+    /** Shared with the artwork proxy path; used here for WebRTC signaling. */
+    private val webrtcHttpClient: HttpClient,
+    /** The Ktor WebRTC engine, created on first remote connection. */
+    private val webRtcClient: Lazy<WebRtcClient>,
+) : ServiceClient, CoroutineScope {
     private val logger = Logger.withTag("ServiceClient")
     private val supervisorJob = SupervisorJob()
 
@@ -125,11 +130,6 @@ class KtorServiceClient(
                 }
         }
     }
-
-    // WebRTC HTTP client - created lazily on first WebRTC connection
-    private val webrtcHttpClient: HttpClient by inject(named("webrtcHttpClient"))
-
-    private val networkMonitor: NetworkMonitor by inject()
 
     // --- Transport ---
     private var transport: Transport? = null
@@ -661,6 +661,7 @@ class KtorServiceClient(
             httpClient = webrtcHttpClient,
             remoteId = remoteId,
             parentScope = this,
+            webRtcClient = webRtcClient,
             networkAvailable = networkMonitor.isAvailable,
         )
         transport = webrtcTransport

@@ -51,12 +51,15 @@ Effort: S = under half a day, M = a day, L = several days.
 - [x] **11.** Delete dead settings residue in `SettingsRepository` (`carTabsConfig`,
   `carPlayableClickActions`, `carBrowsableBulkActions`, both `carDsp*` actions,
   `dynamicColors`, `defaultClickActions`) and `BackgroundUsageGuard` + its Koin binding. (S)
-- [ ] **12.** Move `DeepLinkBus` and `OAuthCallback` URL parsing to Swift. (S)
+- [x] **12.** Move `DeepLinkBus` and `OAuthCallback` URL parsing to Swift. (S) `DeepLinks.swift`:
+  parser, retained-latest queue, OAuth callback parser; Swift passes the return URL into
+  `getOAuthUrl`, so it owns the whole callback contract.
 - [ ] **13.** Convert `KmpHelper` completion-callback fetchers to `suspend fun` exported as
   Swift `async`, one at a time, keeping `withTimeoutOrNull` inside. First verify that Swift
   task cancellation propagates on Kotlin 2.4. (L, incremental)
-- [ ] **14.** Replace Koin with a hand-wired graph object (lazy properties). Do after 9–11
-  shrink the graph. (M)
+- [x] **14.** Replace Koin with a hand-wired graph object (lazy properties). Do after 9–11
+  shrink the graph. (M) `AppGraph.kt`; `KtorServiceClient` and `PeerConnectionWrapper` take
+  their dependencies as constructor parameters, the WebRTC engine as a `Lazy`.
 - [ ] **15.** Optional experiment on a branch: SKIE or Kotlin Swift Export for the bridge.
   Decide on measured link-time cost. (M)
 
@@ -98,6 +101,10 @@ measurement that points at that code.
 1 → 2 → 16 → 5 → 21 → 11 → 9 → 10 → 17 → 18 → 19 → 20 → 3 → 4 → 6 → 7 → 8 → 12 → 13 → 14 → 15
 
 ## Done log
+
+- 2026-09-03 — **12, 14** in `24e3210c` (branch `claude/deeplinks-and-di`). Koin is gone from the
+  catalog. Remaining: 6, 7 (device measurements), 13 (suspend → async, incremental), 15 (optional
+  SKIE/Swift Export experiment).
 
 - 2026-09-03 — **3, 4** in `07668191` (branch `claude/selected-player-projection`). **Trap hit:**
   after the Kotlin framework gains a symbol Swift needs, Xcode may compile against a stale

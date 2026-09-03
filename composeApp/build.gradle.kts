@@ -66,8 +66,6 @@ kotlin {
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.atomicfu)
 
-            api(libs.koin.core)
-
             implementation(libs.settings.multiplatform)
 
             implementation(libs.kermit)

@@ -14,7 +14,7 @@ import MusicAssistantKit
 /// re-integration.
 ///
 /// `KmpHelper.sessionState` exposes the real Kotlin `SessionState` sealed class directly (same
-/// pattern `AppTabView.swift` already uses for `DeepLinkDestination`) so this view can branch on
+/// pattern `ConnectionSetupStore` uses for `AuthState`) so this view can branch on
 /// the exact same states Compose does, rather than a flattened re-derivation that could drift.
 struct SettingsView: View {
 

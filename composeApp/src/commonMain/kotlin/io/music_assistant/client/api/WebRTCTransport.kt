@@ -1,10 +1,13 @@
 // Log-payload truncation lengths and connection delays are inline-documented at use site.
 @file:Suppress("MagicNumber")
 
+@file:OptIn(io.ktor.utils.io.ExperimentalKtorApi::class)
+
 package io.music_assistant.client.api
 
 import co.touchlab.kermit.Logger
 import io.ktor.client.HttpClient
+import io.ktor.client.webrtc.WebRtcClient
 import io.music_assistant.client.utils.myJson
 import io.music_assistant.client.webrtc.DataChannelInbound
 import io.music_assistant.client.webrtc.DataChannelWrapper
@@ -133,6 +136,7 @@ class WebRTCTransport(
     private val httpClient: HttpClient,
     private val remoteId: RemoteId,
     parentScope: CoroutineScope,
+    private val webRtcClient: Lazy<WebRtcClient>,
     private val networkAvailable: StateFlow<Boolean>? = null,
     private val maxReconnectAttempts: Int = DEFAULT_MAX_RECONNECT_ATTEMPTS,
 ) : Transport {
@@ -455,7 +459,7 @@ class WebRTCTransport(
 
     private fun createManager(): WebRTCConnectionManager {
         val signalingClient = SignalingClient(httpClient, scope)
-        val mgr = WebRTCConnectionManager(signalingClient, scope)
+        val mgr = WebRTCConnectionManager(signalingClient, scope, webRtcClient)
         logger.d { "Created new WebRTC manager [${mgr.hashCode()}]" }
         return mgr
     }

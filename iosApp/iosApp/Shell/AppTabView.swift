@@ -82,7 +82,7 @@ struct AppTabView: View {
     @State private var searchPath = NavigationPath()
 
     @State private var playerExpanded = false
-    @State private var deepLinkSubscription: Cancellable?
+    private let deepLinks = DeepLinkQueue.shared
     @State private var playerBarStore = PlayerBarStore()
     /// The mini player's paging position, held here rather than inside `MiniPlayerView` — the
     /// accessory's content is rebuilt as tabs change, and state inside it went back to nil each
@@ -129,41 +129,36 @@ struct AppTabView: View {
             )
         }
         .task { playerBarStore.start() }
-        .task {
-            guard deepLinkSubscription == nil else { return }
-            deepLinkSubscription = KmpHelper.shared.deepLinks.subscribe { [self] dest in
-                // Every case is handled here now. `.players` used to be the exception, consumed
-                // by a Kotlin-side LaunchedEffect inside FloatingBarSideEffectsController which
-                // called back through an `onExpand` closure to flip this same flag — a detour
-                // that only existed because that controller was mounted and this wasn't the
-                // sole consumer.
-                guard let dest else { return }
-                if let players = dest as? DeepLinkDestinationPlayers {
-                    // A Live Activity tap names the player its card was showing. Select by id
-                    // (not index): Kotlin's resolver applies the choice once that player is in
-                    // the visible list, which also covers the cold launch where this fires
-                    // before any players have loaded — and falls back to its usual selection
-                    // if the id never appears. The mini player pager and the expanded cover
-                    // both follow `selectedIndex`, so nothing else needs steering.
-                    if let playerId = players.playerId {
-                        playerBarStore.selectPlayer(id: playerId)
-                    }
-                    playerExpanded = true
-                    KmpHelper.shared.consumeDeepLink(destination: dest)
-                } else if dest is DeepLinkDestinationHome {
-                    selectedTab = .home
-                    KmpHelper.shared.consumeDeepLink(destination: dest)
-                } else if let library = dest as? DeepLinkDestinationLibrary {
-                    selectedTab = .library
-                    if let mediaType = library.mediaType {
-                        libraryPath.append(LibraryCategoryRoute(mediaType: mediaType))
-                    }
-                    KmpHelper.shared.consumeDeepLink(destination: dest)
-                } else if dest is DeepLinkDestinationSearch {
-                    selectedTab = .search
-                    KmpHelper.shared.consumeDeepLink(destination: dest)
-                }
+        // `initial: true` applies a link that arrived before this view existed (cold launch
+        // from a Live Activity tap); the queue retains it for exactly that reason.
+        .onChange(of: deepLinks.pending, initial: true) { _, link in
+            guard let link else { return }
+            apply(link)
+            deepLinks.consume(link)
+        }
+    }
+
+    private func apply(_ link: DeepLink) {
+        switch link {
+        case .players(let playerId):
+            // A Live Activity tap names the player its card was showing. Select by id (not
+            // index): Kotlin's resolver applies the choice once that player is in the visible
+            // list, which also covers the cold launch where this fires before any players have
+            // loaded — and falls back to its usual selection if the id never appears. The mini
+            // player pager and the expanded cover both follow `selectedIndex`.
+            if let playerId {
+                playerBarStore.selectPlayer(id: playerId)
             }
+            playerExpanded = true
+        case .home:
+            selectedTab = .home
+        case .library(let category):
+            selectedTab = .library
+            if let category, let mediaType = MediaType.companion.fromServer(raw: category.serverValue) {
+                libraryPath.append(LibraryCategoryRoute(mediaType: mediaType))
+            }
+        case .search:
+            selectedTab = .search
         }
     }
 

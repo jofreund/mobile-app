@@ -31,19 +31,38 @@ enum PendingURL {
 
 /// Single dispatch point for incoming deep links. Three entry forms reach here:
 ///   - custom scheme  musicassistant://auth/callback   → OAuth (peeled off)
-///   - custom scheme  musicassistant://app/<page>       → DeepLinkBus
-///   - Universal Link https://…music-assistant.io/app/<page> → DeepLinkBus
-/// The OAuth callback is peeled off by shared Kotlin so this path and the in-app
-/// auth session agree on what a callback is; everything else is forwarded to the
-/// shared DeepLinkBus, which self-filters and ignores anything it doesn't recognize.
+///   - custom scheme  musicassistant://app/<page>       → DeepLinkQueue
+///   - Universal Link https://…music-assistant.io/app/<page> → DeepLinkQueue
+/// The OAuth callback is peeled off by `OAuthCallbackParser`, the same parser the in-app
+/// auth session uses, so the two paths agree on what a callback is; everything else goes
+/// to `DeepLinkQueue`, which ignores anything it doesn't recognize.
 ///
 /// Note this is NOT a fallback for the in-app session: while a session is active the
 /// system delivers the custom-scheme redirect only to that session's completion
 /// handler, so `.onOpenURL` does not fire. This path serves cold launches and any
 /// callback that arrives without a live session.
+@MainActor
 func handleIncomingURL(_ url: URL) {
-    if KmpHelper.shared.authManager.handleOAuthCallbackUrl(urlString: url.absoluteString) { return }
-    KmpHelper.shared.handleDeepLink(urlString: url.absoluteString)
+    if OAuthCallbackDispatch.handle(url) { return }
+    DeepLinkQueue.shared.handle(url)
+}
+
+/// Routes a parsed OAuth callback into the Kotlin auth manager. Shared by the deep-link path
+/// above and `OAuthWebSession`.
+enum OAuthCallbackDispatch {
+    /// True when `url` was an OAuth callback and has been dealt with.
+    static func handle(_ url: URL) -> Bool {
+        switch OAuthCallbackParser.parse(url) {
+        case .code(let token):
+            KmpHelper.shared.authManager.handleOAuthCallback(token: token)
+            return true
+        case .failed(let reason):
+            KmpHelper.shared.authManager.cancelOAuthFlow(reason: reason)
+            return true
+        case .notOAuth:
+            return false
+        }
+    }
 }
 
 /// Kept only for the scene-configuration hook SwiftUI needs; the CarPlay branch that used to

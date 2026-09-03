@@ -2,13 +2,17 @@
     kotlinx.cinterop.ExperimentalForeignApi::class,
     kotlinx.cinterop.BetaInteropApi::class,
     kotlin.experimental.ExperimentalNativeApi::class,
+    io.ktor.utils.io.ExperimentalKtorApi::class,
 )
 
 package io.music_assistant.client
 
-import io.music_assistant.client.di.initKoin
-import io.music_assistant.client.di.iosModule
+import io.ktor.client.webrtc.IosWebRtc
+import io.ktor.client.webrtc.WebRtcClient
+import io.music_assistant.client.di.AppGraph
 import io.music_assistant.client.logging.InMemoryLogWriter
+import io.music_assistant.client.platform.PlatformContext
+import io.music_assistant.client.settings.provideSettings
 import kotlinx.cinterop.staticCFunction
 import platform.Foundation.NSException
 import platform.Foundation.NSFileManager
@@ -20,23 +24,26 @@ import platform.Foundation.writeToFile
 import kotlin.native.Platform
 
 /**
- * Idempotent KMP/Koin initialization, called from Swift `iOSApp.init()`. That runs before any
- * scene connects, so a CarPlay-only cold launch (head unit tap, no SwiftUI scene) still gets
- * Koin set up.
- *
- * There used to be a second caller: every `ComposeUIViewController` factory in
- * `ComposeScreenHosts.kt` passed `configure = { bootstrapKmp() }`, because a host could mount
- * before the CarPlay scene existed. Those hosts are gone — the app is fully native — so this is
- * now called exactly once per launch, and the idempotency is belt-and-braces rather than load
- * bearing. It stays anyway: `startKoin` throws on a second invocation, `Unit by lazy` costs
- * nothing, and a single entry point is easier to keep correct than a rule about call counts.
+ * Builds the Kotlin object graph. Called once from Swift `iOSApp.init()`, before anything
+ * reaches `KmpHelper`; idempotent anyway, because a single entry point that tolerates a
+ * second call is easier to keep correct than a rule about call counts.
  */
 fun bootstrapKmp() {
     kmpBootstrap
 }
 
 private val kmpBootstrap: Unit by lazy {
-    initKoin(iosModule(), verboseLogging = Platform.isDebugBinary)
+    AppGraph.start(
+        graph = {
+            AppGraph(
+                settingsStore = provideSettings(),
+                platformContext = PlatformContext(),
+                // The Ktor WebRTC engine loads the WebRTC framework; only a remote connection needs it.
+                webRtcClient = lazy { WebRtcClient(IosWebRtc) {} },
+            )
+        },
+        verboseLogging = Platform.isDebugBinary,
+    )
     cleanupStaleLogFile()
     installCrashHandler()
 }
