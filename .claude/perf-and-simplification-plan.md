@@ -13,10 +13,15 @@ Effort: S = under half a day, M = a day, L = several days.
 - [x] **2.** Make `PlayerBarItemView` `Equatable` over its flattened value fields, comparing
   `trackItem` by URI, so SwiftUI can skip unchanged `MiniPlayerRow` bodies.
   `PlayerBarStore.swift`. (S)
-- [ ] **3.** Split the Kotlin projection into a selected-player flow and a lightweight
+- [x] **3.** Split the Kotlin projection into a selected-player flow and a lightweight
   player-summary list; make `PlayerBarStore`/`MiniPlayerView` read the summary list and only
-  the selected player's full state. (M)
-- [ ] **4.** Point `PlayerActivityController` at the selected-player flow only, after 3. (S)
+  the selected player's full state. (M) **Done in a narrower shape:** after 1 and 2 the player
+  rows were cheap; what still scaled badly was every player's *queue* crossing the bridge on
+  each real change. Only the selected player carries `queueItems`/`currentItemChapters` now.
+  The full summary/selected split was not needed and would have complicated selection.
+- [x] **4.** Point `PlayerActivityController` at the selected-player flow only, after 3. (S)
+  `MainDataSource.liveActivityState` → `LiveActivitySnapshot` (six fields + `anyPlaying`),
+  `distinctUntilChanged`, bridged as `KmpHelper.liveActivityState`.
 - [x] **5.** Create `NativeAudioController` and `NowPlayingCoordinator` lazily, only when the
   Sendspin toggle is on. Today `iOSApp.init` builds both unconditionally. (S)
 - [ ] **6.** Measure cold launch with the Instruments App Launch template on a Release build
@@ -93,6 +98,14 @@ measurement that points at that code.
 1 → 2 → 16 → 5 → 21 → 11 → 9 → 10 → 17 → 18 → 19 → 20 → 3 → 4 → 6 → 7 → 8 → 12 → 13 → 14 → 15
 
 ## Done log
+
+- 2026-09-03 — **3, 4** in `07668191` (branch `claude/selected-player-projection`). **Trap hit:**
+  after the Kotlin framework gains a symbol Swift needs, Xcode may compile against a stale
+  precompiled module; do NOT fix that by deleting DerivedData — it wipes the SPM checkouts and
+  `swift-opus`'s git submodule then fails to resolve under xcodebuild ("could not lock config
+  file …/.git/modules/Sources/Copus/config"). Recovery that worked: `git submodule update --init
+  --recursive` inside `DerivedData/iosApp-*/SourcePackages/checkouts/swift-opus`, then build;
+  `-resolvePackageDependencies` keeps reporting the error but the build proceeds.
 
 - 2026-09-03 — **18, 20, 19, 10** in `e2bec414`, `cd087bbd`, `621326f5`, `08de994f` (branch
   `claude/settings-and-hygiene`). 19 was proven with `--refresh-dependencies` against Maven
