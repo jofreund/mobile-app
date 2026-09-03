@@ -136,6 +136,11 @@ struct iOSApp: App {
         // lazily, at present time, so it has nothing to wait for here.
         KmpHelper.shared.authManager.oauthHandler = oauthWebSession
 
+        // The root router's policy has a splash latch that is process state: it must see the
+        // session transitions from the first moment, not from whenever the root view appears.
+        // Must follow bootstrapKmp() — its initial value is read from the Kotlin graph.
+        AppRouter.shared.start()
+
         // Must run for background launches too (a Live Activity intent tap cold-launches the
         // process with no scene), so init — not a view callback — is the only correct place.
         playerActivityController.start()

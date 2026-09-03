@@ -6,8 +6,8 @@ import kotlinx.serialization.Serializable
 /**
  * Highest server schema_version this client is built and tested against.
  *
- * Only one thing reads this now: the terminal `CLIENT_INCOMPATIBLE` check in
- * `SchemaVersionWarningViewModel`, which fires when the server's
+ * Only one thing reads this now: the terminal `clientIncompatible` check in the Swift
+ * `AppRootPolicy` (`iosApp/iosApp/Shell/AppRootPolicy.swift`), which fires when the server's
  * `min_supported_schema_version` has climbed past this value — i.e. when the server has
  * genuinely dropped support for what this client speaks. That is the case worth an alert,
  * and it fails safe: a stale value here only ever warns too eagerly, never too late.
@@ -15,8 +15,8 @@ import kotlinx.serialization.Serializable
  * It used to also drive a dismissible "the server is newer than the app" alert, which meant
  * every server release raised it until this constant was chased upstream — the bump to 54 was
  * exactly that, and upstream was at 59 by the time it landed. Upstream removed that alert
- * (music-assistant/mobile-app@c9e03d71) and so has this fork; see the enum in
- * `SchemaVersionWarningViewModel`.
+ * (music-assistant/mobile-app@c9e03d71) and so has this fork; see `SchemaWarning` in
+ * `AppRootPolicy.swift`.
  *
  * The capabilities that actually needed gating are gated on their own constants: the
  * recommendations rows/items split (39, `RECOMMENDATION_ITEMS_SCHEMA` in `MediaItemRepository`)

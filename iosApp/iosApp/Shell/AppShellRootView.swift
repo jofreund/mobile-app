@@ -2,22 +2,15 @@ import SwiftUI
 import UIKit
 import MusicAssistantKit
 
-/// Replaces `ContentView`'s old direct Compose host. Owns exactly what
-/// `TopLevelNavRoot.kt` used to own — the Main/Settings switch, the
-/// auto-login splash, the reconnection banner, and the terminal
-/// schema-incompatibility alert — natively, reading all four from the same `AppRootRouter` /
-/// `SchemaVersionWarningViewModel` singletons. `TopLevelNavRoot.kt`,
-/// `ConnectionStatusBanner.kt`, and `AutoLoginSplash.kt` are gone (this
-/// superseded them entirely — Android is gone too, so nothing else rendered
-/// them).
-///
-/// Nothing under here is Compose any more. `App.kt`'s `AppLifecycleObserver` was the last
-/// straggler and now reports from `scenePhase` in `iOSApp.swift`; the toast host that
-/// `FloatingBarSideEffectsController` existed to mount is native and lives here
-/// (`ToastHost.swift`).
+/// The root of the app: the Main/Settings switch, the auto-login splash, the reconnection
+/// banner, and the terminal schema-incompatibility alert, all read from the one `AppRouter`
+/// (whose decisions are `AppRootPolicy`'s). The toast host lives here too, so a message raised
+/// while Settings is up still lands (`ToastHost.swift`).
 struct AppShellRootView: View {
 
-    @State private var router = AppRouter()
+    /// Started from `iOSApp.init`, not here, so the policy sees session transitions from the
+    /// first moment; `.task { start() }` below is only a safety net and is idempotent.
+    private let router = AppRouter.shared
 
     /// The app's one toast host — see `ToastHost.swift` for why there must be exactly one. Held
     /// here rather than in `AppTabView` so a message raised while Settings is up still lands.
@@ -52,12 +45,12 @@ struct AppShellRootView: View {
         )
     }
 
-    /// `SchemaWarning` has a single case — `CLIENT_INCOMPATIBLE`, which is terminal — so its
+    /// `SchemaWarning` has a single case — `clientIncompatible`, which is terminal — so its
     /// presence is the whole condition. There is no dismissal to honour: the only action is
     /// Exit, and a client below the server's floor cannot do anything useful in the meantime.
-    /// The dismissible `SERVER_AHEAD` alert this used to also present is gone (see
-    /// `SchemaVersionWarningViewModel`), and with it the `dismissed`/`identity` bookkeeping
-    /// that existed solely to let it be waved away once per connect.
+    /// The dismissible "server ahead" alert this used to also present is gone (see
+    /// `SchemaWarning`), and with it the `dismissed`/`identity` bookkeeping that existed
+    /// solely to let it be waved away once per connect.
     private var schemaAlertPresented: Binding<Bool> {
         Binding(
             get: { router.schemaWarning != nil },
@@ -68,9 +61,8 @@ struct AppShellRootView: View {
     @ViewBuilder
     private func schemaAlertActions() -> some View {
         Button(String(localized: "schema_incompatible_dialog_exit")) {
-            // iOS has no programmatic hard-exit API; suspending (backgrounding)
-            // is the same platform-native behavior exitApp() uses on the
-            // Compose side (ui/compose/nav/PlatformExit.ios.kt).
+            // iOS has no programmatic hard-exit API; suspending (backgrounding) is the
+            // platform-native stand-in.
             UIApplication.shared.perform(NSSelectorFromString("suspend"))
         }
     }
@@ -88,7 +80,7 @@ struct AppShellRootView: View {
             get: { router.destination != .main },
             set: { presented in
                 // Only meaningful on dismissal; presentation is driven by the router.
-                if !presented { KmpHelper.shared.requestHome() }
+                if !presented { router.requestHome() }
             }
         )
     }
@@ -116,9 +108,7 @@ struct AppShellRootView: View {
 
 // MARK: - Native overlays
 
-/// Native counterpart to `AutoLoginSplash.kt`. Compose's version exists
-/// because it also has to render inside the Android/legacy iOS Compose tree;
-/// this one gets real `ProgressView` and system materials instead.
+/// The cold-launch auto-login splash: real `ProgressView` and system materials.
 private struct AutoLoginSplashView: View {
 
     let onCancel: () -> Void
@@ -150,20 +140,19 @@ private struct AutoLoginSplashView: View {
     }
 }
 
-/// Native counterpart to `ConnectionStatusBanner.kt`. No entry debounce here
-/// (Compose's 3s delay before showing) — that
-/// existed to avoid flashing during a fast reconnect and is worth carrying
-/// over if this reads as noisy in practice; deferred until it's observed to
-/// matter on-device.
+/// The reconnection banner. No entry debounce (the Compose original waited 3 s before
+/// showing, to avoid flashing during a fast reconnect) — worth adding if this reads as noisy
+/// in practice; deferred until it's observed to matter on-device.
 private struct ReconnectionBanner: View {
 
     let state: AppBannerState
     let onCancel: () -> Void
 
     private var text: String {
-        if let reconnecting = state as? AppBannerStateReconnecting {
-            String(format: String(localized: "banner_reconnecting"), reconnecting.attempt)
-        } else {
+        switch state {
+        case .reconnecting(let attempt):
+            String(format: String(localized: "banner_reconnecting"), attempt)
+        case .noNetwork:
             String(localized: "banner_no_network")
         }
     }

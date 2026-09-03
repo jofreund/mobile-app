@@ -72,6 +72,9 @@
 		C8PL000D2F7000000000000D /* NowPlayingIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8PL001C2F7000000000001C /* NowPlayingIndicator.swift */; };
 		C8PR00022F2D000000000002 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = C8PR00012F2D000000000001 /* PrivacyInfo.xcprivacy */; };
 		C8SH00012F3E000000000001 /* AppRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SH00112F3E000000000011 /* AppRouter.swift */; };
+		C8RP00012FF0000000000001 /* AppRootPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8RP00112FF0000000000011 /* AppRootPolicy.swift */; };
+		C8RP00022FF0000000000002 /* AppRootPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8RP00112FF0000000000011 /* AppRootPolicy.swift */; };
+		C8RP00032FF0000000000003 /* AppRootPolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8RP00132FF0000000000013 /* AppRootPolicyTests.swift */; };
 		C8SH00022F3E000000000002 /* AppShellRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SH00122F3E000000000012 /* AppShellRootView.swift */; };
 		C8SH00072F3E000000000007 /* OAuthWebSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SH00172F3E000000000017 /* OAuthWebSession.swift */; };
 		C8SH00032F3E000000000003 /* AppTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SH00132F3E000000000013 /* AppTabView.swift */; };
@@ -176,6 +179,8 @@
 		C8PL001C2F7000000000001C /* NowPlayingIndicator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NowPlayingIndicator.swift; sourceTree = "<group>"; };
 		C8PR00012F2D000000000001 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		C8SH00112F3E000000000011 /* AppRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRouter.swift; sourceTree = "<group>"; };
+		C8RP00112FF0000000000011 /* AppRootPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRootPolicy.swift; sourceTree = "<group>"; };
+		C8RP00132FF0000000000013 /* AppRootPolicyTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppRootPolicyTests.swift; sourceTree = "<group>"; };
 		C8SH00122F3E000000000012 /* AppShellRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppShellRootView.swift; sourceTree = "<group>"; };
 		C8SH00172F3E000000000017 /* OAuthWebSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OAuthWebSession.swift; sourceTree = "<group>"; };
 		C8SH00132F3E000000000013 /* AppTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTabView.swift; sourceTree = "<group>"; };
@@ -319,6 +324,7 @@
 				2FE624765BDE4DC4138CA712 /* SVGRasterizerTests.swift */,
 				2FE624765BDE4DC4138CA713 /* QueueMoveMathTests.swift */,
 				C8TQ00132FD0000000000013 /* TransferQueueTargetsTests.swift */,
+				C8RP00132FF0000000000013 /* AppRootPolicyTests.swift */,
 				C8PS00132FE0000000000013 /* PlaybackSpeedOptionsTests.swift */,
 				C8MQ00122FC0000000000012 /* MarqueeCycleTests.swift */,
 			);
@@ -461,6 +467,7 @@
 			isa = PBXGroup;
 			children = (
 				C8SH00112F3E000000000011 /* AppRouter.swift */,
+				C8RP00112FF0000000000011 /* AppRootPolicy.swift */,
 				C8SH00122F3E000000000012 /* AppShellRootView.swift */,
 				C8SH00132F3E000000000013 /* AppTabView.swift */,
 				C8SH00172F3E000000000017 /* OAuthWebSession.swift */,
@@ -693,6 +700,8 @@
 				C8PL000B2F7000000000000B /* QueueMoveMath.swift in Sources */,
 				C8TQ00022FD0000000000002 /* TransferQueueTargets.swift in Sources */,
 				C8TQ00042FD0000000000004 /* TransferQueueTargetsTests.swift in Sources */,
+				C8RP00022FF0000000000002 /* AppRootPolicy.swift in Sources */,
+				C8RP00032FF0000000000003 /* AppRootPolicyTests.swift in Sources */,
 				C8PS00022FE0000000000002 /* PlaybackSpeedOptions.swift in Sources */,
 				C8PS00042FE0000000000004 /* PlaybackSpeedOptionsTests.swift in Sources */,
 				C8MQ00212FC0000000000021 /* MarqueeCycle.swift in Sources */,
@@ -733,6 +742,7 @@
 				C8SP00052F2D000000000005 /* SVGRasterizer.swift in Sources */,
 				C8SP00042F2D000000000004 /* ItemContextMenu.swift in Sources */,
 				C8SH00012F3E000000000001 /* AppRouter.swift in Sources */,
+				C8RP00012FF0000000000001 /* AppRootPolicy.swift in Sources */,
 				C8SH00022F3E000000000002 /* AppShellRootView.swift in Sources */,
 				C8SH00032F3E000000000003 /* AppTabView.swift in Sources */,
 				C8SH00072F3E000000000007 /* OAuthWebSession.swift in Sources */,

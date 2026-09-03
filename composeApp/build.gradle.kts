@@ -59,11 +59,6 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
-            // Not a Compose dependency despite the package name — `SchemaVersionWarningViewModel`
-            // extends `ViewModel` for its `viewModelScope`. The Compose-facing companion
-            // (`lifecycle-runtime-compose`) is gone with everything else.
-            implementation(libs.androidx.lifecycle.viewmodel)
-
             implementation(libs.ktor.client.core)
             implementation(libs.ktor.client.websockets)
             implementation(libs.ktor.client.json)

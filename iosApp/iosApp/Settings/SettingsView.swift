@@ -42,7 +42,7 @@ struct SettingsView: View {
                     // so there's nothing behind it to go "back" to. Still `requestHome()` —
                     // the router owns the destination, and flipping it is what dismisses.
                     Button {
-                        KmpHelper.shared.requestHome()
+                        AppRouter.shared.requestHome()
                     } label: {
                         Image(systemName: "xmark")
                     }

@@ -1,80 +1,95 @@
 # Project Structure
 
-## Source Sets
+One Gradle module and one Xcode project.
 
 ```
-composeApp/src/
-├── commonMain/     # 95%+ of code lives here
-├── androidMain/    # ExoPlayer, MediaService, Android Auto
-├── iosMain/        # AVPlayer, CarPlay
-└── appleMain/      # Shared Apple code (iOS + macOS)
+composeApp/src/commonMain/   Kotlin kernel (shared with upstream; keep cherry-pickable)
+composeApp/src/commonTest/   Kotlin tests (run on the iOS simulator target)
+composeApp/src/iosMain/      Swift-facing bridge + iOS actuals
+iosApp/                      The SwiftUI app, widget extension, and Swift tests
+scripts/                     Framework build, WebRTC fetch, icon sync
+docs/                        Human docs: setup, build, contributing, using the app
+.claude/                     Agent-facing docs (this directory)
 ```
 
-## Package Organization
+The Gradle module is still `:composeApp` and its directory `composeApp/` on purpose: every
+upstream path starts there, so renaming would make each cherry-pick a path-rewriting job. The
+framework it produces is `MusicAssistantKit`.
+
+## Kotlin kernel — `composeApp/src/commonMain/kotlin/io/music_assistant/client/`
 
 ```
-commonMain/kotlin/
-├── api/              # WebSocket client, API interfaces
-├── data/
-│   ├── model/
-│   │   ├── server/   # Server DTOs (raw API responses)
-│   │   └── client/   # Domain models (Player, Queue, AppMediaItem)
-│   └── repository/   # Data sources, repositories
-├── di/               # Koin modules
-├── ui/
-│   ├── common/
-│   │   └── composables/  # Reusable UI components
-│   ├── home/             # Home screen + HomeViewModel
-│   │   └── composables/  # Home-specific components
-│   ├── library/          # Library browser
-│   ├── player/           # Player controls
-│   ├── queue/            # Queue management
-│   └── settings/         # Settings screen
-├── utils/            # Navigation, extensions, helpers
-└── theme/            # Material3 theme, colors
+api/            ServiceClient, KtorServiceClient, RpcEngine, Request/Answer, Event, transports
+auth/           AuthenticationManager, OAuthCallback, AuthState
+connection/     ConnectionManager (auto-connect on launch and foreground)
+data/           MainDataSource, PlayerBarState, PlayerPositionTracker, LocalPlayerController
+  model/server/   DTOs as the server sends them (+ events/)
+  model/client/   Domain models: PlayerData, QueueInfo, AppMediaItem and items/
+  factory/        DTO → domain mappers
+  repository/     MediaItemRepository (fetch + search + item-change events)
+di/             SharedModule, WebRTCModule, initKoin
+logging/        Kermit writers, in-memory log, LogSharer
+platform/       PlatformContext
+player/         MediaPlayerController (expect), sendspin/ protocol client
+settings/       SettingsRepository and preference types
+ui/             Value types that outlived Compose: ThemeSetting, DataState, ItemAction,
+                PlayerAction/QueueAction, LibraryCategory. No UI here despite the name.
+utils/          SessionState, ConnectionData, dispatchers, JSON, time, network monitor
+webrtc/         SignalingClient, WebRTCConnectionManager, DataChannelWrapper, WebRTCHttpProxy
 ```
 
-## Feature Module Pattern
+## Bridge — `composeApp/src/iosMain/kotlin/io/music_assistant/client/`
 
 ```
-ui/{feature}/
-├── {Feature}Screen.kt      # Main composable
-├── {Feature}ViewModel.kt   # State + logic
-├── {Feature}State.kt       # State data class (if complex)
-└── composables/            # Feature-specific components
-    ├── {Component}A.kt
-    └── {Component}B.kt
+MainViewController.kt        bootstrapKmp(): Koin init, crash handler
+di/KmpHelper.kt              Everything Swift calls. Flat members, completion callbacks.
+di/IosModule.kt              iOS Koin bindings (PlatformContext, Ktor WebRTC engine)
+bridge/                      NativeFlow, NativeStateFlow, NativeSuspend, Cancellable
+logging/                     os_log bridge, log sharing
+player/                      PlatformAudioPlayer (Swift sink interface), MediaPlayerController actual
+player/sendspin/audio/       FLAC/Opus decoder actuals (delegate to Swift)
+utils/                       Darwin HttpClient, dispatchers, time, NetworkMonitor actuals
 ```
 
-## Platform-Specific Code
-
-| Feature | Android | iOS |
-|---------|---------|-----|
-| Local Player | ExoPlayer (Media3) | AVPlayer |
-| Background Playback | MediaService | - |
-| Car Integration | Android Auto | CarPlay |
-| Settings Storage | SharedPreferences | NSUserDefaults |
-
-## Key Files
-
-- `api/ServiceClient.kt` - WebSocket connection to MA server
-- `data/repository/MainDataSource.kt` - Central state management
-- `di/SharedModule.kt` - Common DI definitions
-- `utils/Navigation.kt` - Navigation destinations
-
-## iOS CarPlay Files
+## Swift app — `iosApp/iosApp/`
 
 ```
-iosApp/iosApp/
-├── CarPlay/
-│   ├── CarPlaySceneDelegate.swift    # Scene delegate, templates, navigation
-│   └── CarPlayContentManager.swift   # Data fetching, AppMediaItem → CPListItem
-├── CarPlay.entitlements              # carplay-audio entitlement
-├── iOSApp.swift                      # AppDelegate for scene routing
-└── Info.plist                        # CarPlay scene configuration
-
-composeApp/src/iosMain/
-└── kotlin/.../di/KmpHelper.kt        # iOS bridge (audiobooks, radio, search)
+iOSApp.swift        Entry point: bootstrapKmp, AppRouter.start, scenePhase → foreground/background
+Shell/              AppShellRootView, AppRouter + AppRootPolicy, AppTabView, ToastHost, OAuthWebSession
+Home/               HomeView (recommendation rows, edit mode), RecommendationRowTitle
+Library/            LibraryView, LibraryListView (search/sort/filter/paging), BrowseView, filter sheet
+Search/             SearchView, SearchSections
+ItemDetails/        Album/Playlist/Podcast/Audiobook/Artist/Genre detail screens
+Player/             MiniPlayerView, ExpandedPlayerView, PlayerBarStore, sliders, queue, sheets
+Media/              MediaItem, ArtworkView/Loader/DiskCache, SVGRasterizer, MAWebRTCURLProtocol, ItemContextMenu
+Settings/           SettingsView, ConnectionSetupView/Store, QrScanView, LocalPlayerSection
+LiveActivity/       PlayerActivityController, PlayerActivityShared (also compiled into the widget)
+LocalPlayer/        LocalPlayerActivation, NativeAudioController, AudioDecoders, NowPlayingCoordinator
+Localizable.xcstrings, Assets.xcassets, Info.plist, PrivacyInfo.xcprivacy
 ```
 
-See `.claude/carplay.md` for full documentation.
+```
+iosApp/TaktgeberWidgets/     Live Activity widget extension (does not link MusicAssistantKit)
+iosApp/iosAppTests/          XCTest; compiles the source files under test directly
+iosApp/Frameworks/           gitignored: WebRTC.xcframework, Kotlin/<Config>/<platform>/
+iosApp/Configuration/        Config.xcconfig (bundle id, team, deployment target)
+```
+
+## Where new code goes
+
+| What | Where |
+|------|-------|
+| A screen, a sheet, a store, navigation | `iosApp/iosApp/<Feature>/` |
+| Pure value logic worth a unit test | Its own Swift file, compiled into both targets (see guidelines) |
+| A new server command or DTO | `api/Request.kt`, `data/model/server/` — upstream's shape |
+| A new bridge call | `KmpHelper.kt`, next to its neighbours, with a completion or a `NativeStateFlow` |
+| A setting the UI reads | `SettingsRepository` + a `KmpHelper` get/set pair (moving to `@AppStorage` is planned) |
+
+## Key files
+
+- `KmpHelper.kt` — the bridge surface; read its section headers first.
+- `MainDataSource.kt` — player/queue projection and optimistic overrides.
+- `KtorServiceClient.kt` / `RpcEngine.kt` — connection lifecycle and request correlation.
+- `PlayerBarStore.swift` — how Swift consumes `PlayerBarState`.
+- `AppRootPolicy.swift` — what the app shows at the top level, and why.
+- `project.pbxproj` — edited by hand when a Swift file is added (no synchronized groups).

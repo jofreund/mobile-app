@@ -23,7 +23,7 @@ private val log = Logger.withTag("NativeFlow")
  * scope that outlives the app.
  *
  * Wraps [Flow]`<T?>` rather than `Flow<T>` — plenty of what this bridges
- * (`nowPlayingTrack`, `DeepLinkBus.pending`, `AppRootRouter.bannerState`, …)
+ * (`nowPlayingTrack`, `DeepLinkBus.pending`, `AuthenticationManager.authState`, …)
  * is nullable by nature ("nothing to show right now" is a real, common
  * value), and `StateFlow`/`Flow` are declared `out T`, so a non-null
  * `Flow<T>` already satisfies `Flow<T?>` at the call site for free — this one

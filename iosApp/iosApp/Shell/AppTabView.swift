@@ -26,8 +26,8 @@ struct ItemDetailsRoute: Hashable {
 }
 
 /// Which bottom tab is selected. Settings isn't one of these — it's reached via a settings
-/// icon in Home's own toolbar (`HomeScreen.kt`'s `LandingPageTopBar`), which calls
-/// `KmpHelper.requestSettings()` directly; `AppShellRootView` swaps the whole screen away when
+/// icon in Home's own toolbar, which calls `AppRouter.shared.requestSettings()` directly;
+/// `AppShellRootView` presents Settings over the whole screen when
 /// that fires, same as it always has, so Settings was never a good fit for a peer tab with its
 /// own content in the first place.
 enum AppTab: Hashable {

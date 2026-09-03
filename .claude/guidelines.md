@@ -1,171 +1,87 @@
 # Development Guidelines
 
-## Code Location Rules
+## Where code goes
 
 | What | Where |
 |------|-------|
-| Shared logic | `commonMain/` |
-| Android-only | `androidMain/` |
-| iOS-only | `iosMain/` |
-| Reusable composables | `ui/common/composables/` |
-| Feature composables | `ui/{feature}/composables/` |
-| ViewModels | Same package as screen |
+| Anything a user sees or navigates | Swift, `iosApp/iosApp/<Feature>/` |
+| Root-level app policy, artwork, Live Activity, audio sink | Swift |
+| Protocol, session, auth, player/queue projection, settings persistence | Kotlin `commonMain` |
+| A Swift-callable entry point | `KmpHelper.kt` |
+| Platform actuals for the kernel | `iosMain` |
 
-## Kotlin Conventions
+Kotlin under `api/`, `data/`, `webrtc/`, `player/sendspin` tracks upstream. Don't move,
+rename, or reformat those files for tidiness; every change there is a future cherry-pick
+conflict. Pure deletions of dead code are fine.
 
-```kotlin
-// Prefer StateFlow over LiveData
-val state: StateFlow<State> = _state.asStateFlow()
+## Swift
 
-// Use sealed interfaces for navigation/polymorphism
-sealed interface Result<out T> {
-    data class Success<T>(val data: T) : Result<T>
-    data class Error(val message: String) : Result<Nothing>
-}
+- **Stores are `@Observable` and `@MainActor`.** Subscribe to Kotlin in `start()` (or a view's
+  `.task`), keep every `Cancellable`, cancel in `stop()`/`deinit`. One `AppRouter`, one
+  `ToastHost`, one `PlayerBarStore` per shell.
+- **Projections are `Equatable` over every stored field.** Values handed to SwiftUI from a
+  Kotlin flow are rebuilt per emission; without a full conformance every row body re-runs. An
+  id-only `==` hides updates; never do that.
+- **Honour the nil-vs-empty rule** (`architecture.md`): `nil` from a fetcher means timeout,
+  `[]` means either "empty" or "failed while not ready". Check `KmpHelper.readyForCommands`.
+- **No debounce on tap paths.** Optimistic feedback must reach the screen on the next frame.
+  Coalesce with `conflate`-style logic, never with a fixed quiet period.
+- **Do nothing at launch that a feature toggle could defer.** `LocalPlayerActivation` is the
+  pattern: build the audio stack only when the setting is on.
+- **Strings** go in `Localizable.xcstrings` and are read with `String(localized:)`. A missing key
+  renders as the key itself, so look at every new string once on screen.
+- **Adding a Swift file means editing `project.pbxproj` by hand**, in four places for an
+  app-only file (build file, file reference, group child, Sources phase) and six for a file
+  the tests also compile. Copy a neighbour's entries; choose an unused 4-character id prefix
+  and check it with `grep -c`. A duplicate id makes Xcode refuse the project without saying why.
+- **Tests are XCTest**, in `iosApp/iosAppTests/`, and the test target compiles the sources
+  under test directly (no `@testable import`, no `MusicAssistantKit`). Put testable logic in
+  a pure-Swift file with no Kotlin imports, and register it in both targets.
+- Don't drive the Simulator UI to verify; build and run the tests with `xcodebuild`.
 
-// Minimize expect/actual - keep code in commonMain
+## Kotlin
+
+- Prefer `StateFlow` for state, sealed interfaces for variants, `when` over `if-else` chains,
+  safe calls and Elvis over null checks. No `!!` in live code.
+- Log with Kermit: `Logger.withTag("ServiceClient").d { "Connected to $host" }`. Release
+  builds drop Debug/Verbose.
+- Wrap async results in `DataState<T>`.
+- Bridge members on `KmpHelper` take completions and time out with `withTimeoutOrNull`; return
+  `null` for timeout and let RPC failures surface as empty results, matching the rest.
+- Test names use backticks but no punctuation Kotlin/Native rejects (`checkTestNames` fails the
+  build on `.`, `(`, `,` and friends).
+- Run detekt with `CI=true`; without it the local run auto-corrects and hides findings.
+
+## Verification gates
+
+From `docs/CONTRIBUTING.md`, all four before a non-trivial commit:
+
+```bash
+JAVA_HOME=/path/to/jdk-21 ./gradlew :composeApp:iosSimulatorArm64Test
+CI=true JAVA_HOME=/path/to/jdk-21 ./gradlew detektAll
+scripts/build-kotlin-framework.sh debug simulator
+xcodebuild test -project iosApp/iosApp.xcodeproj -scheme iosApp \
+  -sdk iphonesimulator -destination "id=<simulator-udid>" -configuration Debug
 ```
 
-### Nullability - Use Kotlin Idioms, NOT Java Style
+Add an unsigned device build (`-sdk iphoneos -destination 'generic/platform=iOS'`) for
+anything touching signing, entitlements, or the frameworks. Gate the commit on the result and
+read the output — don't chain `git commit` after a test command unconditionally.
 
-**NEVER write Java-style null checks:**
-```kotlin
-// ❌ WRONG - Java style
-if (player != null) {
-    player.play()
-}
+Prove a new test can fail: break the code it covers and watch it go red.
 
-// ❌ WRONG - verbose
-if (dispatcher != null) {
-    dispatcher.sendMessage()
-} else {
-    log("Dispatcher is null")
-}
-```
+## Performance
 
-**ALWAYS use Kotlin null-safety operators:**
-```kotlin
-// ✅ CORRECT - safe call
-player?.play()
+- Measure in Release, on a device, launched from the home screen — a Debug build under the
+  debugger has produced multi-second hangs that did not exist.
+- Instruments App Launch and Core Animation are the two templates that matter here.
+- Before optimising, read `.claude/perf-and-simplification-plan.md` for what is already
+  measured, planned, or deliberately skipped.
 
-// ✅ CORRECT - safe call with let
-player?.let {
-    it.play()
-    it.updateState()
-}
+## Maintenance
 
-// ✅ CORRECT - let with elvis for else branch
-dispatcher?.let {
-    it.sendMessage()
-    log("Message sent")
-} ?: log("Dispatcher is null")
-
-// ✅ CORRECT - elvis operator for default values
-val volume = config?.volume ?: 100
-
-// ✅ CORRECT - early return
-val player = getPlayer() ?: return
-player.play()  // player is smart-cast to non-null
-
-// ✅ CORRECT - elvis with custom action
-val token = settings.token.value ?: run {
-    log.w { "No token available" }
-    return
-}
-```
-
-**Complex null handling patterns:**
-```kotlin
-// ✅ Multiple nullables with takeIf/takeUnless
-val result = service
-    ?.getData()
-    ?.takeIf { it.isValid }
-    ?.process()
-    ?: getDefaultResult()
-
-// ✅ Run block for multiple statements in else
-connection?.let {
-    it.send(message)
-    it.flush()
-} ?: run {
-    log.e { "Connection is null" }
-    reconnect()
-}
-
-// ✅ Also for side effects on non-null
-dispatcher?.sendHello()?.also {
-    log.i { "Hello sent successfully" }
-}
-```
-
-**Scope functions cheat sheet:**
-- `let` - transform nullable to non-null context, returns result
-- `run` - execute block and return result (for else branch with elvis)
-- `also` - perform side effects, returns original object
-- `apply` - configure object, returns object
-- `takeIf` / `takeUnless` - conditional filtering
-
-## Compose Conventions
-
-```kotlin
-// Inject ViewModels in composables
-@Composable
-fun Screen(viewModel: ScreenViewModel = koinViewModel()) {
-    val state by viewModel.state.collectAsStateWithLifecycle()
-}
-
-// Use remember for expensive computations
-val derived = remember(input) { expensiveCalculation(input) }
-
-// Material3 components only
-Button(onClick = {}) { Text("Click") }  // ✓
-// Not Material2 equivalents
-```
-
-## File Organization
-
-- One primary composable per file
-- Split by meaning, not by size
-- Name file after main composable: `PlayerControls.kt` → `@Composable fun PlayerControls()`
-- No previews unless explicitly requested
-
-## Logging
-
-```kotlin
-import co.touchlab.kermit.Logger
-
-Logger.withTag("ServiceClient").d { "Connected to $host" }
-Logger.withTag("PlayerVM").e(exception) { "Playback failed" }
-```
-
-## State Wrappers
-
-```kotlin
-sealed interface DataState<out T> {
-    data object Loading : DataState<Nothing>
-    data class Data<T>(val value: T) : DataState<T>
-    data class Error(val message: String) : DataState<Nothing>
-    data object NoData : DataState<Nothing>
-}
-```
-
-## Maintenance Rules
-
-- Update `.claude/dependencies.md` when adding libraries
-- Update `.claude/architecture.md` when changing patterns
-- Keep `commonMain` as the default location
-
-## Server Connection
-
-Music Assistant server required. Configure:
-- Host (IP/hostname)
-- Port
-- TLS (on/off)
-- Auth: login/pass, OAuth, or long-lived token
-
-## Testing Platforms
-
-**Android Auto:**
-1. Enable developer mode in Android Auto app
-2. Enable "Unknown sources"
-3. VPN config: exclude Android Auto from VPN
+- `architecture.md` when a pattern changes; `dependencies.md` when a library comes or goes;
+  `project-structure.md` when a directory does.
+- `perf-and-simplification-plan.md` is the running list of improvements; tick items there.
+- Feature notes (`settings-screen.md`, `player-overflow-menu-plan.md`, …) are dated; when one
+  contradicts the code, the code wins and the note gets a correction.

@@ -1,181 +1,158 @@
-# Architecture Patterns
+# Architecture
 
-## MVVM + Unidirectional Data Flow
+A native SwiftUI app on a Kotlin kernel. Swift owns everything a user sees or touches; Kotlin
+owns the protocol, the session, and the player and queue state, compiled into a static
+`MusicAssistantKit.framework` that Swift imports. The kernel is upstream's
+(`music-assistant/mobile-app`) and is kept cherry-pickable; upstream's Compose UI is gone.
+
+## Layers
 
 ```
-User Action → ViewModel → Update State → UI Recomposition
-                ↓
-         Repository/DataSource
-                ↓
-           Network/Storage
+SwiftUI views                      iosApp/iosApp/**
+  │  @Observable stores            PlayerBarStore, ConnectionSetupStore, AppRouter, …
+  ▼
+KmpHelper                          composeApp/src/iosMain/…/di/KmpHelper.kt
+  │  the only Kotlin object Swift calls; NativeStateFlow / NativeFlow / NativeSuspend / Cancellable
+  ▼
+Kotlin kernel                      composeApp/src/commonMain/…
+  ServiceClient (KtorServiceClient + RpcEngine)   WebSocket JSON-RPC, correlation, event stream
+  AuthenticationManager                            per-server tokens, auto-login, OAuth callback
+  MainDataSource                                   players + queues → PlayerBarState, optimistic overrides
+  MediaItemRepository, *Factory                    server DTO → client model
+  SettingsRepository                               multiplatform-settings over NSUserDefaults
+  webrtc/                                          signaling + HTTP-over-data-channel proxy (remote access)
+  player/sendspin                                  on-device player protocol (optional, off by default)
+  ▼
+Music Assistant server             direct WebSocket, or a WebRTC data channel
 ```
 
-- ViewModels expose `StateFlow<T>` for reactive UI state
-- UI collects state with `collectAsStateWithLifecycle()`
-- User actions invoke ViewModel methods
-- Wrap async results in `DataState<T>` (Loading/Data/Error/NoData)
+## Ownership
 
-## Dependency Injection (Koin)
+**Swift owns:** every screen, navigation, the root policy (`AppRootPolicy`: Main vs. Settings,
+auto-login splash, reconnection banner, schema-floor alert), the artwork pipeline, the Live
+Activity, toasts, theme, deep-link consumption, the local player's audio sink and Now Playing
+integration.
 
-```kotlin
-// Module definition
-val appModule = module {
-    singleOf(::Repository)
-    viewModelOf(::FeatureViewModel)
-}
+**Kotlin owns:** the wire protocol and its state machine (`SessionState`), authentication, the
+projection of server events into `PlayerBarState`, optimistic feedback for player actions, the
+WebRTC transport, the Sendspin client, and persistence of settings.
 
-// Usage in Composable
-val viewModel = koinViewModel<FeatureViewModel>()
-```
+The rule for new code: UI logic goes in Swift. Kotlin gains code only when the server, the
+session, or the player state model needs it — and then in the style of the surrounding upstream
+code, so a later cherry-pick still applies.
 
-## Navigation (Navigation3)
+## The bridge
 
-- Type-safe routes via `@Serializable` data classes/objects
-- Sealed interface for destination grouping
-- Modal sheets for overlays
+`KmpHelper` is a Kotlin `object` (a Koin component) that exposes flat, Swift-friendly members.
+Four primitives under `composeApp/src/iosMain/…/bridge/` carry everything:
 
-```kotlin
-@Serializable sealed interface NavScreen {
-    @Serializable data object Home : NavScreen
-    @Serializable data class Detail(val id: String) : NavScreen
-}
-```
+- `NativeStateFlow<T>` — `value` for a synchronous read, `subscribe(onEach:)` for updates. Fires
+  once immediately with the current value, then on every change. Callbacks land on the main
+  thread.
+- `NativeFlow<T>` — `subscribe(onEach:onError:)` for non-state flows (toasts, item changes).
+  Single-consumer sources (`ErrorMessageBus` is a `Channel`) must have exactly one subscriber.
+- `NativeSuspend<T>` — a one-shot `invoke(onResult:onError:)`; no built-in timeout.
+- `Cancellable` — every subscription returns one. Swift keeps it for the intended lifetime and
+  cancels it in `deinit`, `stop()`, or when a `.task` ends. A dropped handle is a leak of a
+  main-thread collector.
 
-## Expect/Actual Pattern
+Fetchers on `KmpHelper` take completion closures and wrap their suspend calls in
+`withTimeoutOrNull(FETCH_TIMEOUT_MS)` (30 s — a lost-reply guard, not a latency budget).
 
-Use sparingly. Most code stays in `commonMain`.
+**The nil-vs-empty rule.** A fetcher's completion receives `nil` only on timeout. An RPC
+*failure* arrives as `[]`, because callers do `getOrNull() ?: emptyList()`. Since
+`sendRequest` gives up after 10 s when the connection isn't ready, a first load on a fresh
+install can legitimately return `[]`. `KmpHelper.readyForCommands` exists for this: empty *and*
+not ready means the load failed, not that the library is empty. Every screen that renders a
+fetch result must make that distinction, and retry-on-connect subscriptions should fire on the
+not-ready → ready edge, seeded from the current value.
 
-```kotlin
-// commonMain
-expect class PlatformFeature {
-    fun doThing()
-}
+**Interop gotchas.**
+- `NativeStateFlow<T>`/`NativeSuspend<T>` lose Swift's automatic bridging when `T` is `String`
+  or `List<X>`: cast with `as? String` / `as? [X]` at the call site. Class-typed `T` bridges
+  cleanly. `Boolean` arrives as `KotlinBoolean` (`.boolValue`), `Int?` as `KotlinInt?`.
+- Kotlin sealed hierarchies export as classes: `SessionState.Connected`,
+  `SessionState.ConnectedDirect`, `DataConnectionStateAuthenticated`, `AuthProcessStateFailed`.
+  Match with `case let x as …` / `is`.
+- Top-level Kotlin declarations live on a `<File>Kt` class (`ServerInfoKt.LOCAL_SCHEMA_VERSION`,
+  `MainViewControllerKt.bootstrapKmp()`).
+- Kotlin objects reached from Swift compare through `NSObject.isEqual`, which Kotlin/Native
+  routes to `equals` — structural for data classes.
 
-// androidMain
-actual class PlatformFeature {
-    actual fun doThing() { /* Android impl */ }
-}
-```
+## Session state
 
-## Data Layer
+`ServiceClient.sessionState` is a `StateFlow<SessionState>`:
+`Disconnected.{Initial, ByUser, NoServerData, Backgrounded, Error}` → `Connecting` →
+`Connected.{Direct, WebRTC}` (carrying `ConnectionData`: server info, user, auth process, token)
+→ `Reconnecting.{Direct, WebRTC}`. `ConnectionData.dataConnectionState` derives
+`AwaitingServerInfo` / `AwaitingAuth` / `Authenticated`.
 
-- **Repository**: Single source of truth, exposes StateFlows
-- **DataSource**: Network/local data access
-- **Models**: Server DTOs in `model/server/`, domain models in `model/client/`
+Swift reads it through `KmpHelper.sessionState`. `AppRouter` maps each value to a pure
+`RootSession` and feeds `AppRootPolicy`, which decides the root destination, the splash (with
+a process-lifetime latch), the banner, and whether the server's
+`min_supported_schema_version` has climbed past `LOCAL_SCHEMA_VERSION`. The router starts in
+`iOSApp.init`, right after `bootstrapKmp()`, so the latch sees every transition.
 
-## Compose Guidelines
+`AuthenticationManager` persists one token per server identifier, decides
+`willAutoLoginOnLaunch` at construction, and handles the OAuth callback URL; Swift supplies
+the `ASWebAuthenticationSession` through `authManager.oauthHandler`.
 
-- Material3 components
-- Extract reusable composables to `ui/common/composables/`
-- Use `remember`/`derivedStateOf` for computed values
-- Split large composables into smaller files by meaning
-- Previews only when explicitly requested
+## Player state
 
-## State Management
+`MainDataSource` (on `Dispatchers.IO`) combines server players, queue infos, sorting, and two
+override maps — play-state and favorite — into `List<PlayerData>`, then projects the selected
+player into `PlayerBarState`. The combine is `conflate()`d, not debounced: a burst of events
+collapses to one rebuild, but a tap's optimistic feedback never waits for silence.
 
-```kotlin
-// ViewModel
-class FeatureViewModel : ViewModel() {
-    private val _state = MutableStateFlow(FeatureState())
-    val state: StateFlow<FeatureState> = _state.asStateFlow()
-    
-    fun onAction(action: Action) {
-        // Update state
-    }
-}
+Optimistic overrides follow one pattern: set on send, cleared by the confirming server event,
+rolled back on send failure, reverted by a timeout. Seek and skip drop position anchors into
+`PlayerPositionTracker`, which is the live-position source of truth (`observePlayerBarPosition`).
 
-// Composable
-@Composable
-fun FeatureScreen(viewModel: FeatureViewModel = koinViewModel()) {
-    val state by viewModel.state.collectAsStateWithLifecycle()
-    // Render UI
-}
-```
+On the Swift side `PlayerBarStore` subscribes to `playerBarState`, caches queue projections by
+Kotlin object identity, and publishes `PlayerBarItemView` values that are `Equatable` over every
+stored field, so SwiftUI skips unchanged rows. `MiniPlayerView`, `ExpandedPlayerView` and the
+Live Activity all read from it.
 
-## Error Handling
+## Artwork
 
-- Use sealed class/interface for result types
-- Display errors via Toast or inline error states
-- Log with context: `Logger.withTag("Component").e { "message" }`
+`ArtworkView` → `ArtworkLoader` (in-flight de-duplication via `SharedLoadRegistry`, a cost-limited
+`NSCache`) → `ArtworkDiskCache` (already-downsampled bitmaps, FNV-1a file names, 30-day expiry,
+throttled trim) → network. `mawebrtc://` URLs resolve through `MAWebRTCURLProtocol`, which calls
+`KmpHelper.loadArtworkBytes` so remote-access images travel the WebRTC proxy. Genre tiles are
+SVG, rendered by `SVGRasterizer` through one serialized `WKWebView` that is torn down after
+30 s idle. MA artwork URLs carry an empty checksum, so caches expire by age, not by signal.
 
-## UI Architecture
+## Local player (Sendspin)
 
-**IMPORTANT**: The project is transitioning from the old MainScreen/MainViewModel to the new HomeScreen/HomeScreenViewModel architecture.
+Off by default. When `sendspinEnabled` is on, `LocalPlayerActivation` (Swift) builds
+`NativeAudioController` and `NowPlayingCoordinator` and registers the controller as
+`PlatformPlayerProvider.player`; Kotlin's `SendspinClient` decodes and buffers audio and writes
+PCM into it through `MediaPlayerController`. iOS grants lock screen and Control Center only to
+the app producing audio, so those surfaces exist only while the local player plays; otherwise
+the Live Activity (`PlayerActivityController`) is the lock-screen presence.
 
-- **Deprecated (do NOT use)**: `MainScreen.kt`, `MainViewModel.kt`
-- **Current (use these)**: `HomeScreen.kt`, `HomeScreenViewModel.kt`
+## Dependency injection
 
-When implementing new features or integrations:
-- Use `HomeScreenViewModel` as reference for architecture patterns
-- Add dependencies to `HomeScreenViewModel` in `SharedModule.kt`
-- Do NOT modify `MainViewModel` - it's legacy code being phased out
+One Koin module (`SharedModule.kt`) plus `iosModule()` and `webrtcModule`, started once from
+`bootstrapKmp()`. Eager singles are those that must observe from launch: `ConnectionManager`
+and `AuthenticationManager`. Everything else is lazy. Swift never touches Koin; it goes through
+`KmpHelper`.
 
-### Sendspin Integration
+## Threading
 
-The built-in player functionality uses the Sendspin multi-room audio protocol:
+Bridge callbacks run on the main thread (`KmpHelper.mainScope`). `MainDataSource` and the
+service client work on IO; Sendspin decoding on `Dispatchers.Default` and its playback loop on
+`audioDispatcher` (a high-priority GCD queue). Swift stores are `@MainActor`.
 
-**Lifecycle Management:**
-- `MainDataSource` singleton manages Sendspin lifecycle via `SendspinClientFactory`
-- Factory pattern for client creation (validates settings, builds config, returns `Result<SendspinClient>`)
-- Integration point: `HomeScreenViewModel` interacts with Sendspin via MainDataSource
+## Errors and messages
 
-**Architecture Components:**
-- **SendspinClient**: Protocol orchestrator (reduced to ~280 lines after refactoring)
-  - Delegates to specialized components following Single Responsibility Principle
-- **SendspinClientFactory**: Client creation and validation logic
-- **StateReporter**: Periodic state reporting (every 2 seconds) with volume/mute
-- **ReconnectionCoordinator**: Recovery management with StreamRecoveryState machine
-- **AudioPipeline** (interface): Abstraction for audio playback
-  - Implementation: `AudioStreamManager` with multi-threaded architecture
-  - Default dispatcher: Decoding (producer)
-  - audioDispatcher: Playback (high-priority consumer)
-  - Default dispatcher: Adaptation (every 5s)
-- **MessageDispatcher**: Protocol state machine with `MessageDispatcherConfig`
-- **SendspinError**: Categorized errors (Transient/Permanent/Degraded)
+Server RPC errors flow through `ErrorMessageBus` → `KmpHelper.toasts` → the single `ToastHost`
+in `AppShellRootView`. `RpcEngine` logs every error answer before the caller sees it, so a
+probe for an unsupported command is never silent.
 
-**Connection Modes:**
-- **Proxy mode (default)**: Uses main connection (host/port/TLS) + path `/sendspin`
-  - Requires authentication with token before protocol handshake
-  - Port 8095 by default (same as main API)
-- **Custom mode**: Separate host/port configuration
-  - Supports direct connection to standalone Sendspin server (port 8927)
-  - Auto-detects proxy mode if port matches main connection
+## Kotlin conventions that survive from upstream
 
-**Platform-specific:**
-- `MediaPlayerController` has expect/actual for audio output
-- `AudioDecoder` has expect/actual for codec handling
-  - Android: Decoders output PCM (Concentus for Opus, MediaCodec for FLAC)
-  - iOS: Decoders passthrough to MPV (returns original codec)
-- Android: Uses `AudioTrack` for low-latency PCM playback
-- iOS: Uses MPV (libmpv via MPVKit) for all audio codecs
-
-See `.claude/sendspin-status.md` for complete architecture documentation and `.claude/settings-screen.md` for Settings UI details.
-
-### Android Services Integration
-
-Android foreground services integrate with Sendspin through MainDataSource:
-
-**MainMediaPlaybackService**:
-- Handles notifications and lock screen controls
-- Shows all active players (excluding deprecated builtin players)
-- Accesses player state via `MainDataSource.playersData`
-- Uses `MediaSessionHelper` for MediaSession management and volume control (see `.claude/volume-control.md`)
-
-**AndroidAutoPlaybackService**:
-- Provides Android Auto support via `MediaBrowserServiceCompat`
-- Shows first player with active playback (`queueInfo?.currentItem != null`)
-- Uses `playerData.queue` for queue access (not deprecated `builtinPlayerQueue`)
-- When Sendspin is playing locally, it appears in Android Auto
-- Supports library browsing via `AutoLibrary`
-- All actions go through `MainDataSource.playerAction()` and `queueAction()`
-
-**Key Pattern**: Services do NOT create or manage Sendspin directly. They access player data through MainDataSource's playersData StateFlow, maintaining a single source of truth.
-
-See `.claude/sendspin-integration-design.md` and `.claude/sendspin-android-services-integration.md` for detailed technical documentation.
-
-## Misc rules
-
-- Don't ever use non-null assertions in live code (!!). Always handle nulls safely.
-- Use Kotlin-like idioms (e.g., prefer `let`, `also`, `apply` for scoping).
-- Instead of `if-else` chains, prefer `when` expressions for better readability.
-- Instead of `if-else` for nullable variable, use safe calls and the Elvis operator, or `?.let{} ?: run {}` expression.
+- No non-null assertions (`!!`) in live code.
+- Prefer `when` over `if-else` chains; safe calls and the Elvis operator over null checks.
+- Log with Kermit: `Logger.withTag("Component").e(e) { "message" }`.
+- Wrap async results in `DataState<T>` (Loading / Data / Error / NoData).
