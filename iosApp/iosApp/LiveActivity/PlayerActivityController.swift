@@ -25,7 +25,6 @@ final class PlayerActivityController {
     private var stateSub: Cancellable?
     private var localTrackSub: Cancellable?
     private var localIdSub: Cancellable?
-    private var visibilitySub: Cancellable?
     private var isForeground = false
     private var activity: Activity<PlayerActivityAttributes>?
 
@@ -55,10 +54,7 @@ final class PlayerActivityController {
     /// with [localPlayerHasTrack].
     private var localPlayerId: String?
 
-    /// The user's `settings_live_activity` choice. Read in `start()`, not in a property
-    /// initializer: this controller is a stored property of the `App` struct, so it is built
-    /// before `bootstrapKmp()` runs in that struct's `init` and there is no `KmpHelper` to ask
-    /// yet. `start()` is called once Kotlin is up.
+    /// The user's `settings_live_activity` choice, mirrored from `AppPreferences` in `start()`.
     private var visibility: LiveActivityVisibility = .always
 
     /// Last content published, to skip no-op republishes (playerBarState emits on every volume
@@ -97,15 +93,15 @@ final class PlayerActivityController {
         for extra in existing.dropFirst() {
             Task { await extra.end(nil, dismissalPolicy: .immediate) }
         }
-        visibility = KmpHelper.shared.liveActivityVisibility.value ?? .always
+        visibility = AppPreferences.shared.liveActivityVisibility
         stateSub = KmpHelper.shared.playerBarState.subscribe { [weak self] state in
             self?.handle(state)
         }
         // The setting is a state change of its own: switching to "while playing" while
         // everything is paused has to end the card that is already on the lock screen, and
         // switching back has to bring it up again with no player event to ride on.
-        visibilitySub = KmpHelper.shared.liveActivityVisibility.subscribe { [weak self] visibility in
-            guard let self, let visibility, visibility != self.visibility else { return }
+        AppPreferences.shared.observeLiveActivityVisibility { [weak self] visibility in
+            guard let self, visibility != self.visibility else { return }
             self.visibility = visibility
             self.handle(KmpHelper.shared.playerBarState.value)
         }

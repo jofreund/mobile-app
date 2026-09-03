@@ -2,11 +2,9 @@ import SwiftUI
 import MusicAssistantKit
 
 /// The Library tab's root — a table of categories (Artists, Albums, Titel, …, Durchsuchen).
-/// `LibraryCategoriesViewModel` was a thin pass-through over
-/// `SettingsRepository.libraryCategoryConfig` (no session state, no server round trip — the
-/// category list itself is a fixed Kotlin enum), so there's nothing worth wrapping: this screen
-/// reads/writes that config directly via `KmpHelper.libraryCategoryConfig`/
-/// `setLibraryCategoryConfig`, same shape `HomeView.swift` uses for `homeRowsConfig`.
+/// The category list itself is a fixed Kotlin enum; which are shown, and in what order, is
+/// `AppPreferences.libraryCategories`, read and written directly — same shape `HomeView.swift`
+/// uses for its rows.
 ///
 /// Edit mode mirrors `HomeView.swift`'s: two native `List` sections (Enabled — reorderable via
 /// `.onMove`; Disabled — toggle-only) instead of Compose's single index-clamped-drag
@@ -14,7 +12,7 @@ import MusicAssistantKit
 /// clamping or its tap-swallow-but-allow-drag gesture scrim.
 struct LibraryView: View {
 
-    @State private var config: [SettingsRepository.LibraryCategoryPref] = []
+    @State private var config: [LibraryCategoryPref] = []
     @State private var isEditing = false
     @State private var editingEnabledRows: [LibraryCategoryRow] = []
     @State private var editingDisabledRows: [LibraryCategoryRow] = []
@@ -30,7 +28,7 @@ struct LibraryView: View {
             .toolbar {
                 ToolbarItem(placement: .primaryAction) { editButton }
             }
-            .task { config = KmpHelper.shared.libraryCategoryConfig() }
+            .task { config = AppPreferences.shared.libraryCategories }
     }
 
     @ViewBuilder
@@ -99,9 +97,9 @@ struct LibraryView: View {
 
     private func commitEdits() {
         let newConfig =
-            editingEnabledRows.map { SettingsRepository.LibraryCategoryPref(name: $0.category.name, enabled: true) } +
-            editingDisabledRows.map { SettingsRepository.LibraryCategoryPref(name: $0.category.name, enabled: false) }
-        KmpHelper.shared.setLibraryCategoryConfig(config: newConfig)
+            editingEnabledRows.map { LibraryCategoryPref(name: $0.category.name, enabled: true) } +
+            editingDisabledRows.map { LibraryCategoryPref(name: $0.category.name, enabled: false) }
+        AppPreferences.shared.libraryCategories = newConfig
         config = newConfig
         isEditing = false
     }
@@ -166,10 +164,10 @@ struct LibraryCategoryRow: Identifiable, Equatable {
     static func == (lhs: LibraryCategoryRow, rhs: LibraryCategoryRow) -> Bool { lhs.id == rhs.id }
 }
 
-/// Ported 1:1 from `LibraryCategoryConfig.kt`'s `reconcileLibraryCategories`: every
+/// Reconciles the stored config against the live category set (the Kotlin original is gone): every
 /// `LibraryCategory` case, enabled/ordered per [config] — categories never in [config] default
 /// to enabled, in their natural declaration order.
-private func reconciledCategories(config: [SettingsRepository.LibraryCategoryPref]) -> [(row: LibraryCategoryRow, enabled: Bool)] {
+private func reconciledCategories(config: [LibraryCategoryPref]) -> [(row: LibraryCategoryRow, enabled: Bool)] {
     let enabledById = Dictionary(config.map { ($0.name, $0.enabled) }, uniquingKeysWith: { first, _ in first })
     let orderById = Dictionary(config.enumerated().map { (offset, pref) in (pref.name, offset) }, uniquingKeysWith: { first, _ in first })
 

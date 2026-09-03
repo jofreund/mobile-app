@@ -158,10 +158,14 @@ Edit `iosApp/Configuration/Config.xcconfig`:
 
 ```
 TEAM_ID=YOUR_APPLE_TEAM_ID
-PRODUCT_BUNDLE_IDENTIFIER=io.music-assistant.client
+PRODUCT_BUNDLE_IDENTIFIER=com.jofreund.taktgeber-ios
 APP_NAME=Taktgeber
-IPHONEOS_DEPLOYMENT_TARGET = 15.0
+IPHONEOS_DEPLOYMENT_TARGET = 26.0
 ```
+
+The bundle id must match the App Store Connect record exactly (the `-ios` suffix is part of
+the registered id); an archive with a different id is rejected at upload. If you fork, pick
+your own id here and register it.
 
 Replace `YOUR_APPLE_TEAM_ID` with your Apple Developer Team ID (10-character alphanumeric string found at developer.apple.com/account).
 
