@@ -808,7 +808,7 @@ private struct ExpandedPlayerRow: View {
         } actions: {
             Button(browseLibraryLabel) {
                 onCollapse()
-                KmpHelper.shared.requestHome()
+                AppRouter.shared.requestHome()
             }
             .buttonStyle(.borderedProminent)
         }

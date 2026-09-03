@@ -63,11 +63,6 @@ import io.music_assistant.client.settings.ConnectionHistoryEntry
 import io.music_assistant.client.settings.LiveActivityVisibility
 import io.music_assistant.client.settings.SettingsRepository
 import io.music_assistant.client.settings.ViewMode
-import io.music_assistant.client.ui.AppBannerState
-import io.music_assistant.client.ui.AppRootDestination
-import io.music_assistant.client.ui.AppRootRouter
-import io.music_assistant.client.ui.SchemaVersionWarningViewModel
-import io.music_assistant.client.ui.SchemaWarning
 import io.music_assistant.client.ui.compose.common.DataState
 import io.music_assistant.client.ui.compose.common.action.PlayerAction
 import io.music_assistant.client.ui.compose.common.action.QueueAction
@@ -178,8 +173,6 @@ object KmpHelper : KoinComponent {
     val mainDataSource: MainDataSource by inject()
     val serviceClient: ServiceClient by inject()
     val authManager: AuthenticationManager by inject()
-    private val appRootRouter: AppRootRouter by inject()
-    private val schemaVersionWarningViewModel: SchemaVersionWarningViewModel by inject()
     private val deepLinkBus: DeepLinkBus by inject()
     private val mediaItemRepository: MediaItemRepository by inject()
     private val settingsRepository: SettingsRepository by inject()
@@ -190,35 +183,9 @@ object KmpHelper : KoinComponent {
     // Provide a scope for Swift to launch coroutines if needed
     val mainScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
-    // MARK: - App root (Phase C SwiftUI shell)
-    //
-    // Drives the top-level switch AppRouter.swift owns: which screen (Main tab
-    // shell vs. Settings), the cold-launch auto-login splash, and the
-    // reconnection banner. All policy lives in AppRootRouter (commonMain) —
-    // these are thin NativeStateFlow projections, not reimplementations.
-
-    val rootDestination: NativeStateFlow<AppRootDestination>
-        get() = NativeStateFlow(appRootRouter.destination, mainScope)
-
-    val splashVisible: NativeStateFlow<Boolean>
-        get() = NativeStateFlow(appRootRouter.splashVisible, mainScope)
-
-    val connectionBannerState: NativeStateFlow<AppBannerState>
-        get() = NativeStateFlow(appRootRouter.bannerState, mainScope)
-
-    fun cancelAutoLogin() = appRootRouter.cancelAutoLogin()
-    fun requestSettings() = appRootRouter.requestSettings()
-    fun requestHome() = appRootRouter.requestHome()
-
-    // MARK: - Schema compatibility warning
-    //
-    // Same "shared Kotlin policy, thin Swift projection" shape as the app-root
-    // properties above. SchemaVersionWarningViewModel is a Koin single (see
-    // SharedModule.kt); it now emits only the terminal CLIENT_INCOMPATIBLE case,
-    // so this flow is null for every server this client can actually talk to.
-
-    val schemaWarning: NativeStateFlow<SchemaWarning>
-        get() = NativeStateFlow(schemaVersionWarningViewModel.warning, mainScope)
+    // The app-root policy (Main vs. Settings, auto-login splash, reconnection banner) and the
+    // schema-floor check live in Swift now — `AppRootPolicy.swift` / `AppRouter.swift` — fed by
+    // [sessionState] below. Nothing else reads them, so nothing bridges them.
 
     // MARK: - Deep links
     //

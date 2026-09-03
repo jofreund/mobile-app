@@ -11,8 +11,8 @@ import MusicAssistantKit
 /// SwiftUI in `.tabViewBottomAccessory` (`MiniPlayerView.swift`), and no Compose is mounted
 /// anywhere in the app — see `AppTabView.swift`'s doc.
 ///
-/// `HomeScreenViewModel` is deliberately **not** wrapped the way `AppRootRouter` was
-/// (`AppRouter.swift`'s `NativeFlow`-subscription pattern): its real complexity — the
+/// `HomeScreenViewModel` is deliberately **not** wrapped the way the old Kotlin root router
+/// was (a `NativeStateFlow` subscription per output): its real complexity — the
 /// session/connection state machine, job lifecycle, live `itemChanges` patching — is about
 /// *when* to show loading/reconnecting states, not about producing this screen's row data.
 /// That data is two one-shot server round trips (`KmpHelper.fetchRecommendationFolders`,
@@ -138,7 +138,7 @@ struct HomeView: View {
 
     private var settingsButton: some View {
         Button {
-            KmpHelper.shared.requestSettings()
+            AppRouter.shared.requestSettings()
         } label: {
             Image(systemName: "gearshape")
         }
