@@ -58,20 +58,10 @@ jobs:
           path: iosApp/Frameworks/WebRTC.xcframework
           key: webrtc-xcframework-m125-cow-bloat-fix.1
 
-      - name: Download WebRTC.xcframework
-        if: steps.cache-webrtc.outputs.cache-hit != 'true'
-        run: |
-          set -euo pipefail
-          curl -L --fail \
-            "https://github.com/teancom/webrtc/releases/download/m125-cow-bloat-fix.1/WebRTC.xcframework.m125-cow-bloat-fix.1.zip" \
-            -o /tmp/WebRTC.xcframework.zip
-          mkdir -p iosApp/Frameworks
-          unzip -q /tmp/WebRTC.xcframework.zip -d iosApp/Frameworks/
-          rm /tmp/WebRTC.xcframework.zip
-          # Fail loudly if the zip didn't contain what we expect — catches
-          # upstream release-format changes before they turn into opaque
-          # archive failures.
-          test -d iosApp/Frameworks/WebRTC.xcframework/ios-arm64/WebRTC.framework
+      # Downloads on a cache miss, and on every run re-applies the fix-up the vendored
+      # xcframework needs before Xcode accepts it (see the script).
+      - name: Fetch WebRTC.xcframework
+        run: scripts/fetch-webrtc.sh
 
       - name: Grant execute permission for gradlew
         run: chmod +x ./gradlew
@@ -140,6 +130,9 @@ jobs:
 
           # Sanity check — we should see our Apple Distribution identity
           security find-identity -v -p codesigning "$KEYCHAIN"
+
+      - name: Build Kotlin framework (Release, device)
+        run: scripts/build-kotlin-framework.sh release device
 
       - name: Archive
         run: |

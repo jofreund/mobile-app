@@ -17,7 +17,7 @@ Effort: S = under half a day, M = a day, L = several days.
   player-summary list; make `PlayerBarStore`/`MiniPlayerView` read the summary list and only
   the selected player's full state. (M)
 - [ ] **4.** Point `PlayerActivityController` at the selected-player flow only, after 3. (S)
-- [ ] **5.** Create `NativeAudioController` and `NowPlayingCoordinator` lazily, only when the
+- [x] **5.** Create `NativeAudioController` and `NowPlayingCoordinator` lazily, only when the
   Sendspin toggle is on. Today `iOSApp.init` builds both unconditionally. (S)
 - [ ] **6.** Measure cold launch with the Instruments App Launch template on a Release build
   and record the numbers here before any further init work. (S)
@@ -57,12 +57,20 @@ measurement that points at that code.
 
 ## C. Build & repo
 
-- [ ] **16.** Build `MusicAssistantKit.xcframework` via Gradle and consume it from
-  `iosApp/Frameworks/` like WebRTC. Remove the "Compile Kotlin Framework" run-script phase and
-  its hash gate; add a `make kotlin` (or script) target; give CI a separate framework job cached
-  on the hash of `composeApp/src` + Gradle files. (M)
-- [ ] **17.** Add `WebRTC.xcframework` to the app target as Embed & Sign and delete the
+- [x] **16.** Build the Kotlin framework outside Xcode and consume it from `iosApp/Frameworks/`
+  like WebRTC. Remove the "Compile Kotlin Framework" run-script phase and its hash gate; add a
+  script; CI builds the framework in its own step. (M) **Done as a per-configuration framework
+  directory, not an XCFramework:** an XCFramework carries one build type and Xcode cannot switch
+  a file reference per configuration, whereas `FRAMEWORK_SEARCH_PATHS` already selects on
+  `$(CONFIGURATION)/$(PLATFORM_NAME)`. `scripts/build-kotlin-framework.sh [debug|release]
+  [simulator|device|all]`. The CI cache job was not split out — the existing Gradle cache
+  already covers the Kotlin build, and a separate job would add a workflow for no measured gain.
+- [x] **17.** Add `WebRTC.xcframework` to the app target as Embed & Sign and delete the
   copy/`xattr`/`codesign` script lines. Keep the Gradle test-executable linker flag. (S)
+  **Note:** the vendored build's `Info.plist` declares per-slice `dSYMs` directories it does not
+  ship, and Xcode refuses an xcframework with a missing declared path (an empty directory does
+  not count). `scripts/fetch-webrtc.sh` (new; replaces the duplicated curl blocks in both
+  workflows and the docs) downloads it and strips those entries from its `Info.plist`.
 - [ ] **18.** Delete `lokalise-push.yml` and `lokalise-pull.yml` (dead: their source path no
   longer exists). (S)
 - [ ] **19.** Gradle hygiene: drop `android.*` properties, `kotlin.native.ignoreDisabledTargets`,
@@ -82,5 +90,11 @@ measurement that points at that code.
 1 → 2 → 16 → 5 → 21 → 11 → 9 → 10 → 17 → 18 → 19 → 20 → 3 → 4 → 6 → 7 → 8 → 12 → 13 → 14 → 15
 
 ## Done log
+
+- 2026-09-03 — **5, 16, 17** in `c43a0032` (branch `claude/xcframework-and-lazy-audio`). Xcode no
+  longer runs Gradle; `WebRTC.xcframework` is a plain Embed & Sign reference; the local player's
+  Swift half (`LocalPlayerActivation`) comes up only when the Sendspin toggle is on. Docs and
+  both CI workflows updated; `scripts/fetch-webrtc.sh` added. Traps found: `/bin/bash` on macOS
+  is 3.2 (no `${var^}`), and the WebRTC xcframework's plist declares `dSYMs` it lacks (stripped by the fetch script).
 
 - 2026-09-03 — **1, 2** in `72832aaf` (branch `claude/perf-group-a-low-risk`, merged to main). Also deleted the dead `ui/Timings.kt` (its only consumer was the debounce). Kotlin 476/476, detekt CI clean. Swift suite 125/126: `SVGRasterizerTests.testConcurrentRasterizationsAllSucceed` fails on this machine — see note under 7.

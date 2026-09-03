@@ -10,7 +10,8 @@ Built with Kotlin Multiplatform + Compose Multiplatform for Android and iOS.
 ./gradlew :androidApp:assembleDebug
 ./gradlew :androidApp:installDebug
 
-# iOS - open in Xcode
+# iOS - build the Kotlin framework (re-run when Kotlin changes), then open in Xcode
+scripts/build-kotlin-framework.sh
 open iosApp/iosApp.xcodeproj
 
 # Tests
