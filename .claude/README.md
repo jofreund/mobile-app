@@ -1,215 +1,45 @@
 # Documentation Index
 
-This directory contains project documentation for the Music Assistant KMP Client.
+Agent-facing docs for Taktgeber, a native SwiftUI client for Music Assistant on a Kotlin
+kernel. Human-facing setup and build docs are in `../docs/`.
 
-**Last Updated:** 2026-02-08
+**Last updated:** 2026-09-03
 
-## Quick Navigation
+## Read first
 
-| Category | Documents |
-|----------|-----------|
-| **Architecture** | [architecture.md](#architecture), [project-structure.md](#project-structure) |
-| **Development** | [guidelines.md](#guidelines), [dependencies.md](#dependencies) |
-| **Features** | [WebRTC Remote Access](#webrtc-remote-access), [Sendspin](#sendspin-protocol), [Settings](#settings-screen), [iOS Audio](#ios-audio-pipeline), [Volume Control](#volume-control) |
-| **Getting Started** | [project.md](#project-overview) |
+| Document | What it covers |
+|----------|----------------|
+| [project.md](project.md) | What the app is, quick commands, index of the feature notes (imported by `CLAUDE.md`) |
+| [architecture.md](architecture.md) | Layers, Swift/Kotlin ownership, the bridge contract, nil-vs-empty rule, session and player state, artwork, local player |
+| [project-structure.md](project-structure.md) | Directory map for the kernel, the bridge, and the Swift app; where new code goes |
+| [dependencies.md](dependencies.md) | Every library and why, plus what is deliberately absent |
+| [guidelines.md](guidelines.md) | Conventions for Swift and Kotlin, pbxproj edits, verification gates, performance rules |
+| [perf-and-simplification-plan.md](perf-and-simplification-plan.md) | Numbered, ticked list of performance and simplification work |
 
----
+## Feature notes (current)
 
-## Core Documentation
+| Document | Status |
+|----------|--------|
+| [settings-screen.md](settings-screen.md) | Settings, connection setup, login/OAuth, local player section |
+| [player-overflow-menu-plan.md](player-overflow-menu-plan.md) | Expanded player's ⋯ menu: autoplay, crossfade, playback speed, transfer queue |
+| [volume-control.md](volume-control.md) | Volume slider behaviour and the attempt that must not be repeated |
+| [local-player-integration-plan.md](local-player-integration-plan.md) | How the on-device Sendspin player was ported back and gated behind a toggle |
+| [siri-integration-overview.md](siri-integration-overview.md) | How upstream's Siri integration works; what a port back would need (not built) |
+| [carplay.md](carplay.md) | Upstream's CarPlay architecture; removed from this fork, kept as reference |
 
-### Project Overview
-**[project.md](project.md)**
-- Quick start guide
-- Feature list
-- Build commands (Android, iOS)
-- Project description and goals
+## Kernel and protocol notes (historical, still accurate for the Kotlin they describe)
 
-### Architecture
-**[architecture.md](architecture.md)**
-- MVVM + Unidirectional Data Flow pattern
-- Dependency injection (Koin)
-- Navigation (Navigation3)
-- Expect/Actual pattern usage
-- State management with StateFlow
-- **UI Architecture**: HomeScreen/HomeScreenViewModel (current), MainScreen/MainViewModel (deprecated)
-- Sendspin integration overview
-- Android services integration
+These were written when the app was Kotlin Multiplatform with a Compose UI. The Kotlin they
+describe — the Sendspin client and the WebRTC transport — is still what ships; the Android
+and Compose parts they mention are gone.
 
-### Project Structure
-**[project-structure.md](project-structure.md)**
-- Source set organization (commonMain, androidMain, iosMain)
-- Package organization
-- Feature module pattern
-- Platform-specific code guidelines
+- [sendspin-status.md](sendspin-status.md), [sendspin-transport-architecture.md](sendspin-transport-architecture.md), [sendspin-resilient-architecture.md](sendspin-resilient-architecture.md), [sendspin-webrtc-status.md](sendspin-webrtc-status.md)
+- [ios_audio_pipeline.md](ios_audio_pipeline.md) — predates the AudioQueue-based `NativeAudioController`; the codec facts hold, the MPV pipeline does not
+- [webrtc-completion-summary.md](webrtc-completion-summary.md), [webrtc-refactoring-summary.md](webrtc-refactoring-summary.md), [webrtc-implementation-plan-ARCHIVED.md](webrtc-implementation-plan-ARCHIVED.md)
 
-### Dependencies
-**[dependencies.md](dependencies.md)**
-- UI: Compose Multiplatform, Material3, Icons
-- Networking: Ktor, WebSocket, WebRTC
-- Data: kotlinx.serialization, multiplatform-settings
-- DI & Architecture: Koin, Navigation3
-- Media: Coil 3, ExoPlayer, AVPlayer
-- Utilities: Kermit logging, Reorderable, mDNS
+## Conventions for this directory
 
-### Development Guidelines
-**[guidelines.md](guidelines.md)**
-- Code location rules (commonMain preference)
-- Kotlin conventions (StateFlow, sealed interfaces)
-- Compose conventions (Material3, remember, koinViewModel)
-- File organization
-- Logging with Kermit
-- State wrappers (DataState<T>)
-- Testing platform notes
-
----
-
-## Feature Documentation
-
-### WebRTC Remote Access
-
-**[webrtc-implementation-plan.md](webrtc-implementation-plan.md)** ⭐ **COMPLETE - PRODUCTION READY**
-- **Status**: ✅ Fully functional on Android (updated 2026-02-08)
-- WebRTC peer-to-peer connections for remote access
-- Cloud signaling server integration (`wss://signaling.music-assistant.io/ws`)
-- DTLS-encrypted data channels for secure communication
-- Full API compatibility (authentication, library, playback)
-- **Critical fix**: TEXT message transmission via native API (webrtc-kmp limitation workaround)
-- Implementation phases: Foundation → Signaling → Peer Connection → Integration → Testing
-- Known issues: iOS stubs only (Android production-ready), optional Sendspin channel not implemented
-- Architecture decisions and production-quality fixes documented
-
-### Sendspin Protocol
-
-**[sendspin-status.md](sendspin-status.md)** ⭐ **PRIMARY REFERENCE**
-- **Current implementation status** (updated 2026-01-16)
-- Platform support breakdown:
-  - Android: PCM, Opus, FLAC (all working)
-  - iOS: PCM, Opus, FLAC via MPV (all working)
-- Auto-reconnect and network resilience features
-- Recent additions and changelog
-- Performance metrics
-- Known issues and limitations
-
-**[sendspin-resilient-architecture.md](sendspin-resilient-architecture.md)**
-- Auto-reconnect implementation details
-- Network resilience design (keepalive settings)
-- Connection state management
-- What was implemented vs. what wasn't
-- Testing results and benefits
-
-### Settings Screen
-
-**[settings-screen.md](settings-screen.md)**
-- Complete Settings screen documentation (updated Jan 2026)
-- UI states (disconnected, connected, authenticated)
-- Section components (server connection, authentication, local player)
-- Authentication flow (builtin, OAuth)
-- Logout vs. disconnect behavior
-- Error handling strategies
-- Sendspin integration (local player configuration)
-- Testing scenarios
-
-### iOS Audio Pipeline
-
-**[ios_audio_pipeline.md](ios_audio_pipeline.md)**
-- MPV-based audio pipeline for iOS (completed 2026-01-14)
-- FLAC, Opus, PCM codec support
-- Custom stream protocol implementation
-- RingBuffer architecture
-- Codec configuration
-- Known issues and future work
-
-### Volume Control
-
-**[volume-control.md](volume-control.md)**
-- MediaSession local playback mode
-- System volume integration
-- Bidirectional sync (device ↔ server)
-- Preventing volume drift and circular updates
-- Service cleanup requirements
-
----
-
-## Documentation Maintenance
-
-### Recent Changes (2026-01-16)
-
-**Deleted (Outdated/Contradictory):**
-- ~~`sendspin-integration-design.md`~~ - Original 66KB design doc (superseded by status doc)
-- ~~`sendspin-integration-guide.md`~~ - Integration guide (superseded by status doc)
-- ~~`sendspin-android-services-integration.md`~~ - Contradictory proposed design
-- ~~`connection-service-design.md`~~ - Never implemented
-
-**Why deleted?**
-- **Redundancy**: Multiple overlapping documents caused confusion
-- **Outdated**: Implementation evolved significantly from original designs
-- **Contradictory**: Some docs had "proposed design" + "this wasn't implemented" sections
-- **Single source of truth**: `sendspin-status.md` is now the authoritative reference
-
-### Maintenance Guidelines
-
-1. **Update sendspin-status.md** when Sendspin features change
-2. **Update settings-screen.md** when Settings UI changes
-3. **Update architecture.md** when architectural patterns change
-4. **Update dependencies.md** when adding/removing libraries
-5. **Keep this README current** when documentation structure changes
-
-### Git History
-
-Deleted documentation is preserved in git history:
-```bash
-# View deleted file
-git show HEAD~1:.claude/sendspin-integration-design.md
-
-# See deletion commit
-git log --all --full-history -- ".claude/sendspin-integration-design.md"
-```
-
----
-
-## Contributing to Documentation
-
-### Adding New Documentation
-
-1. Create file in `.claude/` directory
-2. Use clear, descriptive filename
-3. Add to this README under appropriate category
-4. Include "Last Updated" date at top of document
-5. Cross-reference related docs
-
-### Updating Existing Documentation
-
-1. Update "Last Updated" date
-2. Add changelog entry if significant changes
-3. Update cross-references if structure changed
-4. Consider if README needs updating
-
-### Documentation Standards
-
-- **Markdown format**: Use GitHub-flavored markdown
-- **Code blocks**: Include language hints for syntax highlighting
-- **Status indicators**: Use ✅ (working), ⚠️ (partial), ❌ (not implemented)
-- **Cross-references**: Link to related docs
-- **Examples**: Include code examples where helpful
-- **Clear structure**: Use headers, tables, and lists effectively
-
----
-
-## Quick Links to Root Documentation
-
-- [Main README](../README.md) - Project README with features and installation
-- [CHANGELOG](../CHANGELOG.md) - Project changelog (started 2026-01-08)
-- [CLAUDE.md](../CLAUDE.md) - Claude Code integration (imports project.md)
-
----
-
-**Questions about documentation?** Check git history or file an issue.
-
-**Need to find something?** Use grep/ripgrep:
-```bash
-# Search all documentation
-rg "sendspin" .claude/
-
-# Find files mentioning a topic
-grep -r "authentication" .claude/
-```
+- One topic per file; date it at the top; correct it when the code moves.
+- `project.md` is imported by `CLAUDE.md` and in turn imports the four "read first" docs, so
+  keep those accurate above all.
+- Superseded documents are deleted, not kept with a warning banner; git history has them.
