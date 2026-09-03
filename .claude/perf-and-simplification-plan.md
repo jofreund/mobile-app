@@ -37,9 +37,12 @@ Effort: S = under half a day, M = a day, L = several days.
 - [x] **9.** Move `SchemaVersionWarningViewModel` and `AppRootRouter` to Swift; port
   `AppRootRouterTest` to Swift Testing; remove the `androidx.lifecycle-viewmodel`
   dependency. (M)
-- [ ] **10.** Move UI-only settings (theme, view mode, library filters, home rows, library
+- [x] **10.** Move UI-only settings (theme, view mode, library filters, home rows, library
   categories, Live Activity visibility) to `UserDefaults`/`@AppStorage`; delete the matching
-  `KmpHelper` get/set pairs. (M)
+  `KmpHelper` get/set pairs. (M) **Done for all but library filters:** `LibraryFilters` is also
+  the request argument to `fetchLibraryItems` and carries Kotlin enums, so its persistence stays
+  in Kotlin; revisit with 13. `AppPreferences.swift` reads Kotlin's keys and encodings, so
+  nothing migrates.
 - [x] **11.** Delete dead settings residue in `SettingsRepository` (`carTabsConfig`,
   `carPlayableClickActions`, `carBrowsableBulkActions`, both `carDsp*` actions,
   `dynamicColors`, `defaultClickActions`) and `BackgroundUsageGuard` + its Koin binding. (S)
@@ -71,13 +74,13 @@ measurement that points at that code.
   ship, and Xcode refuses an xcframework with a missing declared path (an empty directory does
   not count). `scripts/fetch-webrtc.sh` (new; replaces the duplicated curl blocks in both
   workflows and the docs) downloads it and strips those entries from its `Info.plist`.
-- [ ] **18.** Delete `lokalise-push.yml` and `lokalise-pull.yml` (dead: their source path no
+- [x] **18.** Delete `lokalise-push.yml` and `lokalise-pull.yml` (dead: their source path no
   longer exists). (S)
-- [ ] **19.** Gradle hygiene: drop `android.*` properties, `kotlin.native.ignoreDisabledTargets`,
+- [x] **19.** Gradle hygiene: drop `android.*` properties, `kotlin.native.ignoreDisabledTargets`,
   `TYPESAFE_PROJECT_ACCESSORS`, the `google()` and JetBrains Compose repositories in
   `settings.gradle.kts`, and unused catalog entries (Ktor CIO/Android/Java engines,
   coroutines-swing, kotlin-test-junit). (S) lifecycle-viewmodel already went with 9.
-- [ ] **20.** Delete repo residue: `.run`, `.fleet`, `.cursor`, `AI-Coding-Handbook`,
+- [x] **20.** Delete repo residue: `.run`, `.fleet`, `.cursor`, `AI-Coding-Handbook`,
   `.well-known`, `scripts/xml_to_xcstrings.py`, `CHANGELOG.md`. Fix the stale bundle id and
   `cacheKind` note in `docs/IOS-BUILD-INSTRUCTIONS.md`. (S)
 - [x] **21.** Rewrite `.claude/architecture.md`, `project-structure.md`, `dependencies.md`,
@@ -90,6 +93,12 @@ measurement that points at that code.
 1 → 2 → 16 → 5 → 21 → 11 → 9 → 10 → 17 → 18 → 19 → 20 → 3 → 4 → 6 → 7 → 8 → 12 → 13 → 14 → 15
 
 ## Done log
+
+- 2026-09-03 — **18, 20, 19, 10** in `e2bec414`, `cd087bbd`, `621326f5`, `08de994f` (branch
+  `claude/settings-and-hygiene`). 19 was proven with `--refresh-dependencies` against Maven
+  Central + plugin portal only. 10 also removed `LibraryCategoryConfig.kt` (its Swift port had
+  replaced it). `ItemKind`/`ClickContext`/`ItemActionResolver` are still the dead Kotlin trio;
+  fold into 13 or a later sweep.
 
 - 2026-09-03 — **21, 11, 9** in `7a602436`, `1ff72267`, `5e938557` (branch `claude/docs-settings-router`,
   stacked on `claude/xcframework-and-lazy-audio`). Root policy is `AppRootPolicy.swift` (pure
