@@ -12,12 +12,11 @@ import MusicAssistantKit
 /// assigner), and the modes handler is the sole writer of the shuffle/repeat
 /// command state. Kotlin decides *what* changed; the handlers just render it.
 ///
-/// Initialization happens in two idempotent phases because audio-session and
-/// remote-command setup must not wait for the Kotlin graph:
-///   1. Singleton creation (before `bootstrapKmp()`): session category and
-///      remote-command targets.
-///   2. `startObserving()` (right after `bootstrapKmp()`): channel
-///      subscriptions.
+/// Initialization happens in two idempotent phases, both driven by
+/// `LocalPlayerActivation` once the local player is switched on — nothing here
+/// runs while the feature is off:
+///   1. Singleton creation: session category and remote-command targets.
+///   2. `startObserving()`: channel subscriptions (needs the Kotlin graph).
 ///
 /// Audio playback is handled by NativeAudioController via AudioQueue.
 final class NowPlayingCoordinator {

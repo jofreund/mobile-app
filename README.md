@@ -58,13 +58,19 @@ lock screen.
 ```bash
 ./gradlew :composeApp:iosSimulatorArm64Test    # Kotlin core tests
 CI=true ./gradlew detektAll                    # lint
+scripts/build-kotlin-framework.sh debug simulator
 xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp \
   -sdk iphonesimulator -destination "id=<simulator-udid>" build
 ```
 
-Open `iosApp/iosApp.xcodeproj` in Xcode to run. The Kotlin framework builds automatically via a
-run-script phase; there is no separate step. `JAVA_HOME` must point at JDK 21 in the environment
-Xcode is launched from.
+Build the Kotlin framework once, then open `iosApp/iosApp.xcodeproj` in Xcode and run:
+
+```bash
+scripts/build-kotlin-framework.sh    # debug, simulator + device; re-run when Kotlin changes
+```
+
+Xcode never runs Gradle itself, so an Xcode build is pure Swift and needs no JDK. The script
+wants JDK 21 (it finds it through `/usr/libexec/java_home -v 21` when `JAVA_HOME` is unset).
 
 See [IOS-BUILD-INSTRUCTIONS.md](docs/IOS-BUILD-INSTRUCTIONS.md) and
 [DEV-ENVIRONMENT.md](docs/DEV-ENVIRONMENT.md) for the longer version, and

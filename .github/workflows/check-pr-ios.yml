@@ -55,17 +55,11 @@ jobs:
           path: iosApp/Frameworks/WebRTC.xcframework
           key: webrtc-xcframework-m125-cow-bloat-fix.1
 
-      - name: Download WebRTC.xcframework
-        if: ${{ !startsWith(github.head_ref, 'chore/bump-ios-build-') && steps.cache-webrtc.outputs.cache-hit != 'true' }}
-        run: |
-          set -euo pipefail
-          curl -L --fail \
-            "https://github.com/teancom/webrtc/releases/download/m125-cow-bloat-fix.1/WebRTC.xcframework.m125-cow-bloat-fix.1.zip" \
-            -o /tmp/WebRTC.xcframework.zip
-          mkdir -p iosApp/Frameworks
-          unzip -q /tmp/WebRTC.xcframework.zip -d iosApp/Frameworks/
-          rm /tmp/WebRTC.xcframework.zip
-          test -d iosApp/Frameworks/WebRTC.xcframework/ios-arm64/WebRTC.framework
+      # Downloads on a cache miss, and on every run re-applies the fix-up the vendored
+      # xcframework needs before Xcode accepts it (see the script).
+      - name: Fetch WebRTC.xcframework
+        if: ${{ !startsWith(github.head_ref, 'chore/bump-ios-build-') }}
+        run: scripts/fetch-webrtc.sh
 
       - name: Grant execute permission for gradlew
         if: ${{ !startsWith(github.head_ref, 'chore/bump-ios-build-') }}
@@ -78,9 +72,15 @@ jobs:
         if: ${{ !startsWith(github.head_ref, 'chore/bump-ios-build-') }}
         run: ./gradlew :composeApp:iosSimulatorArm64Test
 
+      # Xcode no longer runs Gradle. The Kotlin framework is built here and dropped
+      # under iosApp/Frameworks/Kotlin/, where the project's FRAMEWORK_SEARCH_PATHS
+      # resolve it per configuration and platform.
+      - name: Build Kotlin framework (Debug, simulator)
+        if: ${{ !startsWith(github.head_ref, 'chore/bump-ios-build-') }}
+        run: scripts/build-kotlin-framework.sh debug simulator
+
       # Simulator destination + signing disabled gives us a compile-only pass:
-      # Kotlin framework compilation runs via the Xcode build phase script, and
-      # Swift compiles against the real iOS 26 SDK. No provisioning profile or
+      # Swift compiles against the real iOS SDK. No provisioning profile or
       # distribution cert required.
       - name: Build (no signing, simulator target)
         if: ${{ !startsWith(github.head_ref, 'chore/bump-ios-build-') }}

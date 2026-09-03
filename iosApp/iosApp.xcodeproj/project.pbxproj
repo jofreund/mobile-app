@@ -12,6 +12,7 @@
 		0B4C257E50350DDBF95D87D5 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA991F8C8A0917FDD5510709 /* Foundation.framework */; };
 		2152FB042600AC8F00CF470E /* iOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2152FB032600AC8F00CF470E /* iOSApp.swift */; };
 		C8AU00012FB0000000000001 /* NativeAudioController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8AU00112FB0000000000011 /* NativeAudioController.swift */; };
+		C8AU00092FB0000000000009 /* LocalPlayerActivation.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8AU00192FB0000000000019 /* LocalPlayerActivation.swift */; };
 		C8AU00022FB0000000000002 /* AudioDecoders.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8AU00122FB0000000000012 /* AudioDecoders.swift */; };
 		C8AU00032FB0000000000003 /* NowPlayingCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8AU00132FB0000000000013 /* NowPlayingCoordinator.swift */; };
 		C8AU00042FB0000000000004 /* NowPlayingInfoStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8AU00142FB0000000000014 /* NowPlayingInfoStore.swift */; };
@@ -19,6 +20,8 @@
 		C85119282F18C7A900185678 /* Opus in Frameworks */ = {isa = PBXBuildFile; productRef = C85119272F18C7A900185678 /* Opus */; };
 		C851192B2F18C88B00185678 /* FLAC in Frameworks */ = {isa = PBXBuildFile; productRef = C851192A2F18C88B00185678 /* FLAC */; };
 		C851192E2F18C8A200185678 /* ogg in Frameworks */ = {isa = PBXBuildFile; productRef = C851192D2F18C8A200185678 /* ogg */; };
+		C8FW00022F9F000000000002 /* WebRTC.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = C8FW00012F9F000000000001 /* WebRTC.xcframework */; };
+		C8FW00032F9F000000000003 /* WebRTC.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = C8FW00012F9F000000000001 /* WebRTC.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		7555FF83242A565900829871 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7555FF82242A565900829871 /* ContentView.swift */; };
 		C29F123E61DAA17B671EC957 /* SVGRasterizerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FE624765BDE4DC4138CA712 /* SVGRasterizerTests.swift */; };
 		C29F123E61DAA17B671EC958 /* QueueMoveMathTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FE624765BDE4DC4138CA713 /* QueueMoveMathTests.swift */; };
@@ -144,6 +147,7 @@
 		C8LL00132F5D000000000013 /* LibraryListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryListView.swift; sourceTree = "<group>"; };
 		C8LV00132F62000000000013 /* LibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryView.swift; sourceTree = "<group>"; };
 		C8AU00112FB0000000000011 /* NativeAudioController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeAudioController.swift; sourceTree = "<group>"; };
+		C8AU00192FB0000000000019 /* LocalPlayerActivation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalPlayerActivation.swift; sourceTree = "<group>"; };
 		C8AU00122FB0000000000012 /* AudioDecoders.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioDecoders.swift; sourceTree = "<group>"; };
 		C8AU00132FB0000000000013 /* NowPlayingCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NowPlayingCoordinator.swift; sourceTree = "<group>"; };
 		C8AU00142FB0000000000014 /* NowPlayingInfoStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NowPlayingInfoStore.swift; sourceTree = "<group>"; };
@@ -207,6 +211,7 @@
 		C8WD00152FA0000000000015 /* TaktgeberWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = TaktgeberWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		C8WD00172FA0000000000017 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		C8WD00182FA0000000000018 /* TaktgeberWidgets.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TaktgeberWidgets.entitlements; sourceTree = "<group>"; };
+		C8FW00012F9F000000000001 /* WebRTC.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = WebRTC.xcframework; path = Frameworks/WebRTC.xcframework; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -226,6 +231,7 @@
 				C85119262F18C7A900185678 /* Copus in Frameworks */,
 				C851192B2F18C88B00185678 /* FLAC in Frameworks */,
 				C85119282F18C7A900185678 /* Opus in Frameworks */,
+				C8FW00022F9F000000000002 /* WebRTC.xcframework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -248,6 +254,17 @@
 				C8WD00262FA0000000000026 /* TaktgeberWidgets.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C8FW00042F9F000000000004 /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				C8FW00032F9F000000000003 /* WebRTC.xcframework in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXCopyFilesBuildPhase section */
@@ -282,6 +299,7 @@
 		42799AB246E5F90AF97AA0EF /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				C8FW00012F9F000000000001 /* WebRTC.xcframework */,
 				A26246071203143DFB91C5EC /* iOS */,
 			);
 			name = Frameworks;
@@ -404,6 +422,7 @@
 			isa = PBXGroup;
 			children = (
 				C8AU00112FB0000000000011 /* NativeAudioController.swift */,
+				C8AU00192FB0000000000019 /* LocalPlayerActivation.swift */,
 				C8AU00122FB0000000000012 /* AudioDecoders.swift */,
 				C8AU00132FB0000000000013 /* NowPlayingCoordinator.swift */,
 				C8AU00142FB0000000000014 /* NowPlayingInfoStore.swift */,
@@ -537,10 +556,10 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 7555FFA5242A565B00829871 /* Build configuration list for PBXNativeTarget "iosApp" */;
 			buildPhases = (
-				F36B1CEB2AD83DDC00CB74D5 /* Compile Kotlin Framework */,
 				7555FF77242A565900829871 /* Sources */,
 				B92378962B6B1156000C7307 /* Frameworks */,
 				7555FF79242A565900829871 /* Resources */,
+				C8FW00042F9F000000000004 /* Embed Frameworks */,
 				C8WD00342FA0000000000034 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
@@ -646,28 +665,6 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
-/* Begin PBXShellScriptBuildPhase section */
-		F36B1CEB2AD83DDC00CB74D5 /* Compile Kotlin Framework */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "Compile Kotlin Framework";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "if [ \"YES\" = \"$OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED\" ]; then\n  echo \"Skipping Gradle build task invocation due to OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED environment variable set to \\\"YES\\\"\"\n  exit 0\nfi\n\n# Fail the Xcode phase as soon as any step (gradle, cp, codesign, ...) fails.\n# Without this, a gradle compile error followed by a successful cache-write / cp\n# / codesign leaves the phase exiting 0 and Xcode reporting \"Build succeeded\".\nset -e\n\n# Use JDK 21 — JDK 25 is incompatible with Gradle 8.13/Kotlin 2.3.0.\n# JAVA_HOME is expected to be set by the invoking environment:\n#   * GitHub Actions: actions/setup-java@v4 exports it\n#   * Local Xcode launched from CLI: shell rc exports it\n#   * Local Xcode.app launched from Dock: launchctl setenv JAVA_HOME ...\nexport PATH=\"$JAVA_HOME/bin:$PATH\"\n\ncd \"$SRCROOT/..\"\n\n# Skip ./gradlew when Kotlin sources and build config haven't changed since the\n# last successful run. Gradle detects this itself, but only after a ~30s daemon\n# startup (every Xcode build is a cold start). This gate saves that ~30s on\n# no-op re-archives (e.g. bump CFBundleVersion only); it doesn't help when\n# sources actually changed — gradle runs normally in that case.\nKMP_FRAMEWORK_DIR=\"$SRCROOT/../composeApp/build/xcode-frameworks/$CONFIGURATION/$SDK_NAME/MusicAssistantKit.framework\"\nHASH_FILE=\"$DERIVED_FILE_DIR/kotlin-source-hash\"\nCURRENT_HASH=$(\n  {\n    find composeApp/src -type f -name '*.kt*' -print0 | xargs -0 shasum\n    shasum build.gradle.kts composeApp/build.gradle.kts gradle.properties gradle/libs.versions.toml settings.gradle.kts\n  } | shasum | awk '{print $1}'\n)\n\nif [ -f \"$HASH_FILE\" ] && [ \"$(cat \"$HASH_FILE\")\" = \"$CURRENT_HASH\" ] && [ -d \"$KMP_FRAMEWORK_DIR\" ]; then\n  echo \"Kotlin sources unchanged — skipping ./gradlew :composeApp:embedAndSignAppleFrameworkForXcode\"\nelse\n  ./gradlew :composeApp:embedAndSignAppleFrameworkForXcode\n  mkdir -p \"$DERIVED_FILE_DIR\"\n  echo \"$CURRENT_HASH\" > \"$HASH_FILE\"\nfi\n\n# Copy WebRTC.framework slice into the KMP output directory so the linker can find it\nWEBRTC_XCFW=\"$SRCROOT/Frameworks/WebRTC.xcframework\"\nOUTPUT_DIR=\"$SRCROOT/../composeApp/build/xcode-frameworks/$CONFIGURATION/$SDK_NAME\"\nif [[ \"$PLATFORM_NAME\" == *simulator* ]]; then\n  cp -Rf \"$WEBRTC_XCFW/ios-arm64_x86_64-simulator/WebRTC.framework\" \"$OUTPUT_DIR/\"\nelse\n  cp -Rf \"$WEBRTC_XCFW/ios-arm64/WebRTC.framework\" \"$OUTPUT_DIR/\"\nfi\n\n# Embed WebRTC.framework into the app bundle so dyld can find it at runtime\nBUNDLE_FRAMEWORKS=\"$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/Frameworks\"\nmkdir -p \"$BUNDLE_FRAMEWORKS\"\ncp -Rf \"$OUTPUT_DIR/WebRTC.framework\" \"$BUNDLE_FRAMEWORKS/\"\n\n# Strip any extended attributes (resource forks, Finder info, file-provider\n# sync markers, quarantine flags, etc.) that may have been picked up on the\n# source framework by cloud-sync or sandboxed tooling. codesign refuses to\n# sign bundles carrying this metadata with \\\"resource fork, Finder information,\n# or similar detritus not allowed\\\", so we defensively clear it every build.\nxattr -cr \"$BUNDLE_FRAMEWORKS/WebRTC.framework\" 2>/dev/null || true\n\n# Sign WebRTC.framework with the same identity Xcode is using for this build.\n# EXPANDED_CODE_SIGN_IDENTITY is the cert hash for device builds and '-' (or empty) for simulator/ad-hoc.\n# Fall back to '-' (ad-hoc) if empty so simulator CLI builds still work.\ncodesign --force --sign \"${EXPANDED_CODE_SIGN_IDENTITY:--}\" \"$BUNDLE_FRAMEWORKS/WebRTC.framework\"\n";
-		};
-/* End PBXShellScriptBuildPhase section */
-
 /* Begin PBXSourcesBuildPhase section */
 		37904671475C70F92C9A3F89 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -708,6 +705,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				C8AU00012FB0000000000001 /* NativeAudioController.swift in Sources */,
+				C8AU00092FB0000000000009 /* LocalPlayerActivation.swift in Sources */,
 				C8AU00022FB0000000000002 /* AudioDecoders.swift in Sources */,
 				C8AU00032FB0000000000003 /* NowPlayingCoordinator.swift in Sources */,
 				C8AU00042FB0000000000004 /* NowPlayingInfoStore.swift in Sources */,
@@ -943,7 +941,7 @@
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(SRCROOT)/../composeApp/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)",
+					"$(SRCROOT)/Frameworks/Kotlin/$(CONFIGURATION)/$(PLATFORM_NAME)",
 					"$(SRCROOT)/Frameworks",
 				);
 				INFOPLIST_FILE = iosApp/Info.plist;
@@ -977,7 +975,7 @@
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(SRCROOT)/../composeApp/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)",
+					"$(SRCROOT)/Frameworks/Kotlin/$(CONFIGURATION)/$(PLATFORM_NAME)",
 					"$(SRCROOT)/Frameworks",
 				);
 				INFOPLIST_FILE = iosApp/Info.plist;

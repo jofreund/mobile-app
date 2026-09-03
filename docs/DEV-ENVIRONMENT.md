@@ -3,9 +3,8 @@
 ## Requirements
 
 - **macOS with Xcode 26.** This fork targets iOS 26 and is developed against the beta toolchain.
-- **JDK 21 LTS.** Gradle 9.6 / Kotlin 2.4 do not support JDK 25. `JAVA_HOME` must point at it in
-  whatever environment Xcode is launched from — including when launched from the Dock, where a
-  shell profile won't reach it (`launchctl setenv JAVA_HOME …`).
+- **JDK 21 LTS.** Gradle 9.6 / Kotlin 2.4 do not support JDK 25. Only Gradle needs it — Xcode
+  no longer runs Gradle, so the JDK never has to be visible to Xcode itself.
 
 [IOS-BUILD-INSTRUCTIONS](IOS-BUILD-INSTRUCTIONS.md) has the full step-by-step, including the
 WebRTC framework and signing.
@@ -21,9 +20,13 @@ composeApp/src/iosMain/      Swift-facing bridge (KmpHelper, NativeFlow) + iOS a
 iosApp/                      The SwiftUI app and its tests
 ```
 
-`composeApp` builds a static `MusicAssistantKit.framework` that `iosApp` imports. Xcode drives
-that build through a run-script phase, so there's no separate step — but it does mean Xcode needs
-a working JDK.
+`composeApp` builds a static `MusicAssistantKit.framework` that `iosApp` imports. Build it with
+`scripts/build-kotlin-framework.sh` (debug for both platforms by default; `release device` for
+an archive). It lands under the gitignored `iosApp/Frameworks/Kotlin/<Configuration>/<platform>/`,
+which is where the app target's `FRAMEWORK_SEARCH_PATHS` look. Xcode itself never invokes
+Gradle: an Xcode build is pure Swift and takes seconds, and the framework only needs
+rebuilding when Kotlin sources or Gradle files change. `WebRTC.xcframework` is linked and
+embedded by Xcode directly (Embed & Sign), with no script in between.
 
 Two names are historical and deliberately unchanged: the module is `composeApp` though it
 contains no Compose, and its directory prefixes every upstream path, so renaming it would make

@@ -50,22 +50,18 @@ chmod +x ./gradlew
 
 ### 4. WebRTC framework (one-time download)
 
-The app uses `webrtc-kmp` which requires the `WebRTC.xcframework` binary to be present at `iosApp/Frameworks/WebRTC.xcframework`. To download it:
+The Kotlin core's WebRTC transport (`ktor-client-webrtc`) links against the `WebRTC.xcframework`
+binary at `iosApp/Frameworks/WebRTC.xcframework` (gitignored). Fetch it with:
 
 ```bash
-# Download WebRTC.xcframework (M125 build + dcsctp COW-bloat fix,
-# ~15 MB compressed / ~32 MB extracted).
-# Patched build from teancom/webrtc — same M125 binary upstream ships
-# (125.6422.02), with the DcSctpTransport receive_buffer fix from
-# webrtc-sdk/webrtc#234 backported. Replace with an upstream
-# webrtc-sdk/Specs release once the fix lands in a stock release.
-curl -L "https://github.com/teancom/webrtc/releases/download/m125-cow-bloat-fix.1/WebRTC.xcframework.m125-cow-bloat-fix.1.zip" \
-  -o /tmp/WebRTC.xcframework.zip
-
-# Extract into iosApp/Frameworks/
-mkdir -p iosApp/Frameworks
-cd iosApp/Frameworks && unzip /tmp/WebRTC.xcframework.zip
+scripts/fetch-webrtc.sh
 ```
+
+That downloads the patched M125 build (~15 MB compressed / ~32 MB extracted; the tag and its
+provenance are documented in the script), and removes the `DebugSymbolsPath` entries each
+slice's `Info.plist` declares for `dSYMs` the release does not ship — Xcode refuses to process an
+xcframework with a missing declared path. Re-running is safe: the download is skipped when
+present, the fix-up always re-applied.
 
 Expected result: `iosApp/Frameworks/WebRTC.xcframework/` containing slices for:
 - `ios-arm64` (physical device)
@@ -75,10 +71,28 @@ The xcframework binary ships **without dSYMs** — they live as a separate
 `*-dsyms.zip` asset on the same release for opt-in download when you need
 to symbolicate a WebRTC frame in a crash report.
 
-The Xcode build phase script (`Compile Kotlin Framework`) automatically:
-1. Copies the correct slice into the KMP output directory (so the linker can find it)
-2. Embeds `WebRTC.framework` into the `.app` bundle's `Frameworks/` folder (so dyld can find it at runtime)
-3. Signs `WebRTC.framework` using `$EXPANDED_CODE_SIGN_IDENTITY` — the developer cert for device builds, ad-hoc (`-`) for simulator builds
+The xcframework is referenced by the app target directly and listed in its **Embed Frameworks**
+phase with *Embed & Sign*, so Xcode picks the slice, embeds it into the `.app` bundle's
+`Frameworks/` folder and signs it with the build's own identity. There is no script involved.
+
+### 5. Build the Kotlin framework
+
+```bash
+scripts/build-kotlin-framework.sh                  # debug, simulator + device
+scripts/build-kotlin-framework.sh debug simulator  # the fast inner loop
+scripts/build-kotlin-framework.sh release device   # what an archive needs
+```
+
+This runs Gradle's `link*Framework*` tasks and copies the result to
+`iosApp/Frameworks/Kotlin/<Configuration>/<platform>/MusicAssistantKit.framework`, which is
+where the app target's `FRAMEWORK_SEARCH_PATHS` look (`$(CONFIGURATION)/$(PLATFORM_NAME)`).
+Xcode never runs Gradle: an Xcode build is pure Swift. Re-run the script whenever Kotlin
+sources or Gradle files change; Xcode fails with `no such module 'MusicAssistantKit'` when the
+framework for the selected configuration and platform is missing.
+
+**First Kotlin build:** 5–15 minutes (Kotlin/Native compiles its dependencies once).
+**Subsequent Kotlin builds:** under a minute when nothing changed, a few minutes after edits.
+**Xcode builds:** seconds.
 
 ---
 
@@ -94,13 +108,13 @@ Then in Xcode:
 1. Select a simulator or physical device from the toolbar
 2. Click the **Run** button (⌘R)
 
-Xcode will invoke the Gradle build phase automatically.
+Xcode does not run Gradle — build the Kotlin framework first (step 5 above).
 
 ### Build for iOS Simulator (command line)
 
 ```bash
 # From the mobile-app/ directory:
-JAVA_HOME=/Library/Java/JavaVirtualMachines/temurin-21.jdk/Contents/Home \
+scripts/build-kotlin-framework.sh debug simulator
 xcodebuild \
   -project iosApp/iosApp.xcodeproj \
   -scheme iosApp \
@@ -112,14 +126,6 @@ xcodebuild \
   build
 ```
 
-The Xcode build phase will automatically run:
-```bash
-./gradlew :composeApp:embedAndSignAppleFrameworkForXcode
-```
-to compile the KMP framework before Swift compilation.
-
-**First build time:** 10–30 minutes (Kotlin/Native compilation with `kotlin.native.cacheKind=none`).
-**Subsequent builds:** 1–3 minutes (incremental, Gradle up-to-date checks).
 
 #### Install and Run on Simulator
 
@@ -135,7 +141,7 @@ xcrun simctl install <SIMULATOR_UUID> \
   ~/Library/Developer/Xcode/DerivedData/iosApp-*/Build/Products/Debug-iphonesimulator/Taktgeber.app
 
 # Launch the app
-xcrun simctl launch <SIMULATOR_UUID> io.music-assistant.client
+xcrun simctl launch <SIMULATOR_UUID> com.jofreund.taktgeber-ios
 ```
 
 ### Build for physical device
@@ -187,7 +193,7 @@ mobile-app/
 │           ├── MainViewController.kt   # bootstrapKmp()
 │           ├── di/IosModule.kt
 │           └── di/KmpHelper.kt         # the whole Swift-facing bridge
-├── gradle.properties              # kotlin.native.cacheKind=none
+├── gradle.properties              # JVM memory for Gradle/Kotlin daemons
 ├── settings.gradle.kts
 └── build.gradle.kts
 ```
@@ -217,14 +223,10 @@ SPM packages are resolved automatically by Xcode at first build.
 ## Gradle Build Tasks
 
 ```bash
-# Build the KMP iOS framework manually (normally done by Xcode build phase)
-# Must set these env vars when running outside Xcode:
-JAVA_HOME=.../temurin-21.jdk/Contents/Home \
-CONFIGURATION=Debug \
-SDK_NAME=iphonesimulator \
-ARCHS=arm64 \
-EXPANDED_CODE_SIGN_IDENTITY=- \
-./gradlew :composeApp:embedAndSignAppleFrameworkForXcode
+# Build the KMP iOS framework (what scripts/build-kotlin-framework.sh wraps)
+./gradlew :composeApp:linkDebugFrameworkIosSimulatorArm64   # -> composeApp/build/bin/iosSimulatorArm64/debugFramework/
+./gradlew :composeApp:linkDebugFrameworkIosArm64            # -> composeApp/build/bin/iosArm64/debugFramework/
+./gradlew :composeApp:linkReleaseFrameworkIosArm64          # -> composeApp/build/bin/iosArm64/releaseFramework/
 
 # Run the shared-core tests (on the iOS simulator target)
 ./gradlew :composeApp:iosSimulatorArm64Test
@@ -264,7 +266,11 @@ The following issues were found and fixed to enable iOS/Kotlin-Native compilatio
 
 ### 5. `WebRTC.framework` not embedded in app bundle (dyld crash on launch)
 
-**File:** `iosApp/iosApp.xcodeproj/project.pbxproj` — `Compile Kotlin Framework` shell script
+> Historical. Fixes #5 and #6 lived in the `Compile Kotlin Framework` run-script phase, which
+> is gone: `WebRTC.xcframework` is now a framework reference on the app target with
+> *Embed & Sign*, so Xcode does both jobs. Kept for the symptoms.
+
+**File:** `iosApp/iosApp.xcodeproj/project.pbxproj` — the former `Compile Kotlin Framework` shell script
 **Problem:** The build phase script copied `WebRTC.framework` to the linker search path (so the build succeeded), but never embedded it into the `.app` bundle. At runtime, dyld looked for it at `@executable_path/Frameworks/WebRTC.framework`, found nothing, and aborted with:
 ```
 #3  dyld4::halt()
@@ -299,12 +305,10 @@ JDK 25 is not supported. Explicitly set `JAVA_HOME` to JDK 21:
 export JAVA_HOME=/Library/Java/JavaVirtualMachines/temurin-21.jdk/Contents/Home
 ```
 
-### `Could not infer iOS target platform` (Gradle)
+### `no such module 'MusicAssistantKit'` (Xcode)
 
-This happens when running `./gradlew :composeApp:embedAndSignAppleFrameworkForXcode` directly without Xcode env vars. Either run the build through Xcode, or set all required env vars:
-```bash
-CONFIGURATION=Debug SDK_NAME=iphonesimulator ARCHS=arm64 EXPANDED_CODE_SIGN_IDENTITY=- ./gradlew ...
-```
+The Kotlin framework for the selected configuration and platform hasn't been built. Run
+`scripts/build-kotlin-framework.sh` (add `release device` before archiving) and build again.
 
 ### `Undefined symbols: _OBJC_CLASS_$_RTCAudioTrack` (Linker)
 
@@ -316,23 +320,23 @@ Variable references in `project.pbxproj` must be quoted. e.g., use `"$(PRODUCT_B
 
 ### App crashes immediately on launch — `dyld4::halt()` / `dyld4::prepare()` in backtrace
 
-`WebRTC.framework` is not embedded in the app bundle. Verify the `Compile Kotlin Framework` build phase script contains the embed + sign block at the bottom (fixes #5 and #6 above). A clean build (`Product > Clean Build Folder`) then rebuild should resolve it.
+`WebRTC.framework` is not embedded in the app bundle. Check that `WebRTC.xcframework` is listed in the app target's **Embed Frameworks** phase with *Embed & Sign* (Frameworks, Libraries, and Embedded Content in the target's General tab). A clean build (`Product > Clean Build Folder`) then rebuild should resolve it.
 
 ### `Failed to verify code signature … WebRTC.framework : 0xe800801c (No code signature found.)`
 
-The framework was embedded but not signed. The `codesign` line is missing from the build phase script — see fix #6 above.
+The framework was embedded but not signed. Its entry in the app target's Frameworks, Libraries, and Embedded Content must say *Embed & Sign*, not *Embed Without Signing*.
 
 ### `Failed to verify code signature … WebRTC.framework : 0xe8008014 (The executable contains an invalid signature.)`
 
-The framework was signed with an ad-hoc identity (`-`) but is being installed on a physical device which requires a developer certificate. The `codesign` line must use `"${EXPANDED_CODE_SIGN_IDENTITY:--}"` (not a hardcoded `-`) — see fix #6 above.
+The framework was signed with an ad-hoc identity (`-`) but is being installed on a physical device which requires a developer certificate. With *Embed & Sign* Xcode signs it with the build's own identity; if this reappears, a stale copy from the old script is being embedded — clean the build folder.
 
 ### `Unresolved reference 'synchronized'` or `'System'` (Kotlin/Native)
 
 JVM-only APIs in `commonMain`. Use KMP-compatible alternatives (`Mutex.withLock { }`, `currentTimeMillis()`).
 
-### Long first build (10–30 min)
+### Long first Kotlin build (5–15 min)
 
-`kotlin.native.cacheKind=none` in `gradle.properties` disables all Kotlin/Native caching. This is intentional. Subsequent builds are faster (1–3 min) due to incremental compilation.
+The first `scripts/build-kotlin-framework.sh` compiles every Kotlin/Native dependency into `~/.konan`. Later runs reuse that cache and finish in well under a minute when nothing changed; Xcode builds never wait on it.
 
 ---
 
