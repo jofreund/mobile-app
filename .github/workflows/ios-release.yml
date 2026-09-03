@@ -220,9 +220,9 @@ jobs:
           git commit -m "chore: bump iOS build number to ${NEXT_BUILD}"
           git push origin "$BRANCH"
 
-      # Same mechanism as lokalise-pull.yml: actions/github-script + Octokit
-      # (github.token), create-or-update, and issues.addLabels — which
-      # auto-creates the label. Avoids the gh-CLI PR path that failed before.
+      # actions/github-script + Octokit (github.token), create-or-update, and
+      # issues.addLabels — which auto-creates the label. Avoids the gh-CLI PR
+      # path that failed before.
       - name: Open bump PR
         uses: actions/github-script@v7
         with:
