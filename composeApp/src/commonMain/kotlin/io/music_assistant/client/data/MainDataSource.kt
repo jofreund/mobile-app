@@ -364,6 +364,17 @@ class MainDataSource(
             .distinctUntilChanged(::playerBarStatesEquivalentIgnoringElapsed)
             .stateIn(this, SharingStarted.Eagerly, PlayerBarState.Loading)
 
+    /**
+     * The Live Activity's view of the selected player — see [LiveActivitySnapshot]. Declared
+     * after [playerBarState] because it is derived from it, and the eager `stateIn` collector
+     * needs that flow to exist.
+     */
+    val liveActivityState: StateFlow<LiveActivitySnapshot?> =
+        playerBarState
+            .map(::liveActivitySnapshot)
+            .distinctUntilChanged()
+            .stateIn(this, SharingStarted.Eagerly, null)
+
     // --- Canonical media-session "now playing" source ---
     // Single source of truth for what the MediaSession / notification presents,
     // consumed by the Android SharedMediaSessionManager (the sole session writer)

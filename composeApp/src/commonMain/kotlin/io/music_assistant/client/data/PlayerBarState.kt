@@ -78,10 +78,21 @@ data class PlayerBarItem(
     /** What queue actions (`playQueueItem`/`moveQueueItem`/`removeQueueItem`) key on — null when
      * this player has no queue at all. */
     val queueId: String?,
+    /**
+     * Populated for the **selected** player only; every other player carries an empty list.
+     *
+     * The queue is rendered in exactly one place — the expanded player, which shows the
+     * selected player and nothing else — so projecting every player's queue was work nobody
+     * read: a few hundred `QueueBarItem`s per player crossing the bridge on every real change,
+     * for Swift to walk element by element just to confirm they were the same objects as last
+     * time. Selection is an input to this projection, so the emission that moves the selection
+     * is the one that carries the new player's queue; there is no gap to bridge.
+     */
     val queueItems: List<QueueBarItem>,
     val currentQueueItemId: String?,
     /** Only ever non-empty for the *currently playing* item, and only when it's an [Audiobook] —
-     * mirrors `QueueDisplayRows.kt`'s chapter-nesting rule exactly. */
+     * mirrors `QueueDisplayRows.kt`'s chapter-nesting rule exactly. Selected player only, like
+     * [queueItems]: chapters are rows in the same queue list. */
     val currentItemChapters: List<Chapter>,
     /**
      * True when the current item is spoken word — an [Audiobook] or a [PodcastEpisode].
@@ -226,7 +237,8 @@ internal fun playerBarStatesEquivalentIgnoringElapsed(
  * existing gap rather than inventing behavior neither of them has today.
  */
 /**
- * Per-player memo for the queue projection, keyed on the *identity* of the source list.
+ * Memo for the queue projection, keyed by player on the *identity* of the source list. Since
+ * only the selected player's queue is projected, it holds one live entry at a time.
  *
  * [MainDataSource.buildPlayerDataList] carries loaded queue items across rebuilds by reference
  * (`updateFrom` keeps `oldQueueData.items` when the incoming state has none), so on a queue-time
@@ -291,11 +303,15 @@ internal fun buildPlayerBarState(
 ): PlayerBarState {
     val players = (playersDataState as? DataState.Data)?.data ?: return PlayerBarState.Loading
     if (players.isEmpty()) return PlayerBarState.Empty
-    queueCache.retainOnly(players.mapTo(mutableSetOf()) { it.playerId })
+    val resolvedIndex = selectedIndex?.takeIf { it in players.indices } ?: 0
+    // Only the selected player's queue is projected (see [PlayerBarItem.queueItems]), so only
+    // its cache entry is worth keeping; a re-selected player simply re-projects once.
+    queueCache.retainOnly(setOf(players[resolvedIndex].playerId))
     return PlayerBarState.Data(
-        players = players.map { data ->
+        players = players.mapIndexed { index, data ->
             val player = data.player
             val queue = data.queueInfo
+            val isSelected = index == resolvedIndex
             PlayerBarItem(
                 playerId = data.playerId,
                 name = player.nameAndSuffix,
@@ -321,9 +337,13 @@ internal fun buildPlayerBarState(
                 sleepTimerExpiresAt = player.sleepTimerExpiresAt,
                 trackItem = queue?.currentItem?.track as? AppMediaItem,
                 queueId = data.queueOrPlayerId,
-                queueItems = queueCache.project(data.playerId, data.queueItems),
+                queueItems = if (isSelected) queueCache.project(data.playerId, data.queueItems) else emptyList(),
                 currentQueueItemId = queue?.currentItem?.id,
-                currentItemChapters = (queue?.currentItem?.track as? Audiobook)?.chapters.orEmpty(),
+                currentItemChapters = if (isSelected) {
+                    (queue?.currentItem?.track as? Audiobook)?.chapters.orEmpty()
+                } else {
+                    emptyList()
+                },
                 isSpokenWord = queue?.currentItem?.track
                     .let { it is Audiobook || it is PodcastEpisode },
                 isGroup = player.isGroup,
@@ -349,7 +369,44 @@ internal fun buildPlayerBarState(
                     },
             )
         },
-        selectedIndex = selectedIndex?.takeIf { it in players.indices } ?: 0,
+        selectedIndex = resolvedIndex,
         presentationChapter = presentationChapter,
+    )
+}
+
+/**
+ * What the lock screen / Dynamic Island Live Activity shows for the selected player — and
+ * nothing else. Derived from [PlayerBarState] in [MainDataSource.liveActivityState] behind its
+ * own `distinctUntilChanged`, so the Swift controller is woken only when one of these fields
+ * changes: a volume echo, a queue edit or a group change on any player re-projects the bar
+ * state but never reaches ActivityKit.
+ *
+ * [anyPlaying] is over every player, not just the selected one, because that is how the
+ * "while playing" visibility setting is worded.
+ */
+data class LiveActivitySnapshot(
+    val playerId: String,
+    val playerName: String,
+    val title: String?,
+    val subtitle: String?,
+    val artworkUrl: String?,
+    val isPlaying: Boolean,
+    val isPoweredOff: Boolean,
+    val anyPlaying: Boolean,
+)
+
+/** Null while the bar is loading or empty. */
+internal fun liveActivitySnapshot(state: PlayerBarState): LiveActivitySnapshot? {
+    val data = state as? PlayerBarState.Data ?: return null
+    val selected = data.players.getOrNull(data.selectedIndex) ?: return null
+    return LiveActivitySnapshot(
+        playerId = selected.playerId,
+        playerName = selected.name,
+        title = selected.title,
+        subtitle = selected.subtitle,
+        artworkUrl = selected.artworkUrl,
+        isPlaying = selected.isPlaying,
+        isPoweredOff = selected.isPoweredOff,
+        anyPlaying = data.players.any { it.isPlaying },
     )
 }

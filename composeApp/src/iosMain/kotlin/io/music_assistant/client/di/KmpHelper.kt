@@ -23,6 +23,7 @@ import io.music_assistant.client.bridge.NativeFlow
 import io.music_assistant.client.bridge.NativeStateFlow
 import io.music_assistant.client.bridge.NativeSuspend
 import io.music_assistant.client.data.ChapterBarItem
+import io.music_assistant.client.data.LiveActivitySnapshot
 import io.music_assistant.client.data.MainDataSource
 import io.music_assistant.client.data.NowPlayingModes
 import io.music_assistant.client.data.NowPlayingTrack
@@ -1404,6 +1405,10 @@ object KmpHelper : KoinComponent {
 
     val playerBarState: NativeStateFlow<PlayerBarState>
         get() = NativeStateFlow(mainDataSource.playerBarState, mainScope)
+
+    /** The selected player as the Live Activity shows it — `PlayerActivityController`'s only input. */
+    val liveActivityState: NativeStateFlow<LiveActivitySnapshot>
+        get() = NativeStateFlow(mainDataSource.liveActivityState, mainScope)
 
     fun selectPlayerBarPlayer(playerId: String) = mainDataSource.selectPlayer(playerId)
 
