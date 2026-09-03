@@ -34,13 +34,13 @@ Effort: S = under half a day, M = a day, L = several days.
 
 ## B. Architecture: Kotlin → Swift
 
-- [ ] **9.** Move `SchemaVersionWarningViewModel` and `AppRootRouter` to Swift; port
+- [x] **9.** Move `SchemaVersionWarningViewModel` and `AppRootRouter` to Swift; port
   `AppRootRouterTest` to Swift Testing; remove the `androidx.lifecycle-viewmodel`
   dependency. (M)
 - [ ] **10.** Move UI-only settings (theme, view mode, library filters, home rows, library
   categories, Live Activity visibility) to `UserDefaults`/`@AppStorage`; delete the matching
   `KmpHelper` get/set pairs. (M)
-- [ ] **11.** Delete dead settings residue in `SettingsRepository` (`carTabsConfig`,
+- [x] **11.** Delete dead settings residue in `SettingsRepository` (`carTabsConfig`,
   `carPlayableClickActions`, `carBrowsableBulkActions`, both `carDsp*` actions,
   `dynamicColors`, `defaultClickActions`) and `BackgroundUsageGuard` + its Koin binding. (S)
 - [ ] **12.** Move `DeepLinkBus` and `OAuthCallback` URL parsing to Swift. (S)
@@ -76,11 +76,11 @@ measurement that points at that code.
 - [ ] **19.** Gradle hygiene: drop `android.*` properties, `kotlin.native.ignoreDisabledTargets`,
   `TYPESAFE_PROJECT_ACCESSORS`, the `google()` and JetBrains Compose repositories in
   `settings.gradle.kts`, and unused catalog entries (Ktor CIO/Android/Java engines,
-  coroutines-swing, kotlin-test-junit; lifecycle-viewmodel after 9). (S)
+  coroutines-swing, kotlin-test-junit). (S) lifecycle-viewmodel already went with 9.
 - [ ] **20.** Delete repo residue: `.run`, `.fleet`, `.cursor`, `AI-Coding-Handbook`,
   `.well-known`, `scripts/xml_to_xcstrings.py`, `CHANGELOG.md`. Fix the stale bundle id and
   `cacheKind` note in `docs/IOS-BUILD-INSTRUCTIONS.md`. (S)
-- [ ] **21.** Rewrite `.claude/architecture.md`, `project-structure.md`, `dependencies.md`,
+- [x] **21.** Rewrite `.claude/architecture.md`, `project-structure.md`, `dependencies.md`,
   `guidelines.md` and the `.claude/README.md` index to describe the SwiftUI shell, the
   `KmpHelper` bridge contract, the nil-vs-empty fetch rule and the Kotlin kernel. They are
   imported by `CLAUDE.md` and still describe Compose/Android. (M)
@@ -90,6 +90,14 @@ measurement that points at that code.
 1 → 2 → 16 → 5 → 21 → 11 → 9 → 10 → 17 → 18 → 19 → 20 → 3 → 4 → 6 → 7 → 8 → 12 → 13 → 14 → 15
 
 ## Done log
+
+- 2026-09-03 — **21, 11, 9** in `7a602436`, `1ff72267`, `5e938557` (branch `claude/docs-settings-router`,
+  stacked on `claude/xcframework-and-lazy-audio`). Root policy is `AppRootPolicy.swift` (pure
+  Swift over a `RootSession` snapshot; the test target compiles sources directly and cannot
+  import MusicAssistantKit, so the policy must not either), `AppRouter.shared` maps
+  `SessionState` and starts from `iOSApp.init`. `ItemKind`/`ClickContext`/`ItemActionResolver`
+  are dead but were left (not in 11's list; fold into 20 or 10). Swift suite 146/146, mutation
+  check on the splash latch went red as it should.
 
 - 2026-09-03 — **5, 16, 17** in `c43a0032` (branch `claude/xcframework-and-lazy-audio`). Xcode no
   longer runs Gradle; `WebRTC.xcframework` is a plain Embed & Sign reference; the local player's
