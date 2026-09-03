@@ -28,7 +28,7 @@ struct HomeView: View {
     @State private var sessionSubscription: Cancellable?
     @State private var wasReady = false
 
-    @State private var homeRowsConfig: [SettingsRepository.HomeRowPref] = []
+    @State private var homeRowsConfig: [HomeRowPref] = []
     @State private var isEditing = false
     @State private var editingEnabledRows: [HomeRow] = []
     @State private var editingDisabledRows: [HomeRow] = []
@@ -158,9 +158,9 @@ struct HomeView: View {
 
     private func commitEdits() {
         let config =
-            editingEnabledRows.map { SettingsRepository.HomeRowPref(id: $0.id, enabled: true) } +
-            editingDisabledRows.map { SettingsRepository.HomeRowPref(id: $0.id, enabled: false) }
-        KmpHelper.shared.setHomeRowsConfig(config: config)
+            editingEnabledRows.map { HomeRowPref(id: $0.id, enabled: true) } +
+            editingDisabledRows.map { HomeRowPref(id: $0.id, enabled: false) }
+        AppPreferences.shared.homeRows = config
         homeRowsConfig = config
         isEditing = false
     }
@@ -227,7 +227,7 @@ struct HomeView: View {
         // what you have until better data arrives. The first load needs no help from it either:
         // `recommendations` already starts nil, which is what shows the spinner.
         loadFailed = false
-        homeRowsConfig = KmpHelper.shared.homeRowsConfig()
+        homeRowsConfig = AppPreferences.shared.homeRows
 
         async let recommendationsResult: [RecommendationFolder]? = withCheckedContinuation { continuation in
             KmpHelper.shared.fetchRecommendationFolders { continuation.resume(returning: $0) }
@@ -283,7 +283,7 @@ private let shortcutsRowId = "shortcuts"
 private func reconciledRows(
     recommendations: [RecommendationFolder],
     shortcuts: [AppMediaItem],
-    config: [SettingsRepository.HomeRowPref]
+    config: [HomeRowPref]
 ) -> [(row: HomeRow, enabled: Bool)] {
     var seenKeys = Set<String>()
     let recommendationRows = recommendations.compactMap { folder -> HomeRow? in

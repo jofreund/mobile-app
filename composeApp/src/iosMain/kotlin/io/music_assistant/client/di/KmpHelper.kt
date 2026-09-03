@@ -60,15 +60,12 @@ import io.music_assistant.client.logging.InMemoryLogWriter
 import io.music_assistant.client.logging.LogSharer
 import io.music_assistant.client.player.sendspin.SendspinState
 import io.music_assistant.client.settings.ConnectionHistoryEntry
-import io.music_assistant.client.settings.LiveActivityVisibility
 import io.music_assistant.client.settings.SettingsRepository
-import io.music_assistant.client.settings.ViewMode
 import io.music_assistant.client.ui.compose.common.DataState
 import io.music_assistant.client.ui.compose.common.action.PlayerAction
 import io.music_assistant.client.ui.compose.common.action.QueueAction
 import io.music_assistant.client.ui.compose.common.viewmodel.createPlaylistAwaitingConfirmation
 import io.music_assistant.client.ui.compose.item.ItemUseCases
-import io.music_assistant.client.ui.theme.ThemeSetting
 import io.music_assistant.client.utils.HasConnectionData
 import io.music_assistant.client.utils.SessionState
 import io.music_assistant.client.utils.currentTimeMillis
@@ -410,24 +407,6 @@ object KmpHelper : KoinComponent {
         }
     }
 
-    /** Read/write pair over the same per-app `SettingsRepository.homeRowsConfig` storage the
-     * (dead, Compose-side) `HomeScreenViewModel` used — same synchronous-value-plus-write-through
-     * shape as [viewMode]/[setViewMode]. */
-    fun homeRowsConfig(): List<SettingsRepository.HomeRowPref> = settingsRepository.homeRowsConfig.value
-
-    fun setHomeRowsConfig(config: List<SettingsRepository.HomeRowPref>) {
-        settingsRepository.setHomeRowsConfig(config)
-    }
-
-    /** Read/write pair over `SettingsRepository.libraryCategoryConfig` — same shape as
-     * [homeRowsConfig]/[setHomeRowsConfig], for the native Library tab's category grid edit mode. */
-    fun libraryCategoryConfig(): List<SettingsRepository.LibraryCategoryPref> =
-        settingsRepository.libraryCategoryConfig.value ?: emptyList()
-
-    fun setLibraryCategoryConfig(config: List<SettingsRepository.LibraryCategoryPref>) {
-        settingsRepository.setLibraryCategoryConfig(config)
-    }
-
     // MARK: - Settings (native Settings screen — connection setup, login/OAuth, and the
     // connected+authenticated sections; Car actions/DSP settings still stay Compose-only,
     // see SettingsView.swift's doc)
@@ -691,37 +670,6 @@ object KmpHelper : KoinComponent {
     val localPlayerId: NativeStateFlow<String>
         get() = NativeStateFlow(settingsRepository.sendspinEffectivePlayerId, mainScope)
 
-    fun theme(): ThemeSetting = settingsRepository.theme.value
-
-    /**
-     * Observable form of [theme], for the one place that has to *react* to the setting rather
-     * than read it on demand: `ThemeStore.swift`, which turns it into SwiftUI's
-     * `.preferredColorScheme`.
-     *
-     * Applying the theme used to be Kotlin's job — `ui/theme/SystemAppearance.ios.kt` reached
-     * into every `UIWindow` and set `overrideUserInterfaceStyle` from inside a `@Composable`.
-     * That only ran while a Compose host was mounted, which is no longer ever.
-     */
-    val themeSetting: NativeStateFlow<ThemeSetting>
-        get() = NativeStateFlow(settingsRepository.theme, mainScope)
-
-    fun switchTheme(theme: ThemeSetting) {
-        settingsRepository.switchTheme(theme)
-    }
-
-    /**
-     * Whether the lock screen / Dynamic Island Live Activity is shown for the selected player at
-     * all times or only while something is playing. Observable because
-     * `PlayerActivityController` has to *react* to a change — flipping to "while playing" with
-     * everything paused has to end the activity that is already on screen.
-     */
-    val liveActivityVisibility: NativeStateFlow<LiveActivityVisibility>
-        get() = NativeStateFlow(settingsRepository.liveActivityVisibility, mainScope)
-
-    fun setLiveActivityVisibility(visibility: LiveActivityVisibility) {
-        settingsRepository.setLiveActivityVisibility(visibility)
-    }
-
     fun hasCrashLog(): Boolean = logSharer.hasCrashLog()
 
     /** Mirrors `SettingsViewModel.shareLogs`/`shareCrashLog` — `LogSharer.ios.kt`'s
@@ -940,17 +888,6 @@ object KmpHelper : KoinComponent {
                 ?.mapNotNull { g -> g.itemId.toIntOrNull()?.let { LibraryGenreOption(it, g.displayName) } }
                 ?: emptyList()
         }
-    }
-
-    /**
-     * The current persisted [ViewMode] for [mediaType], live — mirrors `ViewModeViewModel`'s
-     * pass-through, called directly since it holds no state of its own worth wrapping.
-     */
-    fun viewMode(mediaType: MediaType): NativeStateFlow<ViewMode> =
-        NativeStateFlow(settingsRepository.viewMode(mediaType), mainScope)
-
-    fun setViewMode(mediaType: MediaType, mode: ViewMode) {
-        settingsRepository.setViewMode(mediaType, mode)
     }
 
     /**

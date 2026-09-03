@@ -91,7 +91,7 @@ struct SettingsView: View {
         Section {
             Picker("", selection: themeBinding) {
                 Image(systemName: "sun.max").tag(ThemeSetting.light)
-                Image(systemName: "circle.lefthalf.filled").tag(ThemeSetting.followsystem)
+                Image(systemName: "circle.lefthalf.filled").tag(ThemeSetting.followSystem)
                 Image(systemName: "moon").tag(ThemeSetting.dark)
             }
             .pickerStyle(.segmented)
@@ -99,9 +99,8 @@ struct SettingsView: View {
         }
     }
 
-    /// Reads and writes `ThemeStore` rather than calling `KmpHelper` directly. The previous
-    /// version's getter was a bare `KmpHelper.shared.theme()` — nothing observable — so a tap
-    /// wrote the new value but left the control with nothing to redraw from.
+    /// Reads and writes `ThemeStore` rather than `AppPreferences` directly, so the window style
+    /// is applied in the same step as the value changes.
     private var themeBinding: Binding<ThemeSetting> {
         Binding(
             get: { theme.setting },
@@ -120,14 +119,11 @@ struct SettingsView: View {
 /// at all times, or only while something is playing. Isolated like `MiscLogsSection` so its
 /// `@State` doesn't live on `SettingsView`.
 ///
-/// Write-through, the same shape `ThemeStore` uses: the tap goes to `KmpHelper` and the new
-/// value arrives back through the subscription, so the picker can never show a choice the
-/// repository didn't take. `PlayerActivityController` subscribes to the very same flow, so it
-/// reacts to the change without this view knowing it exists.
+/// Binds straight to `AppPreferences`. `PlayerActivityController` observes the very same
+/// property, so it reacts to the change without this view knowing it exists.
 private struct LiveActivitySection: View {
 
-    @State private var visibility: LiveActivityVisibility = KmpHelper.shared.liveActivityVisibility.value ?? .always
-    @State private var subscription: Cancellable?
+    private let preferences = AppPreferences.shared
 
     var body: some View {
         Section {
@@ -146,19 +142,12 @@ private struct LiveActivitySection: View {
         } footer: {
             Text(String(localized: "settings_live_activity_explanation"))
         }
-        .task {
-            guard subscription == nil else { return }
-            subscription = KmpHelper.shared.liveActivityVisibility.subscribe { [self] value in
-                guard let value else { return }
-                visibility = value
-            }
-        }
     }
 
     private var binding: Binding<LiveActivityVisibility> {
         Binding(
-            get: { visibility },
-            set: { KmpHelper.shared.setLiveActivityVisibility(visibility: $0) }
+            get: { preferences.liveActivityVisibility },
+            set: { preferences.liveActivityVisibility = $0 }
         )
     }
 }

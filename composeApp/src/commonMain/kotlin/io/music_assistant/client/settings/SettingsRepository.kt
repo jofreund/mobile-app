@@ -12,30 +12,16 @@ import io.music_assistant.client.data.model.client.SubItemContext
 import io.music_assistant.client.player.sendspin.SendspinConfig
 import io.music_assistant.client.player.sendspin.audio.Codec
 import io.music_assistant.client.player.sendspin.audio.Codecs
-import io.music_assistant.client.ui.theme.ThemeSetting
 import io.music_assistant.client.utils.myJson
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
-import kotlinx.serialization.Serializable
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
 class SettingsRepository(
     private val settings: Settings,
 ) {
-    private val _theme = MutableStateFlow(
-        ThemeSetting.valueOf(
-            settings.getString("theme", ThemeSetting.FollowSystem.name),
-        ),
-    )
-    val theme = _theme.asStateFlow()
-
-    fun switchTheme(theme: ThemeSetting) {
-        settings.putString("theme", theme.name)
-        _theme.update { theme }
-    }
-
     private val _connectionInfo = MutableStateFlow(
         settings.getStringOrNull("host")?.takeIf { it.isNotBlank() }?.let { host ->
             settings.getIntOrNull("port")?.takeIf { it > 0 }?.let { port ->
@@ -115,65 +101,6 @@ class SettingsRepository(
     fun updatePlayersSorting(newValue: List<String>) {
         settings.putString("players_sort", newValue.joinToString(","))
         _playersSorting.update { newValue }
-    }
-
-    // Home-screen rows: visibility + user-defined order in a single ordered list.
-    // Order = display sort; enabled=false = hidden. JSON-encoded because folder
-    // ids are arbitrary server strings (may contain the delimiters a flat string
-    // encoding would rely on). Reconciliation against the live server list happens
-    // at the ViewModel/UI boundary — the repo deals with raw id/enabled pairs only.
-    @Serializable
-    data class HomeRowPref(val id: String, val enabled: Boolean)
-
-    private val _homeRowsConfig = MutableStateFlow(loadHomeRowsConfig())
-    val homeRowsConfig = _homeRowsConfig.asStateFlow()
-
-    private fun loadHomeRowsConfig(): List<HomeRowPref> {
-        settings.getStringOrNull("home_rows_config")?.let { raw ->
-            return runCatching {
-                myJson.decodeFromString<List<HomeRowPref>>(raw)
-            }.getOrDefault(emptyList())
-        }
-        // Legacy migration.
-        val legacy = settings.getStringOrNull("hidden_recommendation_folders")
-            ?.split(",")
-            ?.filter { it.isNotBlank() }
-        return legacy
-            ?.map { HomeRowPref(id = it, enabled = false) }
-            ?.also {
-                settings.putString("home_rows_config", myJson.encodeToString(it))
-                settings.remove("hidden_recommendation_folders")
-            }
-            ?: emptyList()
-    }
-
-    fun setHomeRowsConfig(config: List<HomeRowPref>) {
-        settings.putString("home_rows_config", myJson.encodeToString(config))
-        _homeRowsConfig.update { config }
-    }
-
-    // Library tabs visibility + ordering. Stored as comma-separated "NAME:0|1"
-    // pairs. Reconciliation against the live tab universe happens at the
-    // ViewModel boundary — repo deals with raw name/enabled pairs only.
-    data class LibraryCategoryPref(val name: String, val enabled: Boolean)
-
-    private val _libraryCategoryConfig = MutableStateFlow(loadLibraryCategoryConfig())
-    val libraryCategoryConfig = _libraryCategoryConfig.asStateFlow()
-
-    private fun loadLibraryCategoryConfig(): List<LibraryCategoryPref>? {
-        val raw = settings.getStringOrNull("library_tabs_config") ?: return null
-        return raw.split(",").mapNotNull { entry ->
-            val parts = entry.split(":")
-            parts.takeIf { it.size == 2 }?.let {
-                LibraryCategoryPref(name = it[0], enabled = it[1] == "1")
-            }
-        }.takeIf { it.isNotEmpty() }
-    }
-
-    fun setLibraryCategoryConfig(config: List<LibraryCategoryPref>) {
-        val encoded = config.joinToString(",") { "${it.name}:${if (it.enabled) "1" else "0"}" }
-        settings.putString("library_tabs_config", encoded)
-        _libraryCategoryConfig.update { config }
     }
 
     // Sendspin (local player) settings
@@ -353,21 +280,6 @@ class SettingsRepository(
         _sendspinUseCustomConnection.update { enabled }
     }
 
-    // When the iOS Live Activity is shown. Absent -> ALWAYS, which is the behavior the
-    // activity shipped with, so there is nothing to migrate.
-    private val _liveActivityVisibility = MutableStateFlow(loadLiveActivityVisibility())
-    val liveActivityVisibility = _liveActivityVisibility.asStateFlow()
-
-    private fun loadLiveActivityVisibility(): LiveActivityVisibility =
-        settings.getStringOrNull(LIVE_ACTIVITY_VISIBILITY_KEY)
-            ?.let { runCatching { LiveActivityVisibility.valueOf(it) }.getOrNull() }
-            ?: LiveActivityVisibility.ALWAYS
-
-    fun setLiveActivityVisibility(visibility: LiveActivityVisibility) {
-        settings.putString(LIVE_ACTIVITY_VISIBILITY_KEY, visibility.name)
-        _liveActivityVisibility.update { visibility }
-    }
-
     // Connection method preference
     private val _preferredConnectionMethod = MutableStateFlow(
         settings.getString("preferred_connection_method", "direct"),
@@ -466,37 +378,6 @@ class SettingsRepository(
         _connectionHistory.update { updated }
     }
 
-    // UI preferences
-    init {
-        // Migrate legacy global "items_row_mode" boolean to per-MediaType "view_mode_*" enum.
-        val legacyKey = "items_row_mode"
-        if (settings.hasKey(legacyKey)) {
-            val legacy = if (settings.getBoolean(legacyKey, false)) ViewMode.LIST else ViewMode.GRID
-            MediaType.entries.forEach { mediaType ->
-                val key = viewModeKey(mediaType)
-                if (!settings.hasKey(key)) settings.putString(key, legacy.name)
-            }
-            settings.remove(legacyKey)
-        }
-    }
-
-    private val viewModeFlows = mutableMapOf<MediaType, MutableStateFlow<ViewMode>>()
-
-    private fun viewModeKey(mediaType: MediaType) = "view_mode_${mediaType.name}"
-
-    private fun viewModeFlow(mediaType: MediaType) = viewModeFlows.getOrPut(mediaType) {
-        val stored = settings.getStringOrNull(viewModeKey(mediaType))
-        val initial = stored?.let { runCatching { ViewMode.valueOf(it) }.getOrNull() } ?: ViewMode.GRID
-        MutableStateFlow(initial)
-    }
-
-    fun viewMode(mediaType: MediaType) = viewModeFlow(mediaType).asStateFlow()
-
-    fun setViewMode(mediaType: MediaType, mode: ViewMode) {
-        settings.putString(viewModeKey(mediaType), mode.name)
-        viewModeFlow(mediaType).update { mode }
-    }
-
     // Per-MediaType library filters, persisted like view mode (settings are the
     // source of truth; the VM folds emissions back into state).
     private val libraryFilterFlows = mutableMapOf<MediaType, MutableStateFlow<LibraryFilters>>()
@@ -558,9 +439,5 @@ class SettingsRepository(
         val field = runCatching { SortField.valueOf(parts[0]) }.getOrNull() ?: return null
         val desc = parts[1].toBooleanStrictOrNull() ?: return null
         return SortOption(field, desc)
-    }
-
-    private companion object {
-        const val LIVE_ACTIVITY_VISIBILITY_KEY = "live_activity_visibility"
     }
 }

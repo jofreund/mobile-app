@@ -93,7 +93,7 @@ struct LibraryListView: View {
             ?? LibraryFilters.companion.DEFAULT
         _sortOption = State(initialValue: sort)
         _filters = State(initialValue: initialFilters)
-        _viewMode = State(initialValue: KmpHelper.shared.viewMode(mediaType: route.mediaType).value ?? .grid)
+        _viewMode = State(initialValue: AppPreferences.shared.viewMode(forMediaType: route.mediaType.name))
         _items = State(
             initialValue: LibraryListCache.items(
                 for: LibraryListCache.key(route: route, query: "", sort: sort, filters: initialFilters)
@@ -277,9 +277,9 @@ struct LibraryListView: View {
 
     private var viewModeToggle: some View {
         Button {
-            let next: ViewMode = viewMode == .grid ? .list : .grid
+            let next = viewMode.toggled
             viewMode = next
-            KmpHelper.shared.setViewMode(mediaType: route.mediaType, mode: next)
+            AppPreferences.shared.setViewMode(next, forMediaType: route.mediaType.name)
         } label: {
             Image(systemName: viewMode == .grid ? "list.bullet" : "square.grid.2x2")
         }
