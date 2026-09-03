@@ -43,7 +43,6 @@ import io.music_assistant.client.data.model.server.events.QueueUpdatedEvent
 import io.music_assistant.client.player.MediaPlayerController
 import io.music_assistant.client.player.sendspin.model.GoodbyeReason
 import io.music_assistant.client.settings.SettingsRepository
-import io.music_assistant.client.ui.Timings
 import io.music_assistant.client.ui.compose.common.DataState
 import io.music_assistant.client.ui.compose.common.StaleReason
 import io.music_assistant.client.ui.compose.common.action.PlayerAction
@@ -66,7 +65,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.filterNotNull
@@ -491,7 +490,12 @@ class MainDataSource(
             ) { players, queues, localData, favOverrides, playbackOverrides ->
                 PlayerBuildInputs(players, queues, localData, favOverrides, playbackOverrides)
             }
-                .debounce(Timings.EVENT_DEBOUNCE) // Small debounce to batch rapid updates, but don't delay initial load
+                // Conflate rather than debounce: a burst of server events still collapses to one
+                // rebuild (whatever arrived while the previous build ran), but nothing waits for a
+                // quiet period first. This used to be `debounce(50 ms)`, and because the optimistic
+                // play-state and favorite overrides are inputs to this same combine, every tap paid
+                // that 50 ms before its feedback could reach the screen.
+                .conflate()
                 .collect { input ->
                     _playersData.update { oldValues ->
                         when (input.players) {
@@ -1857,7 +1861,7 @@ class MainDataSource(
         }
         launch {
             // Gate on queueInfo being merged into _playersData, not just on Data:
-            // the _queueInfos→_playersData combine is debounced, so a players-only
+            // the _queueInfos→_playersData combine is conflated, so a players-only
             // emission (null queueInfo for all) can land first and make
             // refreshAllPlayersQueueItems skip everyone.
             _playersData.first { state ->

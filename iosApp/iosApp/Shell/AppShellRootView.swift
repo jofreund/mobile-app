@@ -151,7 +151,7 @@ private struct AutoLoginSplashView: View {
 }
 
 /// Native counterpart to `ConnectionStatusBanner.kt`. No entry debounce here
-/// (Compose's 3s `Timings.UI_RETRY_DEBOUNCE` delay before showing) — that
+/// (Compose's 3s delay before showing) — that
 /// existed to avoid flashing during a fast reconnect and is worth carrying
 /// over if this reads as noisy in practice; deferred until it's observed to
 /// matter on-device.

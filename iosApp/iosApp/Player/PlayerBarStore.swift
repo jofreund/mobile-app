@@ -388,10 +388,21 @@ struct QueueBarItemView: Identifiable {
     }
 }
 
-// Deliberately NOT Equatable. An id-only `==` (which is all this could offer — `trackItem` is a
-// bridged Kotlin class Swift can't compare) reads as "these two players are the same" to
-// SwiftUI's view-value diffing, which uses stored properties' Equatable conformance to decide
-// whether to skip re-running a body. Every state change here keeps the same id, so that `==`
-// told SwiftUI "nothing changed" on literally every update. Without the conformance SwiftUI
-// can't prove equality and re-renders, which is the correct default for a value whose contents
-// change constantly. Nothing in the app compares these directly.
+// MARK: - Equatable
+
+// Full-value equality, synthesized over every stored property. SwiftUI uses a stored property's
+// Equatable conformance to decide whether a view body needs re-running, and `store.players` is
+// replaced wholesale on every Kotlin emission — so without this, a volume echo from one player
+// re-rendered every `MiniPlayerRow` and the whole expanded player.
+//
+// An earlier attempt was id-only and had to be removed: every state change keeps the same id, so
+// that `==` told SwiftUI "nothing changed" on literally every update. The synthesized comparison
+// has no such hole — every field that reaches a body is part of it.
+//
+// The bridged Kotlin values (`trackItem`, `currentItemChapters`, `repeatMode`) compare through
+// `NSObject.isEqual`, which Kotlin/Native routes to Kotlin `equals`. `Track` and `Chapter` are
+// data classes, so that is a structural comparison (favorite flips included) with an identity
+// fast path, which is what the cached queue projections hit almost every time.
+extension GroupMemberBarItemView: Equatable {}
+extension QueueBarItemView: Equatable {}
+extension PlayerBarItemView: Equatable {}
