@@ -27,7 +27,7 @@ data/           MainDataSource, PlayerBarState, PlayerPositionTracker, LocalPlay
   model/client/   Domain models: PlayerData, QueueInfo, AppMediaItem and items/
   factory/        DTO → domain mappers
   repository/     MediaItemRepository (fetch + search + item-change events)
-di/             SharedModule, WebRTCModule, initKoin
+di/             AppGraph — the hand-wired object graph
 logging/        Kermit writers, in-memory log, LogSharer
 platform/       PlatformContext
 player/         MediaPlayerController (expect), sendspin/ protocol client
@@ -43,7 +43,6 @@ webrtc/         SignalingClient, WebRTCConnectionManager, DataChannelWrapper, We
 ```
 MainViewController.kt        bootstrapKmp(): Koin init, crash handler
 di/KmpHelper.kt              Everything Swift calls. Flat members, completion callbacks.
-di/IosModule.kt              iOS Koin bindings (PlatformContext, Ktor WebRTC engine)
 bridge/                      NativeFlow, NativeStateFlow, NativeSuspend, Cancellable
 logging/                     os_log bridge, log sharing
 player/                      PlatformAudioPlayer (Swift sink interface), MediaPlayerController actual

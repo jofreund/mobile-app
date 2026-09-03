@@ -30,8 +30,8 @@ Music Assistant server             direct WebSocket, or a WebRTC data channel
 
 **Swift owns:** every screen, navigation, the root policy (`AppRootPolicy`: Main vs. Settings,
 auto-login splash, reconnection banner, schema-floor alert), the artwork pipeline, the Live
-Activity, toasts, theme, deep-link consumption, the local player's audio sink and Now Playing
-integration.
+Activity, toasts, theme, UI-only settings (`AppPreferences`), deep-link and OAuth-callback URL
+parsing (`DeepLinks.swift`), the local player's audio sink and Now Playing integration.
 
 **Kotlin owns:** the wire protocol and its state machine (`SessionState`), authentication, the
 projection of server events into `PlayerBarState`, optimistic feedback for player actions, the
@@ -138,12 +138,14 @@ PCM into it through `MediaPlayerController`. iOS grants lock screen and Control 
 the app producing audio, so those surfaces exist only while the local player plays; otherwise
 the Live Activity (`PlayerActivityController`) is the lock-screen presence.
 
-## Dependency injection
+## The object graph
 
-One Koin module (`SharedModule.kt`) plus `iosModule()` and `webrtcModule`, started once from
-`bootstrapKmp()`. Eager singles are those that must observe from launch: `ConnectionManager`
-and `AuthenticationManager`. Everything else is lazy. Swift never touches Koin; it goes through
-`KmpHelper`.
+`AppGraph` (`di/AppGraph.kt`) wires every singleton by hand, in dependency order, with the two
+that must observe from launch (`ConnectionManager`, `AuthenticationManager`) eager and the heavy
+ones (`MainDataSource`, `LocalPlayerController`, `SendspinClientFactory`) lazy. Platform inputs
+(the settings store, `PlatformContext`, the WebRTC engine) come in through its constructor from
+`bootstrapKmp()`. There is no container: a missing dependency is a compile error. Swift reaches
+the graph only through `KmpHelper`.
 
 ## Threading
 

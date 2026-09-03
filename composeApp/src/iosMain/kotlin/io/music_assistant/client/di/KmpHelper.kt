@@ -9,15 +9,12 @@ import io.ktor.client.statement.readRawBytes
 import io.ktor.http.Url
 import io.music_assistant.client.api.APICommands
 import io.music_assistant.client.api.ConnectionInfo
-import io.music_assistant.client.api.DeepLinkBus
-import io.music_assistant.client.api.DeepLinkDestination
 import io.music_assistant.client.api.ErrorMessageBus
 import io.music_assistant.client.api.Request
 import io.music_assistant.client.api.ServiceClient
 import io.music_assistant.client.api.isAccepted
 import io.music_assistant.client.auth.AuthState
 import io.music_assistant.client.auth.AuthenticationManager
-import io.music_assistant.client.auth.OAuthCallback
 import io.music_assistant.client.bridge.Cancellable
 import io.music_assistant.client.bridge.NativeFlow
 import io.music_assistant.client.bridge.NativeStateFlow
@@ -94,9 +91,6 @@ import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
-import org.koin.core.component.KoinComponent
-import org.koin.core.component.inject
-import org.koin.core.qualifier.named
 import platform.Foundation.NSData
 import platform.Foundation.create
 
@@ -165,18 +159,19 @@ private fun String.truncatedForToast(): String =
     if (length > MAX_TOAST_MESSAGE_LENGTH) take(MAX_TOAST_MESSAGE_LENGTH) + "…" else this
 
 /**
- * KmpHelper - Bridge for accessing Koin dependencies from Swift
+ * KmpHelper - the one Kotlin object Swift calls; reads everything from [AppGraph.shared]
  */
-object KmpHelper : KoinComponent {
-    val mainDataSource: MainDataSource by inject()
-    val serviceClient: ServiceClient by inject()
-    val authManager: AuthenticationManager by inject()
-    private val deepLinkBus: DeepLinkBus by inject()
-    private val mediaItemRepository: MediaItemRepository by inject()
-    private val settingsRepository: SettingsRepository by inject()
-    private val errorBus: ErrorMessageBus by inject()
-    private val logSharer: LogSharer by inject()
-    private val artworkHttpClient: HttpClient by inject(named("webrtcHttpClient"))
+object KmpHelper {
+    private val graph: AppGraph get() = AppGraph.shared
+
+    val mainDataSource: MainDataSource get() = graph.mainDataSource
+    val serviceClient: ServiceClient get() = graph.serviceClient
+    val authManager: AuthenticationManager get() = graph.authManager
+    private val mediaItemRepository: MediaItemRepository get() = graph.mediaItemRepository
+    private val settingsRepository: SettingsRepository get() = graph.settingsRepository
+    private val errorBus: ErrorMessageBus get() = graph.errorBus
+    private val logSharer: LogSharer get() = graph.logSharer
+    private val artworkHttpClient: HttpClient get() = graph.webrtcHttpClient
 
     // Provide a scope for Swift to launch coroutines if needed
     val mainScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -185,17 +180,8 @@ object KmpHelper : KoinComponent {
     // schema-floor check live in Swift now — `AppRootPolicy.swift` / `AppRouter.swift` — fed by
     // [sessionState] below. Nothing else reads them, so nothing bridges them.
 
-    // MARK: - Deep links
-    //
-    // Not yet consumed from Swift — MainNavRoot.kt's own DeepLinkBus
-    // collection is still what handles these, because it still owns in-tree
-    // navigation for the Main destination (see ComposeScreenHosts.kt's doc).
-    // Exposed here for when Swift takes over that navigation.
-
-    val deepLinks: NativeStateFlow<DeepLinkDestination>
-        get() = NativeStateFlow(deepLinkBus.pending, mainScope)
-
-    fun consumeDeepLink(destination: DeepLinkDestination) = deepLinkBus.consume(destination)
+    // Deep links and the OAuth callback URL are parsed in Swift (`DeepLinks.swift`); nothing
+    // about them crosses the bridge except the token or the failure reason.
 
     /**
      * The connected MA server's stable identifier (UUID-style, e.g.
@@ -208,21 +194,6 @@ object KmpHelper : KoinComponent {
             ?.serverInfo
             ?.serverId
     }
-
-    /**
-     * Route a `musicassistant://app/<page>` URL into the navigation deep-link
-     * bus. Parsing/validation lives in [DeepLinkBus]; non-matching URLs are
-     * silently ignored.
-     */
-    fun handleDeepLink(urlString: String) = deepLinkBus.handle(urlString)
-
-    /**
-     * Callback scheme for `ASWebAuthenticationSession`, so Swift does not hold its own
-     * copy that could drift from the redirect URL the server is given. Bare scheme, not
-     * a URL: the session matches on the scheme alone and silently never fires if it is
-     * given a full URL.
-     */
-    fun oauthCallbackScheme(): String = OAuthCallback.SCHEME
 
     // MARK: - Transient messages (toasts)
     //
@@ -454,11 +425,16 @@ object KmpHelper : KoinComponent {
         NativeSuspend(mainScope) { authManager.loginWithCredentials(providerId, username, password).getOrThrow() }
             .invoke(completion, onError)
 
-    /** Wraps `AuthenticationManager.getOAuthUrl()`. On success, Swift calls
-     * `authManager.startOAuthFlow(oauthUrl:)` directly (already public, non-suspend — no bridge
-     * needed, same as `handleOAuthCallback` is already called directly). */
-    fun getOAuthUrl(providerId: String, completion: (String?) -> Unit, onError: (Throwable) -> Unit): Cancellable =
-        NativeSuspend(mainScope) { authManager.getOAuthUrl(providerId, OAuthCallback.RETURN_URL).getOrThrow() }
+    /** Wraps `AuthenticationManager.getOAuthUrl()`. [returnUrl] is the callback the server
+     * redirects to; Swift owns it (`OAuthCallbackParser.returnURL`) because Swift is what parses
+     * the callback. On success, Swift calls `authManager.startOAuthFlow(oauthUrl:)` directly. */
+    fun getOAuthUrl(
+        providerId: String,
+        returnUrl: String,
+        completion: (String?) -> Unit,
+        onError: (Throwable) -> Unit,
+    ): Cancellable =
+        NativeSuspend(mainScope) { authManager.getOAuthUrl(providerId, returnUrl).getOrThrow() }
             .invoke(completion, onError)
 
     /** Wraps `AuthenticationManager.logout()` — the `AuthCoordinator` path that sets

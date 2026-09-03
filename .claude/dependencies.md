@@ -12,7 +12,6 @@ Update this file when either changes.
 | `kotlinx-atomicfu` | Lock-free counters in the transport layer |
 | Ktor client: core, websockets, kotlinx-json, darwin engine | WebSocket JSON-RPC to the server |
 | Ktor client WebRTC (`ktor-client-webrtc`, experimental) | Peer connection and data channels for remote access |
-| Koin core | Dependency graph, started once from `bootstrapKmp()` |
 | multiplatform-settings (no-arg) | `SettingsRepository` over `NSUserDefaults` |
 | Kermit | Logging, bridged to `os_log` in debug |
 | cryptography-kotlin (core + CryptoKit provider) | Noise handshake for the encrypted Sendspin protocol |

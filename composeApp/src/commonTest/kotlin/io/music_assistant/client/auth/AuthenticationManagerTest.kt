@@ -230,7 +230,9 @@ class AuthenticationManagerTest {
     }
 
     @Test
-    fun `an error callback url settles the flow instead of leaving it pending`() = runTest {
+    fun `an error callback settles the flow instead of leaving it pending`() = runTest {
+        // Swift parses the callback URL (`OAuthCallbackParser`) and reports a provider error
+        // through cancelOAuthFlow with the reason — this pins what that call does to the flow.
         val client = StubServiceClient()
         val manager = AuthenticationManager(client, SettingsRepository(MapSettings()))
         try {
@@ -238,30 +240,12 @@ class AuthenticationManagerTest {
             manager.startOAuthFlow("https://example.test/authorize")
             runCurrent()
 
-            val handled = manager.handleOAuthCallbackUrl(
-                "musicassistant://auth/callback?error=access_denied",
-            )
+            manager.cancelOAuthFlow("access_denied")
             runCurrent()
 
-            assertTrue(handled, "An OAuth callback must not fall through to the deep-link bus")
             val state = manager.authState.value
             assertTrue(state is AuthState.Error)
             assertEquals("access_denied", state.message)
-        } finally {
-            manager.close()
-        }
-    }
-
-    @Test
-    fun `a non oauth url is not claimed`() = runTest {
-        val client = StubServiceClient()
-        val manager = AuthenticationManager(client, SettingsRepository(MapSettings()))
-        try {
-            assertEquals(
-                false,
-                manager.handleOAuthCallbackUrl("musicassistant://app/library"),
-                "A page deep link must be left for the DeepLinkBus to route",
-            )
         } finally {
             manager.close()
         }

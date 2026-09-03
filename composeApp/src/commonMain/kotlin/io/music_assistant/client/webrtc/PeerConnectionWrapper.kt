@@ -22,14 +22,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import org.koin.core.component.KoinComponent
-import org.koin.core.component.inject
 
 /**
  * WebRTC peer connection wrapper backed by `io.ktor:ktor-client-webrtc`.
  *
  * Lifecycle:
- *  1. Create instance — pulls `WebRtcClient` (the Ktor engine, app-singleton) from Koin.
+ *  1. Create instance with the `WebRtcClient` (the Ktor engine, app-singleton).
  *  2. `initialize(iceServers)` — opens the native peer connection.
  *  3. Collect [iceCandidates], [dataChannels], [connectionState].
  *  4. `createOffer()` / `setRemoteAnswer()` for SDP negotiation.
@@ -37,9 +35,8 @@ import org.koin.core.component.inject
  *  6. `close()` when done.
  */
 @OptIn(ExperimentalKtorApi::class)
-class PeerConnectionWrapper : KoinComponent {
+class PeerConnectionWrapper(private val webRtcClient: WebRtcClient) {
     private val logger = Logger.withTag("PeerConnectionWrapper")
-    private val webRtcClient: WebRtcClient by inject()
 
     private var peerConnection: WebRtcPeerConnection? = null
     private val eventScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)

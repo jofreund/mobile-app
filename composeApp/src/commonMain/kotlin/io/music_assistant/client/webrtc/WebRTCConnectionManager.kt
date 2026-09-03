@@ -1,9 +1,12 @@
 // Reconnection delay constants inline-documented at use site.
 @file:Suppress("MagicNumber")
 
+@file:OptIn(io.ktor.utils.io.ExperimentalKtorApi::class)
+
 package io.music_assistant.client.webrtc
 
 import co.touchlab.kermit.Logger
+import io.ktor.client.webrtc.WebRtcClient
 import io.music_assistant.client.webrtc.model.PeerConnectionStateValue
 import io.music_assistant.client.webrtc.model.RemoteId
 import io.music_assistant.client.webrtc.model.SignalingMessage
@@ -73,6 +76,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 class WebRTCConnectionManager(
     private val signalingClient: SignalingClient,
     private val scope: CoroutineScope,
+    private val webRtcClient: Lazy<WebRtcClient>,
 ) {
     private val logger = Logger.withTag("WebRTCConnectionManager")
     private val mutex = Mutex()
@@ -261,7 +265,7 @@ class WebRTCConnectionManager(
 
         try {
             // Create peer connection (no callbacks needed with flow-based API)
-            val pc = PeerConnectionWrapper()
+            val pc = PeerConnectionWrapper(webRtcClient.value)
             peerConnection = pc
 
             // Initialize with ICE servers

@@ -19,11 +19,11 @@ private val log = Logger.withTag("NativeFlow")
  *
  * [scope] is caller-supplied rather than a shared app-wide scope so a bridge
  * facade can tie subscription lifetime to something narrower when it matters
- * (e.g. a screen-scoped Koin scope); most callers pass a `Dispatchers.Main`
+ * (e.g. a screen-scoped one); most callers pass a `Dispatchers.Main`
  * scope that outlives the app.
  *
  * Wraps [Flow]`<T?>` rather than `Flow<T>` — plenty of what this bridges
- * (`nowPlayingTrack`, `DeepLinkBus.pending`, `AuthenticationManager.authState`, …)
+ * (`nowPlayingTrack`, `sessionState`, `AuthenticationManager.authState`, …)
  * is nullable by nature ("nothing to show right now" is a real, common
  * value), and `StateFlow`/`Flow` are declared `out T`, so a non-null
  * `Flow<T>` already satisfies `Flow<T?>` at the call site for free — this one
