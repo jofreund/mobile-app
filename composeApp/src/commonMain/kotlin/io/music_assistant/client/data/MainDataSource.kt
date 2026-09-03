@@ -30,6 +30,7 @@ import io.music_assistant.client.data.model.server.ServerQueueItem
 import io.music_assistant.client.data.model.server.ServerUser
 import io.music_assistant.client.data.model.server.events.MediaItemAddedEvent
 import io.music_assistant.client.data.model.server.events.MediaItemDeletedEvent
+import io.music_assistant.client.data.model.server.events.MediaItemPlayedData
 import io.music_assistant.client.data.model.server.events.MediaItemPlayedEvent
 import io.music_assistant.client.data.model.server.events.MediaItemUpdatedEvent
 import io.music_assistant.client.data.model.server.events.PlayerAddedEvent
@@ -100,6 +101,7 @@ class MainDataSource(
     private val mediaPlayerController: MediaPlayerController,
     private val localPlayerController: LocalPlayerController,
     private val playerRequestFactory: PlayerRequestFactory,
+    private val resumePointResolver: ResumePointResolver,
     /**
      * Single source of truth for live elapsed-time per queue. Server events
      * write anchors here, play/pause transitions snapshot the interpolated
@@ -1234,7 +1236,7 @@ class MainDataSource(
         }
         val resolved = playerRequestFactory.resolve(data, action)
         applyOptimisticFeedback(data, resolved)
-        launch { sendResolvedPlayerAction(data, action, resolved) }
+        launch { sendResolvedPlayerAction(data, action, withResumePoint(data, resolved)) }
     }
 
     /**
@@ -1254,8 +1256,18 @@ class MainDataSource(
         }
         val resolved = playerRequestFactory.resolve(data, action)
         applyOptimisticFeedback(data, resolved)
-        return sendResolvedPlayerAction(data, action, resolved)
+        return sendResolvedPlayerAction(data, action, withResumePoint(data, resolved))
     }
+
+    /**
+     * Lets [ResumePointResolver] relocate a resume of a paused audiobook/episode to the
+     * server's resume point. The play half of the feedback is already showing from
+     * [applyOptimisticFeedback]; a relocated resume additionally anchors at its position.
+     */
+    private suspend fun withResumePoint(data: PlayerData, resolved: PlayerAction): PlayerAction =
+        resumePointResolver.resolve(data, resolved).also { synced ->
+            if (synced is PlayerAction.PlayFrom) applyOptimisticFeedback(data, synced)
+        }
 
     private suspend fun sendResolvedPlayerAction(
         data: PlayerData,
@@ -1285,6 +1297,7 @@ class MainDataSource(
      *    and a `previous` that restarts the current track does too).
      *  - SeekTo anchors at the target — audiobook chapter skips arrive here already resolved
      *    into their SeekTo, so they anchor at the chapter start rather than 0.
+     *  - PlayFrom is both: playing, anchored at the server's resume point.
      *
      * Anchors need no rollback bookkeeping: the next server anchor overwrites them, and while
      * playing one arrives about every second.
@@ -1304,7 +1317,32 @@ class MainDataSource(
                     positionTracker.setAnchor(it, elapsedSec = resolved.position.toDouble())
                 }
 
+            is PlayerAction.PlayFrom -> {
+                setPlaybackOverride(data.playerId, true)
+                data.queueInfo?.id?.let {
+                    positionTracker.setAnchor(it, elapsedSec = resolved.position.toDouble())
+                }
+            }
+
             else -> Unit
+        }
+    }
+
+    /**
+     * Another player is moving the resume point of an audiobook/episode that a paused queue
+     * here is showing: move that queue's displayed position along, so the slider shows where
+     * a resume will pick up (see [ResumePointResolver]).
+     *
+     * Anchor only. `_queueInfos.elapsedTime` stays the server's view of the queue, which is
+     * what the resolver compares the resume point against on the next play — and what the
+     * next queue event overwrites this anchor with anyway, so this is a live courtesy while
+     * connected, not a second source of truth.
+     */
+    private fun followResumePoint(played: MediaItemPlayedData) {
+        if (played.secondsPlayed <= 0.0) return
+        val players = (playersData.value as? DataState.Data)?.data ?: return
+        players.queuesFollowing(played).forEach { queueId ->
+            positionTracker.setAnchor(queueId = queueId, elapsedSec = played.secondsPlayed)
         }
     }
 
@@ -1650,9 +1688,10 @@ class MainDataSource(
                         }
 
                         is MediaItemPlayedEvent -> {
-                            // Position-tracking removed; the slider interpolates locally
-                            // from `(queueInfo.elapsedTime, isPlaying, duration)`. Server
-                            // anchors flow via `QueueTimeUpdatedEvent` above.
+                            // Not a position source for playing queues — those anchor on
+                            // `QueueTimeUpdatedEvent` above. Paused queues showing the same
+                            // audiobook/episode follow the resume point it reports.
+                            followResumePoint(event.data)
                         }
 
                         is MediaItemUpdatedEvent -> {

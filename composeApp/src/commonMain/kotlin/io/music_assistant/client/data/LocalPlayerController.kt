@@ -82,6 +82,7 @@ class LocalPlayerController(
     private val mediaPlayerController: MediaPlayerController,
     private val sendspinClientFactory: SendspinClientFactory,
     private val playerRequestFactory: PlayerRequestFactory,
+    private val resumePointResolver: ResumePointResolver,
     private val positionTracker: PlayerPositionTracker,
     private val userPreferences: UserPreferences,
     private val errorBus: ErrorMessageBus,
@@ -166,7 +167,11 @@ class LocalPlayerController(
         val resolved = playerRequestFactory.resolve(data, action)
         applyOptimisticUpdate(data, resolved)
         launch {
-            val request = playerRequestFactory.buildRequest(data, resolved) ?: return@launch
+            // A resume of a paused audiobook/episode may come back relocated to the server's
+            // resume point. Its play half is already showing; only the position needs anchoring.
+            val synced = resumePointResolver.resolve(data, resolved)
+            if (synced is PlayerAction.PlayFrom) anchorOptimisticSeek(data, synced.position)
+            val request = playerRequestFactory.buildRequest(data, synced) ?: return@launch
             // Request-driven recovery: if the Sendspin transport was torn down (e.g. the
             // process outlived a foreground-service stop) while the feature is still enabled,
             // revive it and queue this command for replay on Ready instead of firing it at a
@@ -174,11 +179,11 @@ class LocalPlayerController(
             // resurrects the transport in-process — the play choke point does.
             if (_sendspinState.value == null && settings.sendspinEnabled.value) {
                 log.i { "Local command with no live Sendspin transport — reviving and queueing" }
-                enqueue(resolved, request)
+                enqueue(synced, request)
                 launch { start() }
                 return@launch
             }
-            sendOrQueue(resolved, request)
+            sendOrQueue(synced, request)
         }
     }
 
@@ -275,17 +280,11 @@ class LocalPlayerController(
                 updateOptimisticQueueInfo { it.copy(playbackSpeed = action.speed) }
             }
 
-            is PlayerAction.SeekTo -> {
-                // Freeze until Sendspin confirms audio, not merely until the server echoes the seek.
-                updateOptimisticQueueInfo { it.copy(elapsedTime = action.position.toDouble()) }
-                data.queueInfo?.id?.let { queueId ->
-                    positionTracker.setOptimisticSeek(
-                        queueId = queueId,
-                        elapsedSec = action.position.toDouble(),
-                        durationSec = data.queueInfo.currentItem?.track?.duration,
-                        speed = data.queueInfo.playbackSpeed,
-                    )
-                }
+            is PlayerAction.SeekTo -> anchorOptimisticSeek(data, action.position)
+
+            is PlayerAction.PlayFrom -> {
+                applyOptimisticUpdate(data, PlayerAction.Play)
+                anchorOptimisticSeek(data, action.position)
             }
 
             PlayerAction.Next,
@@ -304,6 +303,19 @@ class LocalPlayerController(
             }
 
             else -> {}
+        }
+    }
+
+    /** Freeze at [positionSec] until Sendspin confirms audio, not merely until the server echoes the seek. */
+    private fun anchorOptimisticSeek(data: PlayerData, positionSec: Long) {
+        updateOptimisticQueueInfo { it.copy(elapsedTime = positionSec.toDouble()) }
+        data.queueInfo?.id?.let { queueId ->
+            positionTracker.setOptimisticSeek(
+                queueId = queueId,
+                elapsedSec = positionSec.toDouble(),
+                durationSec = data.queueInfo.currentItem?.track?.duration,
+                speed = data.queueInfo.playbackSpeed,
+            )
         }
     }
 
@@ -812,13 +824,8 @@ class LocalPlayerController(
                     if (idx >= 0) commandQueue.removeAt(idx) else commandQueue.add(entry)
                 }
 
-                PlayerAction.Play -> {
-                    commandQueue.removeAll { it.action is PlayerAction.Play || it.action is PlayerAction.Pause }
-                    commandQueue.add(entry)
-                }
-
-                PlayerAction.Pause -> {
-                    commandQueue.removeAll { it.action is PlayerAction.Play || it.action is PlayerAction.Pause }
+                PlayerAction.Play, PlayerAction.Pause, is PlayerAction.PlayFrom -> {
+                    commandQueue.removeAll { it.action.isPlayOrPause() }
                     commandQueue.add(entry)
                 }
 
@@ -885,6 +892,10 @@ class LocalPlayerController(
         private const val MICROS = 1_000_000.0
     }
 }
+
+/** The transport intents that supersede one another in the offline queue. */
+private fun PlayerAction.isPlayOrPause(): Boolean =
+    this is PlayerAction.Play || this is PlayerAction.Pause || this is PlayerAction.PlayFrom
 
 /**
  * Maps a platform remote-command string (Control Center / lock screen / CarPlay)
