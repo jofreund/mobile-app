@@ -108,10 +108,17 @@ Optimistic overrides follow one pattern: set on send, cleared by the confirming 
 rolled back on send failure, reverted by a timeout. Seek and skip drop position anchors into
 `PlayerPositionTracker`, which is the live-position source of truth (`observePlayerBarPosition`).
 
+Only the selected player carries `queueItems` and `currentItemChapters`; the expanded player is
+the one place a queue is drawn and it shows the selected player alone, so other players' queues
+would cross the bridge for nobody. Selection is an input to the projection, so the emission that
+moves it carries the new player's queue.
+
 On the Swift side `PlayerBarStore` subscribes to `playerBarState`, caches queue projections by
 Kotlin object identity, and publishes `PlayerBarItemView` values that are `Equatable` over every
-stored field, so SwiftUI skips unchanged rows. `MiniPlayerView`, `ExpandedPlayerView` and the
-Live Activity all read from it.
+stored field, so SwiftUI skips unchanged rows. `MiniPlayerView` and `ExpandedPlayerView` read
+from it. The Live Activity does not: `PlayerActivityController` subscribes to
+`liveActivityState`, a `LiveActivitySnapshot` of the six fields the card shows, distinct on those
+alone, so a volume echo or queue edit never wakes ActivityKit.
 
 ## Artwork
 

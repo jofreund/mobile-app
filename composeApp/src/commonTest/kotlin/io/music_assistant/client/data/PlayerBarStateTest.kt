@@ -469,4 +469,122 @@ class PlayerBarStateTest {
 
         assertSame(first.players.single().queueItems, second.players.single().queueItems)
     }
+
+    // Only the selected player's queue is projected. The expanded player is the one place a queue
+    // is drawn and it shows the selected player alone, so every other player's items crossed the
+    // bridge for nobody — and Swift walked each of them on every real change to prove it.
+
+    @Test
+    fun `only the selected player carries queue items`() {
+        val first = playerDataWithQueue(queueTracks("a", "b"))
+        val second = playerDataWithQueue(queueTracks("c", "d", "e"))
+
+        val data = stateOf(first, second, selectedIndex = 1)
+
+        assertTrue(data.players[0].queueItems.isEmpty())
+        assertEquals(listOf("c", "d", "e"), data.players[1].queueItems.map { it.id })
+        // Queue *actions* still need every player's id — only the item list is withheld.
+        assertEquals(first.queueOrPlayerId, data.players[0].queueId)
+    }
+
+    @Test
+    fun `moving the selection carries the queue with it`() {
+        // Selection is an input to the projection, so the emission that moves it is the one
+        // that carries the newly selected player's queue — there is no gap for Swift to bridge.
+        val cache = QueueProjectionCache()
+        val state = DataState.Data(
+            listOf(playerDataWithQueue(queueTracks("a")), playerDataWithQueue(queueTracks("b"))),
+        )
+
+        val onFirst = buildPlayerBarState(state, 0, cache) as PlayerBarState.Data
+        assertEquals(listOf("a"), onFirst.players[0].queueItems.map { it.id })
+        assertTrue(onFirst.players[1].queueItems.isEmpty())
+
+        val onSecond = buildPlayerBarState(state, 1, cache) as PlayerBarState.Data
+        assertTrue(onSecond.players[0].queueItems.isEmpty())
+        assertEquals(listOf("b"), onSecond.players[1].queueItems.map { it.id })
+    }
+
+    @Test
+    fun `an out of range selection projects the first player's queue`() {
+        // The fallback the selectedIndex already had, applied to the queue too, so the two can't
+        // disagree about which player is selected.
+        val data = stateOf(
+            playerDataWithQueue(queueTracks("a")),
+            playerDataWithQueue(queueTracks("b")),
+            selectedIndex = 7,
+        )
+        assertEquals(0, data.selectedIndex)
+        assertEquals(listOf("a"), data.players[0].queueItems.map { it.id })
+        assertTrue(data.players[1].queueItems.isEmpty())
+    }
+
+    // LiveActivitySnapshot: what the lock screen card reads, and nothing else — so that the
+    // distinctUntilChanged in front of it drops everything the card does not show.
+
+    // The fixture player is playing by default; both states have to be explicit here.
+    private fun playing(data: PlayerData, isPlaying: Boolean) =
+        data.copy(player = data.player.copy(isPlaying = isPlaying))
+
+    @Test
+    fun `snapshot is null while loading or empty`() {
+        assertNull(liveActivitySnapshot(PlayerBarState.Loading))
+        assertNull(liveActivitySnapshot(PlayerBarState.Empty))
+    }
+
+    @Test
+    fun `snapshot mirrors the selected player`() {
+        val first = PlayerDataFixtures.playerData(name = "Kitchen")
+        val second = PlayerDataFixtures.playerData(name = "Study")
+        val data = stateOf(first, second, selectedIndex = 1)
+
+        val snapshot = liveActivitySnapshot(data)!!
+
+        assertEquals(second.playerId, snapshot.playerId)
+        assertEquals(data.players[1].name, snapshot.playerName)
+        assertEquals(data.players[1].title, snapshot.title)
+        assertEquals(data.players[1].artworkUrl, snapshot.artworkUrl)
+        assertEquals(data.players[1].isPlaying, snapshot.isPlaying)
+    }
+
+    @Test
+    fun `anyPlaying looks at every player not just the selected one`() {
+        // The "while playing" setting is worded over all players, and the card follows the
+        // wording: a paused selected player keeps its card while another player plays.
+        val paused = playing(PlayerDataFixtures.playerData(), isPlaying = false)
+        val other = playing(PlayerDataFixtures.playerData(), isPlaying = true)
+        val alsoPaused = playing(PlayerDataFixtures.playerData(), isPlaying = false)
+
+        val snapshot = liveActivitySnapshot(stateOf(paused, other, selectedIndex = 0))!!
+
+        assertFalse(snapshot.isPlaying)
+        assertTrue(snapshot.anyPlaying)
+        assertFalse(liveActivitySnapshot(stateOf(paused, alsoPaused))!!.anyPlaying)
+    }
+
+    @Test
+    fun `changes the card does not show leave the snapshot equal`() {
+        // This equality is what lets `distinctUntilChanged` keep ActivityKit out of a volume
+        // drag or a queue edit.
+        val base = stateOf(playerDataWithQueue(queueTracks("a", "b")), PlayerDataFixtures.playerData())
+        val volume = base.mutatingFirst { it.copy(volumeLevel = 0.42f, isMuted = true) }
+        val queue = base.mutatingFirst { it.copy(queueItems = it.queueItems.reversed()) }
+        val elapsed = base.mutatingFirst { it.copy(elapsedTime = 999.0) }
+
+        assertEquals(liveActivitySnapshot(base), liveActivitySnapshot(volume))
+        assertEquals(liveActivitySnapshot(base), liveActivitySnapshot(queue))
+        assertEquals(liveActivitySnapshot(base), liveActivitySnapshot(elapsed))
+    }
+
+    @Test
+    fun `changes the card shows change the snapshot`() {
+        val base = stateOf(PlayerDataFixtures.playerData(), PlayerDataFixtures.playerData())
+        val play = base.mutatingFirst { it.copy(isPlaying = !it.isPlaying) }
+        val title = base.mutatingFirst { it.copy(title = "Something else") }
+        val reselect = base.copy(selectedIndex = 1)
+
+        assertFalse(liveActivitySnapshot(base) == liveActivitySnapshot(play))
+        assertFalse(liveActivitySnapshot(base) == liveActivitySnapshot(title))
+        assertFalse(liveActivitySnapshot(base) == liveActivitySnapshot(reselect))
+    }
 }

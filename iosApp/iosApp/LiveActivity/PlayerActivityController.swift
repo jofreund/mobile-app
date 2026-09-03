@@ -4,9 +4,10 @@ import MusicAssistantKit
 import UIKit
 
 /// Owns the one lock screen / Dynamic Island Live Activity that mirrors the *selected* player —
-/// subscribes to `KmpHelper.playerBarState` (its own subscription, deliberately independent of
-/// `PlayerBarStore`, which lives and dies with `AppTabView`) and starts, updates, and ends the
-/// activity as that state changes.
+/// subscribes to `KmpHelper.liveActivityState`, a Kotlin-side snapshot of exactly the fields the
+/// card shows, distinct on those fields alone, so a volume echo, a queue edit or a group change
+/// never wakes this class. Its own subscription, deliberately independent of `PlayerBarStore`,
+/// which lives and dies with `AppTabView`.
 ///
 /// Lifecycle facts this class is shaped around:
 ///  - `Activity.request` only works while the app is foregrounded (there is no push-to-start
@@ -57,8 +58,8 @@ final class PlayerActivityController {
     /// The user's `settings_live_activity` choice, mirrored from `AppPreferences` in `start()`.
     private var visibility: LiveActivityVisibility = .always
 
-    /// Last content published, to skip no-op republishes (playerBarState emits on every volume
-    /// echo and position anchor; ActivityKit updates are not free).
+    /// Last content published, to skip no-op republishes — a visibility flip or a scene-phase
+    /// change re-runs `handle` with unchanged content, and ActivityKit updates are not free.
     private var lastPublished: PlayerActivityAttributes.ContentState?
 
     /// The artwork URL whose downscaled copy currently sits in the app-group container, and the
@@ -94,8 +95,8 @@ final class PlayerActivityController {
             Task { await extra.end(nil, dismissalPolicy: .immediate) }
         }
         visibility = AppPreferences.shared.liveActivityVisibility
-        stateSub = KmpHelper.shared.playerBarState.subscribe { [weak self] state in
-            self?.handle(state)
+        stateSub = KmpHelper.shared.liveActivityState.subscribe { [weak self] snapshot in
+            self?.handle(snapshot)
         }
         // The setting is a state change of its own: switching to "while playing" while
         // everything is paused has to end the card that is already on the lock screen, and
@@ -103,13 +104,13 @@ final class PlayerActivityController {
         AppPreferences.shared.observeLiveActivityVisibility { [weak self] visibility in
             guard let self, visibility != self.visibility else { return }
             self.visibility = visibility
-            self.handle(KmpHelper.shared.playerBarState.value)
+            self.handle(KmpHelper.shared.liveActivityState.value)
         }
         localPlayerId = KmpHelper.shared.localPlayerId.value as String?
         localIdSub = KmpHelper.shared.localPlayerId.subscribe { [weak self] id in
             guard let self, (id as String?) != self.localPlayerId else { return }
             self.localPlayerId = id as String?
-            self.handle(KmpHelper.shared.playerBarState.value)
+            self.handle(KmpHelper.shared.liveActivityState.value)
         }
         localTrackSub = KmpHelper.shared.observeNowPlayingTrack { [weak self] track in
             guard let self else { return }
@@ -118,7 +119,7 @@ final class PlayerActivityController {
             self.localPlayerHasTrack = hasTrack
             // Stand down when the local player takes the lock screen for the player the
             // activity would show; re-sync from the current bar state when it lets go.
-            self.handle(KmpHelper.shared.playerBarState.value)
+            self.handle(KmpHelper.shared.liveActivityState.value)
         }
     }
 
@@ -127,17 +128,17 @@ final class PlayerActivityController {
         if active {
             // A request skipped while backgrounded has no later trigger of its own — re-run the
             // sync against the current value now that requesting is allowed.
-            handle(KmpHelper.shared.playerBarState.value)
+            handle(KmpHelper.shared.liveActivityState.value)
         }
     }
 
     // MARK: - State → activity
 
-    private func handle(_ state: PlayerBarState?) {
+    private func handle(_ snapshot: LiveActivitySnapshot?) {
         // The local-player check runs *after* the content is resolved, not before: it needs to
         // know which player the card would show. Suppressing on the local player's mere
         // existence takes the activity away from every other player too.
-        guard let content = Self.desiredContent(from: state, visibility: visibility),
+        guard let content = Self.desiredContent(from: snapshot, visibility: visibility),
               content.playerId != localPresentingPlayerId else {
             endActivity()
             return
@@ -154,22 +155,18 @@ final class PlayerActivityController {
     /// Note the consequence, which is the point of the setting rather than a wrinkle in it:
     /// pausing from the activity's own button ends the activity.
     private static func desiredContent(
-        from state: PlayerBarState?,
+        from snapshot: LiveActivitySnapshot?,
         visibility: LiveActivityVisibility
     ) -> PlayerActivityAttributes.ContentState? {
-        guard let data = state as? PlayerBarState.Data,
-              !data.players.isEmpty else { return nil }
-        if visibility == .whilePlaying, !data.players.contains(where: { $0.isPlaying }) { return nil }
-        let index = Int(data.selectedIndex)
-        guard index >= 0, index < data.players.count else { return nil }
-        let item = data.players[index]
-        guard let title = item.title, !title.isEmpty, !item.isPoweredOff else { return nil }
+        guard let snapshot else { return nil }
+        if visibility == .whilePlaying, !snapshot.anyPlaying { return nil }
+        guard let title = snapshot.title, !title.isEmpty, !snapshot.isPoweredOff else { return nil }
         return PlayerActivityAttributes.ContentState(
-            playerId: item.playerId,
-            playerName: item.name,
+            playerId: snapshot.playerId,
+            playerName: snapshot.playerName,
             title: title,
-            subtitle: item.subtitle,
-            isPlaying: item.isPlaying,
+            subtitle: snapshot.subtitle,
+            isPlaying: snapshot.isPlaying,
             artworkFileName: nil // filled in by publish() from the artwork bookkeeping
         )
     }
@@ -218,10 +215,7 @@ final class PlayerActivityController {
     /// publish time rather than threaded through `desiredContent`, since it feeds the side
     /// channel (the app-group file), not the content diff.
     private func currentArtworkUrl() -> String? {
-        guard let data = KmpHelper.shared.playerBarState.value as? PlayerBarState.Data else { return nil }
-        let index = Int(data.selectedIndex)
-        guard index >= 0, index < data.players.count else { return nil }
-        return data.players[index].artworkUrl
+        KmpHelper.shared.liveActivityState.value?.artworkUrl
     }
 
     private func loadArtwork(urlString: String) {
@@ -253,10 +247,10 @@ final class PlayerActivityController {
     /// for this player meanwhile. Anything but a still-matching state falls back to the full
     /// `handle` path, which ends the activity when that is what the new state calls for.
     private func publishCurrentIfStillWanted(_ content: PlayerActivityAttributes.ContentState) {
-        guard let desired = Self.desiredContent(from: KmpHelper.shared.playerBarState.value, visibility: visibility),
+        guard let desired = Self.desiredContent(from: KmpHelper.shared.liveActivityState.value, visibility: visibility),
               desired.playerId != localPresentingPlayerId,
               desired.playerId == content.playerId, desired.title == content.title else {
-            handle(KmpHelper.shared.playerBarState.value)
+            handle(KmpHelper.shared.liveActivityState.value)
             return
         }
         publish(desired)
@@ -328,7 +322,7 @@ enum PlayerActivityCommand {
         }
 
         // Hold the intent open briefly after a successful send: the optimistic play-state
-        // override has already flipped playerBarState, and the controller's activity update
+        // override has already flipped the snapshot, and the controller's activity update
         // rides that emission — but `perform()` returning is the system's cue that it may
         // suspend the process, so give the update a moment to reach ActivityKit.
         if sent {
