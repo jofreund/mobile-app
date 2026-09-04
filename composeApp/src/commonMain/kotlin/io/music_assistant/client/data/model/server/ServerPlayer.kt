@@ -28,8 +28,14 @@ data class ServerPlayer(
     @SerialName("supported_features") val supportedFeatures: List<String> = emptyList(),
     @SerialName("can_group_with") val canGroupWith: List<String>? = null,
     @SerialName("enabled") val enabled: Boolean = true,
-    // @SerialName("elapsed_time") val elapsedTime: Double? = null,
-    // @SerialName("elapsed_time_last_updated") val elapsedTimeLastUpdated: Double? = null,
+    /**
+     * The player's own position, as its provider last reported it. Only meaningful when the
+     * player plays something Music Assistant is not streaming (see `Player.hasExternalMedia`);
+     * for MA playback the queue's `elapsed_time` is the position, and this is stream-relative.
+     */
+    @SerialName("elapsed_time") val elapsedTime: Double? = null,
+    /** Unix epoch seconds (UTC) at which [elapsedTime] was reported. */
+    @SerialName("elapsed_time_last_updated") val elapsedTimeLastUpdated: Double? = null,
     @SerialName("current_media") val currentMedia: ServerPlayerMedia? = null,
     @SerialName("state") val state: PlayerState? = null,
     // @SerialName("powered") val powered: Boolean? = null,

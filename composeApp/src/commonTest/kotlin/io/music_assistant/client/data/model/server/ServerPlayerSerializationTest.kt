@@ -44,6 +44,31 @@ class ServerPlayerSerializationTest {
     }
 
     @Test
+    fun carriesThePlayersOwnPositionThroughToTheClientModel() {
+        // A Home Assistant player fed by another app: media without a queue stamp, an
+        // "External" source, and the position the entity last reported.
+        val json = """{
+            "player_id": "media_player.kueche",
+            "state": "playing",
+            "active_source": "External",
+            "elapsed_time": 42.5,
+            "elapsed_time_last_updated": 1777422843.81,
+            "current_media": {
+                "media_type": "track",
+                "title": "The Sum",
+                "duration": 201
+            }
+        }"""
+
+        val player = playerFactory.create(myJson.decodeFromString<ServerPlayer>(json))
+
+        assertEquals(42.5, player.elapsedTime)
+        assertEquals(1777422843.81, player.elapsedTimeLastUpdated)
+        assertTrue(player.hasExternalMedia)
+        assertEquals(52.5, player.externalElapsedSec(nowEpochSec = 1777422853.81))
+    }
+
+    @Test
     fun deserializesUnknownPlayerTypeAsRawString() {
         val json = """{
             "player_id": "pl1",

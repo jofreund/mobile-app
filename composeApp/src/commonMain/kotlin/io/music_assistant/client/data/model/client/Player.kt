@@ -28,8 +28,48 @@ data class Player(
     val currentMedia: PlayerMedia?,
     /** Unix (UTC) timestamp in seconds at which the sleep timer stops playback. */
     val sleepTimerExpiresAt: Double? = null,
+    /**
+     * The player's own position in [currentMedia], as its provider last reported it. Read only
+     * through [externalElapsedSec]: for Music Assistant playback the queue is the position.
+     */
+    val elapsedTime: Double? = null,
+    /** Unix epoch seconds (UTC) at which [elapsedTime] was reported. */
+    val elapsedTimeLastUpdated: Double? = null,
 ) {
     val isPoweredOff: Boolean get() = canPower && !isPowered
+
+    /**
+     * True when the player reports media that Music Assistant is not streaming to it — a
+     * HomePod playing Apple Music, a Home Assistant media player fed by another app. The
+     * server stamps `queue_id`/`queue_item_id` on media it plays from a queue, so media
+     * carrying neither belongs to another source. Such a player's MA queue is idle: its
+     * elapsed time is stale, and the only position that means anything is the player's own.
+     */
+    val hasExternalMedia: Boolean
+        get() = currentMedia != null &&
+            currentMedia.queueId == null &&
+            currentMedia.queueItemId == null
+
+    /**
+     * Position in [currentMedia] for a player with [hasExternalMedia], projected to
+     * [nowEpochSec]; null for Music Assistant playback or when the provider reports none.
+     *
+     * Providers that mirror another system report the position sparsely (Home Assistant
+     * forwards `media_position` only when the entity re-reports it), so a playing player is
+     * advanced by the wall time since the report, capped at the media duration. A paused
+     * player sits exactly where it was reported.
+     */
+    fun externalElapsedSec(nowEpochSec: Double): Double? {
+        if (!hasExternalMedia) return null
+        val reported = elapsedTime ?: return null
+        val lastUpdated = elapsedTimeLastUpdated
+        val advanced = if (isPlaying && lastUpdated != null) {
+            reported + (nowEpochSec - lastUpdated).coerceAtLeast(0.0)
+        } else {
+            reported
+        }
+        return currentMedia?.duration?.let { advanced.coerceAtMost(it) } ?: advanced
+    }
 
     val isGroup = type == PlayerType.GROUP
     val isGrouped = !isGroup && groupMembers?.isNotEmpty() == true

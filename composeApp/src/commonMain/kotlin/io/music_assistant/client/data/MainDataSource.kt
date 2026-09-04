@@ -484,9 +484,12 @@ class MainDataSource(
                 .mapNotNull { (it as? DataState.Data)?.data }
                 .collect { list ->
                     list.forEach { pd ->
-                        pd.queueInfo?.id?.let { queueId ->
-                            positionTracker.setPlaying(queueId, pd.player.isPlaying)
-                        }
+                        // An externally fed player has no queue to key on; its entry is
+                        // keyed by player id (see anchorExternalPosition).
+                        val key = pd.queueInfo?.id
+                            ?: pd.playerId.takeIf { pd.player.hasExternalMedia }
+                            ?: return@forEach
+                        positionTracker.setPlaying(key, pd.player.isPlaying)
                     }
                 }
         }
@@ -1344,6 +1347,57 @@ class MainDataSource(
     }
 
     /**
+     * Server-anchored position from a queue payload. Skipped while the queue's player plays
+     * media from another source (see [Player.hasExternalMedia]): that queue is idle and its
+     * `elapsed_time` is wherever MA last left it, while the tracker entry under the same id —
+     * MA gives a queue its player's id — holds the player's own position from
+     * [anchorExternalPosition]. Letting the stale queue value through would drag the playhead
+     * back onto a track that is not playing.
+     */
+    private fun anchorQueuePosition(queueInfo: QueueInfo) {
+        val elapsed = queueInfo.elapsedTime ?: return
+        if (queueOwnerPlaysExternalMedia(queueInfo.id)) return
+        val player = (_serverPlayers.value as? DataState.Data)
+            ?.data?.find { it.queueId == queueInfo.id }
+        positionTracker.setAnchor(
+            queueId = queueInfo.id,
+            elapsedSec = elapsed,
+            isPlaying = player?.isPlaying,
+            durationSec = queueInfo.currentItem?.track?.duration,
+            speed = queueInfo.playbackSpeed,
+        )
+    }
+
+    /**
+     * Whether the player owning [queueId] currently plays media from another source. An
+     * externally fed player's `queueId` points at that source rather than its MA queue, so the
+     * owner is found by id (MA gives a queue its player's id) when the queue lookup misses.
+     */
+    private fun queueOwnerPlaysExternalMedia(queueId: String): Boolean {
+        val players = (_serverPlayers.value as? DataState.Data)?.data ?: return false
+        val owner = players.find { it.queueId == queueId } ?: players.find { it.id == queueId }
+        return owner?.hasExternalMedia == true
+    }
+
+    /**
+     * The player's own position, for a player fed by another source (see
+     * [Player.hasExternalMedia]); a no-op for MA playback. Keyed by player id: MA gives a
+     * queue its player's id, so this is the entry the native player already observes for it,
+     * and the one [anchorQueuePosition] leaves alone while the other source plays. Once MA
+     * plays through the queue again, its events overwrite this.
+     */
+    private fun anchorExternalPosition(player: Player) {
+        val elapsed = player.externalElapsedSec(currentTimeMillis() / 1000.0) ?: return
+        positionTracker.setAnchor(
+            queueId = player.id,
+            elapsedSec = elapsed,
+            isPlaying = player.isPlaying,
+            durationSec = player.currentMedia?.duration,
+            speed = 1.0,
+        )
+    }
+
+    /**
      * Another player is moving the resume point of an audiobook/episode that a paused queue
      * here is showing: move that queue's displayed position along, so the slider shows where
      * a resume will pick up (see [ResumePointResolver]).
@@ -1537,6 +1591,7 @@ class MainDataSource(
                                             else -> oldState
                                         }
                                     }
+                                    anchorExternalPosition(newPlayer)
                                 }
                         }
 
@@ -1592,6 +1647,7 @@ class MainDataSource(
                                     else -> oldState
                                 }
                             }
+                            anchorExternalPosition(data)
                         }
 
                         is QueueAddedEvent -> {
@@ -1610,17 +1666,7 @@ class MainDataSource(
                                     value + data
                                 }
                             }
-                            data.elapsedTime?.let { elapsed ->
-                                val player = (_serverPlayers.value as? DataState.Data)
-                                    ?.data?.find { it.queueId == data.id }
-                                positionTracker.setAnchor(
-                                    queueId = data.id,
-                                    elapsedSec = elapsed,
-                                    isPlaying = player?.isPlaying,
-                                    durationSec = data.currentItem?.track?.duration,
-                                    speed = data.playbackSpeed,
-                                )
-                            }
+                            anchorQueuePosition(data)
                         }
 
                         is QueueUpdatedEvent -> {
@@ -1635,17 +1681,7 @@ class MainDataSource(
                                     if (it.id == data.id) data else it
                                 }
                             }
-                            data.elapsedTime?.let { elapsed ->
-                                val player = (_serverPlayers.value as? DataState.Data)
-                                    ?.data?.find { it.queueId == data.id }
-                                positionTracker.setAnchor(
-                                    queueId = data.id,
-                                    elapsedSec = elapsed,
-                                    isPlaying = player?.isPlaying,
-                                    durationSec = data.currentItem?.track?.duration,
-                                    speed = data.playbackSpeed,
-                                )
-                            }
+                            anchorQueuePosition(data)
                         }
 
                         is QueueItemsUpdatedEvent -> {
@@ -1666,17 +1702,7 @@ class MainDataSource(
                                         if (it.id == freshData.id) freshData else it
                                     }
                                 }
-                                freshData.elapsedTime?.let { elapsed ->
-                                    val player = (_serverPlayers.value as? DataState.Data)
-                                        ?.data?.find { it.queueId == freshData.id }
-                                    positionTracker.setAnchor(
-                                        queueId = freshData.id,
-                                        elapsedSec = elapsed,
-                                        isPlaying = player?.isPlaying,
-                                        durationSec = freshData.currentItem?.track?.duration,
-                                        speed = freshData.playbackSpeed,
-                                    )
-                                }
+                                anchorQueuePosition(freshData)
                             }
                             (playersData.value as? DataState.Data)?.data?.firstOrNull {
                                 it.queueId == data.id
@@ -1695,6 +1721,7 @@ class MainDataSource(
                                 }
                             }
                             event.objectId?.let { queueId ->
+                                if (queueOwnerPlaysExternalMedia(queueId)) return@let
                                 positionTracker.setAnchor(
                                     queueId = queueId,
                                     elapsedSec = event.data,
@@ -1830,6 +1857,7 @@ class MainDataSource(
                     _serverPlayers.update {
                         DataState.Data(visiblePlayers)
                     }
+                    visiblePlayers.forEach(::anchorExternalPosition)
                     // Forward to the controller: real player if found, synthetic if not
                     val localPlayerId = settings.sendspinEffectivePlayerId.value
                     val localServerPlayer = visiblePlayers.find { it.id == localPlayerId }
@@ -1849,17 +1877,7 @@ class MainDataSource(
                         mergeFullQueueSnapshot(retained, list).also { mergedSnapshot = it }
                     }
                     mergedSnapshot.forEach { queueInfo ->
-                        queueInfo.elapsedTime?.let { elapsed ->
-                            val player = (_serverPlayers.value as? DataState.Data)
-                                ?.data?.find { it.queueId == queueInfo.id }
-                            positionTracker.setAnchor(
-                                queueId = queueInfo.id,
-                                elapsedSec = elapsed,
-                                isPlaying = player?.isPlaying,
-                                durationSec = queueInfo.currentItem?.track?.duration,
-                                speed = queueInfo.playbackSpeed,
-                            )
-                        }
+                        anchorQueuePosition(queueInfo)
                     }
 
                     // Forward the local player's queue to the controller

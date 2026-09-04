@@ -1,7 +1,9 @@
 package io.music_assistant.client.data
 
+import io.music_assistant.client.data.model.client.MediaType
 import io.music_assistant.client.data.model.client.PlayerData
 import io.music_assistant.client.data.model.client.PlayerDataFixtures
+import io.music_assistant.client.data.model.client.PlayerMedia
 import io.music_assistant.client.data.model.client.PlayerType
 import io.music_assistant.client.data.model.client.Queue
 import io.music_assistant.client.data.model.client.QueueTrack
@@ -48,6 +50,46 @@ class PlayerBarStateTest {
         assertEquals(0, stateOf(PlayerDataFixtures.playerData(), selectedIndex = 7).selectedIndex)
         assertEquals(0, stateOf(PlayerDataFixtures.playerData(), selectedIndex = null).selectedIndex)
         assertEquals(0, stateOf(PlayerDataFixtures.playerData(), selectedIndex = -1).selectedIndex)
+    }
+
+    @Test
+    fun `a player fed by another source reports its own position when it has no queue`() {
+        // A HomePod on Apple Music: MA knows the media but its queue is idle, so the snapshot
+        // is the player's reported position projected to now.
+        val external = externalPlayer(elapsedTime = 60.0, lastUpdated = 1_000.0)
+        val state = buildPlayerBarState(DataState.Data(listOf(external)), 0, nowEpochSec = 1_010.0)
+        val item = (state as PlayerBarState.Data).players.single()
+        assertEquals(70.0, item.elapsedTime)
+        assertEquals(201.0, item.duration)
+    }
+
+    @Test
+    fun `a queue-less player with no reported position has no elapsed time`() {
+        val external = externalPlayer(elapsedTime = null, lastUpdated = null)
+        assertNull(stateOf(external).players.single().elapsedTime)
+    }
+
+    private fun externalPlayer(elapsedTime: Double?, lastUpdated: Double?): PlayerData {
+        val media = PlayerMedia(
+            title = "The Sum",
+            artist = "Lambert & Dekker",
+            album = null,
+            imageUrl = null,
+            duration = 201.0,
+            queueId = null,
+            queueItemId = null,
+            mediaType = MediaType.TRACK,
+            uri = null,
+        )
+        return PlayerData(
+            player = PlayerDataFixtures.player(queueId = "External", currentMedia = media).copy(
+                elapsedTime = elapsedTime,
+                elapsedTimeLastUpdated = lastUpdated,
+            ),
+            queue = DataState.NoData(),
+            parentBind = null,
+            childrenBinds = emptyList(),
+        )
     }
 
     @Test
