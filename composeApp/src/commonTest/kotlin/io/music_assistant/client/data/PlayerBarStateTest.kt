@@ -64,6 +64,21 @@ class PlayerBarStateTest {
     }
 
     @Test
+    fun `a player fed by another source scrubs only when it seeks on its own`() {
+        // The server hands such a seek to the player and refuses it without the feature.
+        val cannot = externalPlayer(elapsedTime = 60.0, lastUpdated = 1_000.0)
+        assertFalse(stateOf(cannot).players.single().canSeek)
+        val can = cannot.copy(player = cannot.player.copy(supportsSeek = true))
+        assertTrue(stateOf(can).players.single().canSeek)
+    }
+
+    @Test
+    fun `a player on a queue scrubs whatever it can do on its own`() {
+        // The queue takes the seek; the player's own feature list is not consulted.
+        assertTrue(stateOf(PlayerDataFixtures.playerData()).players.single().canSeek)
+    }
+
+    @Test
     fun `a queue-less player with no reported position has no elapsed time`() {
         val external = externalPlayer(elapsedTime = null, lastUpdated = null)
         assertNull(stateOf(external).players.single().elapsedTime)

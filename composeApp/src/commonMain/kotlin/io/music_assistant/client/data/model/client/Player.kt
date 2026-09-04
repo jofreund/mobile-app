@@ -35,6 +35,8 @@ data class Player(
     val elapsedTime: Double? = null,
     /** Unix epoch seconds (UTC) at which [elapsedTime] was reported. */
     val elapsedTimeLastUpdated: Double? = null,
+    /** The server lists `seek` among the player's features: it can seek in media of its own. */
+    val supportsSeek: Boolean = false,
 ) {
     val isPoweredOff: Boolean get() = canPower && !isPowered
 
@@ -70,6 +72,14 @@ data class Player(
         }
         return currentMedia?.duration?.let { advanced.coerceAtMost(it) } ?: advanced
     }
+
+    /**
+     * Whether a seek sent for this player can land. On a Music Assistant queue the queue seeks,
+     * whatever the player itself can do. Off it (see [hasExternalMedia]) the server hands the
+     * seek to the player, and refuses it unless the player declares [supportsSeek] — so the
+     * scrubber goes inert rather than offering a drag that snaps back.
+     */
+    val canSeek: Boolean get() = !hasExternalMedia || supportsSeek
 
     val isGroup = type == PlayerType.GROUP
     val isGrouped = !isGroup && groupMembers?.isNotEmpty() == true

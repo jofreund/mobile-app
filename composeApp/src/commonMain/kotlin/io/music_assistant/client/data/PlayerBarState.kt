@@ -35,6 +35,12 @@ data class PlayerBarItem(
     val artworkUrl: String?,
     /** `player.canPlay && !player.isAnnouncing` — gates the expanded view's transport buttons. */
     val canPlay: Boolean,
+    /**
+     * `player.canSeek` — whether the scrubber takes a drag. False for a player fed by another
+     * source that does not seek on its own (e.g. a HomePod on Apple Music behind Home Assistant),
+     * where the server refuses the seek and the bar would only snap back.
+     */
+    val canSeek: Boolean,
     val duration: Double?,
     /** Snapshot only — the expanded player's ticking position comes from `observePlayerBarPosition`. */
     val elapsedTime: Double?,
@@ -324,6 +330,7 @@ internal fun buildPlayerBarState(
                 subtitle = player.currentMedia?.subtitle,
                 artworkUrl = player.currentMedia?.imageUrl,
                 canPlay = player.canPlay && !player.isAnnouncing,
+                canSeek = player.canSeek,
                 duration = player.currentMedia?.duration,
                 // A player fed by another source has no live queue behind it; its own reported
                 // position is the snapshot (the ticking position comes from the tracker either way).

@@ -50,6 +50,7 @@ class PlayerFactory(
             sleepTimerExpiresAt = sleepTimerExpiresAt,
             elapsedTime = elapsedTime,
             elapsedTimeLastUpdated = elapsedTimeLastUpdated,
+            supportsSeek = supportedFeatures.contains(PlayerFeature.SEEK),
         )
     }
 

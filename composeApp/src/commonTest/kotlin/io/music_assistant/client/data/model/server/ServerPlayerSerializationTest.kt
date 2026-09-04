@@ -5,6 +5,7 @@ import io.music_assistant.client.data.model.client.PlayerType
 import io.music_assistant.client.utils.myJson
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -66,6 +67,23 @@ class ServerPlayerSerializationTest {
         assertEquals(1777422843.81, player.elapsedTimeLastUpdated)
         assertTrue(player.hasExternalMedia)
         assertEquals(52.5, player.externalElapsedSec(nowEpochSec = 1777422853.81))
+        // No "seek" among the features: the Home Assistant provider never declares it.
+        assertFalse(player.supportsSeek)
+        assertFalse(player.canSeek)
+    }
+
+    @Test
+    fun seekFeatureUnlocksScrubbingOffTheQueue() {
+        val json = """{
+            "player_id": "pl1",
+            "supported_features": ["pause", "seek"],
+            "current_media": {"media_type": "track", "title": "External"}
+        }"""
+
+        val player = playerFactory.create(myJson.decodeFromString<ServerPlayer>(json))
+
+        assertTrue(player.supportsSeek)
+        assertTrue(player.canSeek)
     }
 
     @Test

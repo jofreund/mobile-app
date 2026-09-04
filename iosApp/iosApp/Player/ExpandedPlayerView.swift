@@ -835,6 +835,11 @@ private struct ExpandedPlayerRow: View {
     /// `seekSection` — it just has no position in it.
     private var hasTrack: Bool { player.title != nil }
 
+    /// Whether a drag on the bar would go anywhere: a track is loaded and the player takes a
+    /// seek for it. A HomePod playing Apple Music through Home Assistant shows its track and
+    /// position here but cannot be seeked, so its bar reads but does not scrub.
+    private var isSeekable: Bool { hasTrack && player.canSeek }
+
     /// The chapter the scrubber is drawn against: the one latched at drag start while a drag
     /// is in flight, otherwise whatever Kotlin currently presents. Nil means absolute time —
     /// no chapters, not an audiobook, or the server preference is off.
@@ -898,12 +903,13 @@ private struct ExpandedPlayerRow: View {
                 }
             )
             .disabled(!player.canPlay || player.isPoweredOff)
-            // Inert rather than disabled when there is nothing to seek through. `.disabled` would
-            // fade the bar to 40%, and the point of keeping it is that an idle player still shows
-            // a visible grey track rather than a gap.
-            .allowsHitTesting(hasTrack)
+            // Inert rather than disabled when there is nothing to seek through, or nothing that
+            // would take the seek. `.disabled` would fade the bar to 40%, and the point of keeping
+            // it is that an idle player still shows a visible grey track rather than a gap — and a
+            // player that cannot be seeked still shows where it is.
+            .allowsHitTesting(isSeekable)
             .accessibilityLabel(String(localized: "cd_playback_position"))
-            .accessibilityHidden(!hasTrack)
+            .accessibilityHidden(!isSeekable)
 
             HStack {
                 Text(formattedDuration(sliderValue))
