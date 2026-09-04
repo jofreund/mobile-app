@@ -102,6 +102,11 @@ measurement that points at that code.
 
 ## Done log
 
+- 2026-09-04 — leftovers from **19, 20** (branch `claude/gradle-hygiene-repo-residue`): deleted
+  `composeApp/lint-baseline.xml` (Android Lint baseline for a manifest that no longer exists),
+  pruned the Android entries from `.gitignore`, pointed the PR template at the tasks CI runs,
+  dropped the dead `:!androidApp` pathspec in the release-notes step.
+
 - 2026-09-03 — **12, 14** in `24e3210c` (branch `claude/deeplinks-and-di`). Koin is gone from the
   catalog. Remaining: 6, 7 (device measurements), 13 (suspend → async, incremental), 15 (optional
   SKIE/Swift Export experiment).
