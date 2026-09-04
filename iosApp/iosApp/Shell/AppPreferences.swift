@@ -66,6 +66,10 @@ final class AppPreferences {
         ) ?? .always
         homeRows = Self.decodeHomeRows(defaults.string(forKey: Keys.homeRows))
         libraryCategories = Self.decodeLibraryCategories(defaults.string(forKey: Keys.libraryCategories))
+        kidsModeEnabled = defaults.bool(forKey: Keys.kidsModeEnabled)
+        kidsModePlayerId = defaults.string(forKey: Keys.kidsModePlayerId)
+        kidsModeMediaTypes = KidsMediaType.decode(defaults.string(forKey: Keys.kidsModeMediaTypes))
+            ?? KidsMediaType.defaultSelection
     }
 
     // MARK: - Theme
@@ -109,6 +113,33 @@ final class AppPreferences {
         }
     }
 
+    // MARK: - Kids mode
+
+    /// Whether the shell shows `KidsFavoritesView` in place of the tab shell. Off by default;
+    /// meant for a device signed in with a child's account (`.claude/kids-favorites-mode.md`).
+    var kidsModeEnabled: Bool {
+        didSet { defaults.set(kidsModeEnabled, forKey: Keys.kidsModeEnabled) }
+    }
+
+    /// The player kids mode drives, applied on top of the app's selection whenever it is in the
+    /// list. Nil means "whichever is selected" — for an account the server restricts to one
+    /// player, the only one there is.
+    var kidsModePlayerId: String? {
+        didSet {
+            if let kidsModePlayerId {
+                defaults.set(kidsModePlayerId, forKey: Keys.kidsModePlayerId)
+            } else {
+                defaults.removeObject(forKey: Keys.kidsModePlayerId)
+            }
+        }
+    }
+
+    /// Which favorites feed the carousel, in section order. Never empty — see
+    /// `KidsMediaType.toggling`.
+    var kidsModeMediaTypes: [KidsMediaType] {
+        didSet { defaults.set(KidsMediaType.encode(kidsModeMediaTypes), forKey: Keys.kidsModeMediaTypes) }
+    }
+
     // MARK: - View mode
 
     /// Grid or list for the library category of `mediaTypeName` (a Kotlin `MediaType.name`).
@@ -127,6 +158,9 @@ final class AppPreferences {
         static let liveActivityVisibility = "live_activity_visibility"
         static let homeRows = "home_rows_config"
         static let libraryCategories = "library_tabs_config"
+        static let kidsModeEnabled = "kids_mode_enabled"
+        static let kidsModePlayerId = "kids_mode_player_id"
+        static let kidsModeMediaTypes = "kids_mode_media_types"
         static func viewMode(_ mediaTypeName: String) -> String { "view_mode_\(mediaTypeName)" }
     }
 

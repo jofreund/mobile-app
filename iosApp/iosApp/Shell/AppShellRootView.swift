@@ -12,6 +12,9 @@ struct AppShellRootView: View {
     /// first moment; `.task { start() }` below is only a safety net and is idempotent.
     private let router = AppRouter.shared
 
+    /// Read for one flag: kids mode swaps the tab shell for `KidsFavoritesView` (`content`).
+    private let preferences = AppPreferences.shared
+
     /// The app's one toast host — see `ToastHost.swift` for why there must be exactly one. Held
     /// here rather than in `AppTabView` so a message raised while Settings is up still lands.
     @State private var toasts = ToastPresenter()
@@ -91,18 +94,27 @@ struct AppShellRootView: View {
         // longer gets a free reload when Settings closes, which is what used to mask its
         // one-shot load having failed while disconnected. `HomeView` reloads on becoming
         // authenticated instead; see the subscription there.
-        AppTabView()
-            // Compose had its own keyboard handler on this side — SettingsView is now
-            // substantially native (Phase E4 part 2's real TextFields) and must NOT get this:
-            // it was found to suppress the keyboard from appearing for native fields entirely
-            // (iOS 26 beta).
-            .ignoresSafeArea(.keyboard)
-            // `.ignoresSafeArea(.container)` was here too, from when this side was a single
-            // full-screen Compose host drawing its own chrome. Nothing here is Compose now, and
-            // it suppressed the bottom container safe area for the whole tab subtree.
-            .fullScreenCover(isPresented: settingsPresented) {
-                SettingsView()
+        Group {
+            if preferences.kidsModeEnabled {
+                // Kids mode is the shell, not a screen over it: the tab view is not built at
+                // all while it is on, so nothing underneath fetches or subscribes for nobody.
+                // See `.claude/kids-favorites-mode.md`.
+                KidsFavoritesView()
+            } else {
+                AppTabView()
+                    // Compose had its own keyboard handler on this side — SettingsView is now
+                    // substantially native (Phase E4 part 2's real TextFields) and must NOT get
+                    // this: it was found to suppress the keyboard from appearing for native
+                    // fields entirely (iOS 26 beta).
+                    .ignoresSafeArea(.keyboard)
             }
+        }
+        // `.ignoresSafeArea(.container)` was here too, from when this side was a single
+        // full-screen Compose host drawing its own chrome. Nothing here is Compose now, and
+        // it suppressed the bottom container safe area for the whole tab subtree.
+        .fullScreenCover(isPresented: settingsPresented) {
+            SettingsView()
+        }
     }
 }
 

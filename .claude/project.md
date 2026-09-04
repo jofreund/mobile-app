@@ -51,6 +51,7 @@ script. See `docs/IOS-BUILD-INSTRUCTIONS.md`.
 - **Expanded player ⋯ menu**: `.claude/player-overflow-menu-plan.md` — Autoplay, Crossfade, Playback speed, Transfer queue, and why each is gated the way it is
 - **Volume**: `.claude/volume-control.md`
 - **Local player**: `.claude/local-player-integration-plan.md` — how Sendspin was ported back and gated
+- **Kids mode**: `.claude/kids-favorites-mode.md` — the favorites carousel that replaces the shell on a child's device, and why "favorites of the signed-in account" is the source
 - **CarPlay & Siri**: removed from this fork. `.claude/carplay.md` and `.claude/siri-integration-overview.md` describe upstream's versions for a possible port back
 - **Performance and simplification**: `.claude/perf-and-simplification-plan.md` — the numbered plan; tick items there
 

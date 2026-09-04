@@ -142,4 +142,39 @@ final class AppPreferencesTests: XCTestCase {
 
         XCTAssertEqual(seen, [.whilePlaying, .always])
     }
+
+    // MARK: - Kids mode
+
+    func testKidsModeDefaultsOffWithNoPlayerAndTheDefaultTypes() {
+        let preferences = AppPreferences(defaults: defaults)
+        XCTAssertFalse(preferences.kidsModeEnabled)
+        XCTAssertNil(preferences.kidsModePlayerId)
+        XCTAssertEqual(preferences.kidsModeMediaTypes, KidsMediaType.defaultSelection)
+    }
+
+    func testKidsModeSettingsRoundTrip() {
+        let preferences = AppPreferences(defaults: defaults)
+        preferences.kidsModeEnabled = true
+        preferences.kidsModePlayerId = "media_player.kids_room"
+        preferences.kidsModeMediaTypes = [.album, .radio]
+
+        let reread = AppPreferences(defaults: defaults)
+        XCTAssertTrue(reread.kidsModeEnabled)
+        XCTAssertEqual(reread.kidsModePlayerId, "media_player.kids_room")
+        XCTAssertEqual(reread.kidsModeMediaTypes, [.album, .radio])
+        XCTAssertEqual(defaults.string(forKey: "kids_mode_media_types"), "album,radio")
+    }
+
+    func testClearingTheKidsPlayerRemovesTheKey() {
+        let preferences = AppPreferences(defaults: defaults)
+        preferences.kidsModePlayerId = "p1"
+        preferences.kidsModePlayerId = nil
+        XCTAssertNil(defaults.string(forKey: "kids_mode_player_id"))
+        XCTAssertNil(AppPreferences(defaults: defaults).kidsModePlayerId)
+    }
+
+    func testAMeaninglessStoredTypeListFallsBackToTheDefault() {
+        defaults.set("artist", forKey: "kids_mode_media_types")
+        XCTAssertEqual(AppPreferences(defaults: defaults).kidsModeMediaTypes, KidsMediaType.defaultSelection)
+    }
 }

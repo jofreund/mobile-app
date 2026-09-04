@@ -3,7 +3,7 @@
 Agent-facing docs for Taktgeber, a native SwiftUI client for Music Assistant on a Kotlin
 kernel. Human-facing setup and build docs are in `../docs/`.
 
-**Last updated:** 2026-09-03
+**Last updated:** 2026-09-04
 
 ## Read first
 
@@ -24,6 +24,7 @@ kernel. Human-facing setup and build docs are in `../docs/`.
 | [player-overflow-menu-plan.md](player-overflow-menu-plan.md) | Expanded player's ⋯ menu: autoplay, crossfade, playback speed, transfer queue |
 | [volume-control.md](volume-control.md) | Volume slider behaviour and the attempt that must not be repeated |
 | [local-player-integration-plan.md](local-player-integration-plan.md) | How the on-device Sendspin player was ported back and gated behind a toggle |
+| [kids-favorites-mode.md](kids-favorites-mode.md) | Kids mode: a favorites Cover Flow with basic transport that replaces the shell on a child's device |
 | [siri-integration-overview.md](siri-integration-overview.md) | How upstream's Siri integration works; what a port back would need (not built) |
 | [carplay.md](carplay.md) | Upstream's CarPlay architecture; removed from this fork, kept as reference |
 

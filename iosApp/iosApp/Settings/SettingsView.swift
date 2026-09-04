@@ -68,6 +68,7 @@ struct SettingsView: View {
             LocalPlayerSection()
             themeSection
             LiveActivitySection()
+            KidsModeSection()
             miscSection
         }
     }

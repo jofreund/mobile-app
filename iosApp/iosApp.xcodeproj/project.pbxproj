@@ -115,6 +115,11 @@
 		C8ST00052F63000000000005 /* ConnectionSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8ST00152F63000000000015 /* ConnectionSetupView.swift */; };
 		C8ST00072F63000000000007 /* QrScanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8ST00172F63000000000017 /* QrScanView.swift */; };
 		C8ST00082F63000000000008 /* ConnectionValidation.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8ST00182F63000000000018 /* ConnectionValidation.swift */; };
+		C8KD00012FA5000000000001 /* KidsFavoritesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8KD00112FA5000000000011 /* KidsFavoritesView.swift */; };
+		C8KD00022FA5000000000002 /* KidsFavoritesCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8KD00122FA5000000000012 /* KidsFavoritesCatalog.swift */; };
+		C8KD00032FA5000000000003 /* KidsFavoritesCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8KD00122FA5000000000012 /* KidsFavoritesCatalog.swift */; };
+		C8KD00042FA5000000000004 /* KidsFavoritesCatalogTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8KD00132FA5000000000013 /* KidsFavoritesCatalogTests.swift */; };
+		C8KD00052FA5000000000005 /* KidsModeSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8KD00142FA5000000000014 /* KidsModeSection.swift */; };
 		C8ST00092F63000000000009 /* LocalNetworkPermission.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8ST00192F63000000000019 /* LocalNetworkPermission.swift */; };
 		C8SV00032F60000000000003 /* SearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SV00132F60000000000013 /* SearchView.swift */; };
 		C8IC00022F80000000000002 /* Taktgeber.icon in Resources */ = {isa = PBXBuildFile; fileRef = C8IC00012F80000000000001 /* Taktgeber.icon */; };
@@ -216,6 +221,10 @@
 		C8ST00152F63000000000015 /* ConnectionSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionSetupView.swift; sourceTree = "<group>"; };
 		C8ST00172F63000000000017 /* QrScanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QrScanView.swift; sourceTree = "<group>"; };
 		C8ST00182F63000000000018 /* ConnectionValidation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionValidation.swift; sourceTree = "<group>"; };
+		C8KD00112FA5000000000011 /* KidsFavoritesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KidsFavoritesView.swift; sourceTree = "<group>"; };
+		C8KD00122FA5000000000012 /* KidsFavoritesCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KidsFavoritesCatalog.swift; sourceTree = "<group>"; };
+		C8KD00132FA5000000000013 /* KidsFavoritesCatalogTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KidsFavoritesCatalogTests.swift; sourceTree = "<group>"; };
+		C8KD00142FA5000000000014 /* KidsModeSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KidsModeSection.swift; sourceTree = "<group>"; };
 		C8ST00192F63000000000019 /* LocalNetworkPermission.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalNetworkPermission.swift; sourceTree = "<group>"; };
 		C8SV00132F60000000000013 /* SearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchView.swift; sourceTree = "<group>"; };
 		C8IC00012F80000000000001 /* Taktgeber.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = Taktgeber.icon; sourceTree = "<group>"; };
@@ -339,6 +348,7 @@
 				C8DL00132FF2000000000013 /* DeepLinksTests.swift */,
 				C8PS00132FE0000000000013 /* PlaybackSpeedOptionsTests.swift */,
 				C8MQ00122FC0000000000012 /* MarqueeCycleTests.swift */,
+				C8KD00132FA5000000000013 /* KidsFavoritesCatalogTests.swift */,
 			);
 			path = iosAppTests;
 			sourceTree = "<group>";
@@ -383,6 +393,7 @@
 				C8AU00062FB0000000000006 /* LocalPlayer */,
 				C8HV00062F61000000000006 /* Home */,
 				C8ST00062F63000000000006 /* Settings */,
+				C8KD00062FA5000000000006 /* Kids */,
 				C8WD00062FA0000000000006 /* LiveActivity */,
 				C8PR00012F2D000000000001 /* PrivacyInfo.xcprivacy */,
 				C8LC00112F4F000000000011 /* Localizable.xcstrings */,
@@ -510,11 +521,21 @@
 			path = Media;
 			sourceTree = "<group>";
 		};
+		C8KD00062FA5000000000006 /* Kids */ = {
+			isa = PBXGroup;
+			children = (
+				C8KD00112FA5000000000011 /* KidsFavoritesView.swift */,
+				C8KD00122FA5000000000012 /* KidsFavoritesCatalog.swift */,
+			);
+			path = Kids;
+			sourceTree = "<group>";
+		};
 		C8ST00062F63000000000006 /* Settings */ = {
 			isa = PBXGroup;
 			children = (
 				C8ST00132F63000000000013 /* SettingsView.swift */,
 				C8ST001A2F6300000000001A /* LocalPlayerSection.swift */,
+				C8KD00142FA5000000000014 /* KidsModeSection.swift */,
 				C8ST00142F63000000000014 /* ConnectionSetupStore.swift */,
 				C8ST00152F63000000000015 /* ConnectionSetupView.swift */,
 				C8ST00172F63000000000017 /* QrScanView.swift */,
@@ -724,6 +745,8 @@
 				C8PS00042FE0000000000004 /* PlaybackSpeedOptionsTests.swift in Sources */,
 				C8MQ00212FC0000000000021 /* MarqueeCycle.swift in Sources */,
 				C8MQ00232FC0000000000023 /* MarqueeCycleTests.swift in Sources */,
+				C8KD00032FA5000000000003 /* KidsFavoritesCatalog.swift in Sources */,
+				C8KD00042FA5000000000004 /* KidsFavoritesCatalogTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -792,6 +815,9 @@
 				C8HV00032F61000000000003 /* HomeView.swift in Sources */,
 				C8ST00032F63000000000003 /* SettingsView.swift in Sources */,
 				C8ST00042F6300000000001A /* LocalPlayerSection.swift in Sources */,
+				C8KD00012FA5000000000001 /* KidsFavoritesView.swift in Sources */,
+				C8KD00022FA5000000000002 /* KidsFavoritesCatalog.swift in Sources */,
+				C8KD00052FA5000000000005 /* KidsModeSection.swift in Sources */,
 				C8ST00042F63000000000004 /* ConnectionSetupStore.swift in Sources */,
 				C8ST00052F63000000000005 /* ConnectionSetupView.swift in Sources */,
 				C8ST00072F63000000000007 /* QrScanView.swift in Sources */,
