@@ -62,7 +62,14 @@ The Settings screen adapts its UI based on connection and authentication state:
 ### SendspinSection (Local Player)
 **Layout:**
 - Text fields on top: Player name, Port, Path
-- Fields are **disabled** (not hidden) when player is running
+- Codec preference: Opus / FLAC / PCM, each labelled with its trade-off ("Opus (compressed,
+  lowest bandwidth)" …). In SwiftUI this is an inline picker (`LocalPlayerSection.swift`), so
+  every option is visible; the label text comes from `LocalPlayerOptions.codecLabelKey`
+- Buffer size: the advertised `buffer_capacity`, 5–50 MB in 5 MB steps (limits from
+  `SendspinConfig`, read through `KmpHelper.sendspinBufferCapacityOptionsMb`); a menu picker
+  labelled "15 MB (default)" style, with a footnote on what the buffer is for
+- Fields are **disabled** (not hidden) when player is running — codec and buffer size included,
+  both are sent in the client hello and only change on the next connect
 - Toggle button on bottom: "Start Local Player" / "Stop Local Player"
 
 **Behavior:**
@@ -307,4 +314,4 @@ class AuthenticationViewModel(
 - [ ] Server discovery (mDNS/Zeroconf)
 - [ ] Multiple server profiles
 - [ ] Export/import settings
-- [ ] Advanced Sendspin settings (buffer size, etc.)
+- [x] Advanced Sendspin settings (codec preference, buffer size) — 2026-09-04

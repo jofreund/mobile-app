@@ -1,10 +1,10 @@
 import SwiftUI
 import MusicAssistantKit
 
-/// Local player (Sendspin) configuration: enable/disable, player name, optional
-/// custom connection, encryption requirement. All fields lock while the local player
-/// is running (config is connect-time; changes take effect on the next connect),
-/// matching upstream's Compose section.
+/// Local player (Sendspin) configuration: enable/disable, player name, codec preference,
+/// buffer size, optional custom connection, encryption requirement. All fields lock while
+/// the local player is running (config is connect-time; changes take effect on the next
+/// connect), matching upstream's Compose section.
 ///
 /// The enable toggle only writes the setting — `MainDataSource` watches
 /// `sendspinEnabled` and starts/stops the player itself, so flipping it here acts
@@ -17,6 +17,9 @@ struct LocalPlayerSection: View {
     // (see ConnectionSetupStore.swift), hence the explicit `as String?` casts.
     @State private var enabled = KmpHelper.shared.sendspinEnabled.value?.boolValue ?? false
     @State private var deviceName = (KmpHelper.shared.sendspinDeviceName.value as? String) ?? ""
+    @State private var codec = (KmpHelper.shared.sendspinCodecPreference.value as? String) ?? ""
+    @State private var bufferMb = KmpHelper.shared.sendspinBufferCapacityMb.value?.intValue
+        ?? Int(KmpHelper.shared.sendspinBufferCapacityDefaultMb)
     @State private var requireEncryption =
         KmpHelper.shared.sendspinRequireEncryption.value?.boolValue ?? false
     @State private var useCustomConnection =
@@ -25,6 +28,12 @@ struct LocalPlayerSection: View {
     @State private var port = KmpHelper.shared.sendspinPort.value.map { "\($0.intValue)" } ?? "8095"
     @State private var path = (KmpHelper.shared.sendspinPath.value as? String) ?? "/sendspin"
     @State private var useTls = KmpHelper.shared.sendspinUseTls.value?.boolValue ?? false
+
+    // What the two pickers may offer is fixed by the kernel (`Codecs.list`, `SendspinConfig`'s
+    // buffer limits), so it is read once; only the labels are Swift's (`LocalPlayerOptions`).
+    private let codecOptions: [String] = KmpHelper.shared.sendspinCodecOptions
+    private let bufferOptions: [Int] = KmpHelper.shared.sendspinBufferCapacityOptionsMb.map { $0.intValue }
+    private let defaultBufferMb = Int(KmpHelper.shared.sendspinBufferCapacityDefaultMb)
 
     @State private var running = KmpHelper.shared.sendspinRunning.value?.boolValue ?? false
     @State private var status = (KmpHelper.shared.sendspinStatus.value as? String) ?? "stopped"
@@ -59,6 +68,29 @@ struct LocalPlayerSection: View {
             .onChange(of: deviceName) { _, newValue in
                 KmpHelper.shared.setSendspinDeviceName(name: newValue)
             }
+
+            // Codec and buffer size are advertised in the client hello, so like the name they
+            // lock while running and apply on the next connect. Inline rows for the codec: three
+            // options whose labels are the explanation, and a menu would truncate them.
+            Picker(String(localized: "settings_codec_preference"), selection: codecBinding) {
+                ForEach(LocalPlayerOptions.codecRows(codecOptions, current: codec), id: \.self) { name in
+                    Text(codecLabel(for: name)).tag(name)
+                }
+            }
+            .pickerStyle(.inline)
+            .disabled(running)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Picker(String(localized: "settings_buffer_size"), selection: bufferBinding) {
+                    ForEach(LocalPlayerOptions.bufferSizeRows(bufferOptions, current: bufferMb), id: \.self) { mb in
+                        Text(bufferSizeLabel(for: mb)).tag(mb)
+                    }
+                }
+                Text(String(localized: "settings_buffer_size_hint"))
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+            .disabled(running)
 
             Toggle(
                 String(localized: "settings_sendspin_require_encryption"),
@@ -135,5 +167,41 @@ struct LocalPlayerSection: View {
                 status = (value as? String) ?? "stopped"
             }
         }
+    }
+
+    // MARK: - Codec and buffer size
+
+    private var codecBinding: Binding<String> {
+        Binding(
+            get: { codec },
+            set: { newValue in
+                codec = newValue
+                KmpHelper.shared.setSendspinCodecPreference(codecName: newValue)
+            }
+        )
+    }
+
+    private var bufferBinding: Binding<Int> {
+        Binding(
+            get: { bufferMb },
+            set: { newValue in
+                bufferMb = newValue
+                KmpHelper.shared.setSendspinBufferCapacityMb(mb: Int32(newValue))
+            }
+        )
+    }
+
+    /// "Opus (compressed, lowest bandwidth)" — the catalog's text for the codec, or the raw
+    /// name for one the catalog does not know, so the row is never blank.
+    private func codecLabel(for name: String) -> String {
+        guard let key = LocalPlayerOptions.codecLabelKey(for: name) else { return name }
+        return String(localized: String.LocalizationValue(key))
+    }
+
+    /// "15 MB (default)" for the kernel's default, "10 MB" for the rest.
+    private func bufferSizeLabel(for mb: Int) -> String {
+        let size = LocalPlayerOptions.bufferSizeLabel(mb: mb)
+        guard mb == defaultBufferMb else { return size }
+        return String(format: String(localized: "settings_buffer_size_default"), size)
     }
 }

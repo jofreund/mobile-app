@@ -4,9 +4,9 @@ A tour of the native iOS client. Text only, deliberately: this replaced a screen
 of the Compose UI, and stale screenshots of an interface that no longer exists mislead harder than
 no screenshots at all.
 
-Everything here controls **remote players** on your Music Assistant server. The app plays no audio
-itself, which is why it has no lock screen or Control Center presence — see the README for why
-that can't be added back without local playback.
+Everything here controls **remote players** on your Music Assistant server. The app can also be a
+player itself — the optional **Local player** in Settings, off by default — which is what gives it
+a lock screen and Control Center presence while it is the one making sound.
 
 ## First run
 
@@ -101,3 +101,17 @@ Reachable from the gear in Home's toolbar; it opens over the app and closes with
 Server info and disconnect, the signed-in account and logout, appearance (Dark / Light / Follow
 System), and log sharing — **Share logs** writes a file you can send on, which is the fastest way
 to diagnose anything the UI reports vaguely.
+
+**Local player** turns the phone into a Sendspin player on the server. Its settings are read when
+the player connects, so they lock while it runs and apply on the next start:
+
+- **Player name** — what the server lists the phone as.
+- **Codec preference** — how audio is streamed to the phone. *Opus* is compressed and uses the
+  least data; *FLAC* is lossless at moderate bandwidth and the right pick for most Wi-Fi setups;
+  *PCM* is lossless too but uncompressed, so only worth it if FLAC gives trouble.
+- **Buffer size** — how much of the current stream may be kept ahead of playback, 5 to 50 MB, to
+  ride out brief network dropouts. The playing time a size holds depends on the codec (many
+  minutes of Opus, far less of PCM). It is not an offline cache and does not preload the next
+  queue item.
+- **Require encrypted connection** and **Custom Sendspin connection** — leave both alone unless
+  your server setup demands otherwise.

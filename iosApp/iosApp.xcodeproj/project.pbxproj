@@ -111,6 +111,9 @@
 		C8SS00052F80000000000005 /* SearchSectionsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8SS00232F80000000000023 /* SearchSectionsTests.swift */; };
 		C8ST00032F63000000000003 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8ST00132F63000000000013 /* SettingsView.swift */; };
 		C8ST00042F6300000000001A /* LocalPlayerSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8ST001A2F6300000000001A /* LocalPlayerSection.swift */; };
+		C8LP00012FB0000000000001 /* LocalPlayerOptions.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8LP00112FB0000000000011 /* LocalPlayerOptions.swift */; };
+		C8LP00022FB0000000000002 /* LocalPlayerOptions.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8LP00112FB0000000000011 /* LocalPlayerOptions.swift */; };
+		C8LP00032FB0000000000003 /* LocalPlayerOptionsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8LP00132FB0000000000013 /* LocalPlayerOptionsTests.swift */; };
 		C8ST00042F63000000000004 /* ConnectionSetupStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8ST00142F63000000000014 /* ConnectionSetupStore.swift */; };
 		C8ST00052F63000000000005 /* ConnectionSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8ST00152F63000000000015 /* ConnectionSetupView.swift */; };
 		C8ST00072F63000000000007 /* QrScanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8ST00172F63000000000017 /* QrScanView.swift */; };
@@ -217,6 +220,8 @@
 		C8SS00232F80000000000023 /* SearchSectionsTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SearchSectionsTests.swift; sourceTree = "<group>"; };
 		C8ST00132F63000000000013 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		C8ST001A2F6300000000001A /* LocalPlayerSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalPlayerSection.swift; sourceTree = "<group>"; };
+		C8LP00112FB0000000000011 /* LocalPlayerOptions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalPlayerOptions.swift; sourceTree = "<group>"; };
+		C8LP00132FB0000000000013 /* LocalPlayerOptionsTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LocalPlayerOptionsTests.swift; sourceTree = "<group>"; };
 		C8ST00142F63000000000014 /* ConnectionSetupStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionSetupStore.swift; sourceTree = "<group>"; };
 		C8ST00152F63000000000015 /* ConnectionSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionSetupView.swift; sourceTree = "<group>"; };
 		C8ST00172F63000000000017 /* QrScanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QrScanView.swift; sourceTree = "<group>"; };
@@ -349,6 +354,7 @@
 				C8PS00132FE0000000000013 /* PlaybackSpeedOptionsTests.swift */,
 				C8MQ00122FC0000000000012 /* MarqueeCycleTests.swift */,
 				C8KD00132FA5000000000013 /* KidsFavoritesCatalogTests.swift */,
+				C8LP00132FB0000000000013 /* LocalPlayerOptionsTests.swift */,
 			);
 			path = iosAppTests;
 			sourceTree = "<group>";
@@ -535,6 +541,7 @@
 			children = (
 				C8ST00132F63000000000013 /* SettingsView.swift */,
 				C8ST001A2F6300000000001A /* LocalPlayerSection.swift */,
+				C8LP00112FB0000000000011 /* LocalPlayerOptions.swift */,
 				C8KD00142FA5000000000014 /* KidsModeSection.swift */,
 				C8ST00142F63000000000014 /* ConnectionSetupStore.swift */,
 				C8ST00152F63000000000015 /* ConnectionSetupView.swift */,
@@ -747,6 +754,8 @@
 				C8MQ00232FC0000000000023 /* MarqueeCycleTests.swift in Sources */,
 				C8KD00032FA5000000000003 /* KidsFavoritesCatalog.swift in Sources */,
 				C8KD00042FA5000000000004 /* KidsFavoritesCatalogTests.swift in Sources */,
+				C8LP00022FB0000000000002 /* LocalPlayerOptions.swift in Sources */,
+				C8LP00032FB0000000000003 /* LocalPlayerOptionsTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -815,6 +824,7 @@
 				C8HV00032F61000000000003 /* HomeView.swift in Sources */,
 				C8ST00032F63000000000003 /* SettingsView.swift in Sources */,
 				C8ST00042F6300000000001A /* LocalPlayerSection.swift in Sources */,
+				C8LP00012FB0000000000001 /* LocalPlayerOptions.swift in Sources */,
 				C8KD00012FA5000000000001 /* KidsFavoritesView.swift in Sources */,
 				C8KD00022FA5000000000002 /* KidsFavoritesCatalog.swift in Sources */,
 				C8KD00052FA5000000000005 /* KidsModeSection.swift in Sources */,

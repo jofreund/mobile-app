@@ -8275,6 +8275,52 @@
         }
       }
     },
+    "settings_buffer_size_default" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ (Standard)"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ (default)"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ (standaard)"
+          }
+        }
+      }
+    },
+    "settings_buffer_size_hint" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wie viel Audio des laufenden Streams vorausgepuffert werden darf, um kurze Netzwerkaussetzer zu überbrücken. Größere Puffer brauchen mehr Speicher; die enthaltene Spielzeit hängt vom Codec ab. Nicht für Offline-Wiedergabe gedacht und lädt den nächsten Titel der Warteschlange nicht vor."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "How much audio of the current stream may be kept ahead of playback, to ride out brief network dropouts. Larger buffers use more memory; the playing time they hold depends on the codec. Not meant for offline listening and does not preload the next queue item."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hoeveel audio van de huidige stream vooruit gebufferd mag worden om korte netwerkonderbrekingen op te vangen. Grotere buffers gebruiken meer geheugen; hoeveel speeltijd ze bevatten hangt af van de codec. Niet bedoeld voor offline luisteren en laadt het volgende item in de wachtrij niet vooraf."
+          }
+        }
+      }
+    },
     "settings_car" : {
       "extractionState" : "stale",
       "localizations" : {

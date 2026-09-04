@@ -61,7 +61,7 @@ Search/             SearchView, SearchSections
 ItemDetails/        Album/Playlist/Podcast/Audiobook/Artist/Genre detail screens
 Player/             MiniPlayerView, ExpandedPlayerView, PlayerBarStore, sliders, queue, sheets
 Media/              MediaItem, ArtworkView/Loader/DiskCache, SVGRasterizer, MAWebRTCURLProtocol, ItemContextMenu
-Settings/           SettingsView, ConnectionSetupView/Store, QrScanView, LocalPlayerSection, KidsModeSection
+Settings/           SettingsView, ConnectionSetupView/Store, QrScanView, LocalPlayerSection (+ LocalPlayerOptions, pure), KidsModeSection
 Kids/               KidsFavoritesView (the kids-mode shell), KidsFavoritesCatalog (pure logic, also in tests)
 LiveActivity/       PlayerActivityController, PlayerActivityShared (also compiled into the widget)
 LocalPlayer/        LocalPlayerActivation, NativeAudioController, AudioDecoders, NowPlayingCoordinator
