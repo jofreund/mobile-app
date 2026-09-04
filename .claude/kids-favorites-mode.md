@@ -1,7 +1,7 @@
 # Kids mode — a favorites carousel for a child's room device
 
-**Date:** 2026-09-04. Status: built on `claude/kids-favorites-carousel-8qrx4q`; not yet run on a
-device (this session had no Xcode).
+**Date:** 2026-09-04. Status: merged to main and running on a device; layout tuning continues on
+`claude/kids-favorites-carousel-8qrx4q`.
 
 ## What it is
 
