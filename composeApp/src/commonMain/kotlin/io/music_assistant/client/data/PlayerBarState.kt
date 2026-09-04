@@ -9,6 +9,7 @@ import io.music_assistant.client.data.model.client.items.AppMediaItem
 import io.music_assistant.client.data.model.client.items.Audiobook
 import io.music_assistant.client.data.model.client.items.PodcastEpisode
 import io.music_assistant.client.ui.compose.common.DataState
+import io.music_assistant.client.utils.currentTimeMillis
 
 /**
  * Flat, Swift-bridgeable projection of [PlayerData] for the native mini and expanded player —
@@ -34,6 +35,12 @@ data class PlayerBarItem(
     val artworkUrl: String?,
     /** `player.canPlay && !player.isAnnouncing` — gates the expanded view's transport buttons. */
     val canPlay: Boolean,
+    /**
+     * `player.canSeek` — whether the scrubber takes a drag. False for a player fed by another
+     * source that does not seek on its own (e.g. a HomePod on Apple Music behind Home Assistant),
+     * where the server refuses the seek and the bar would only snap back.
+     */
+    val canSeek: Boolean,
     val duration: Double?,
     /** Snapshot only — the expanded player's ticking position comes from `observePlayerBarPosition`. */
     val elapsedTime: Double?,
@@ -300,6 +307,7 @@ internal fun buildPlayerBarState(
     // notably the tests, which would otherwise all have to thread an instance through.
     queueCache: QueueProjectionCache = QueueProjectionCache(),
     presentationChapter: ChapterBarItem? = null,
+    nowEpochSec: Double = currentTimeMillis() / 1000.0,
 ): PlayerBarState {
     val players = (playersDataState as? DataState.Data)?.data ?: return PlayerBarState.Loading
     if (players.isEmpty()) return PlayerBarState.Empty
@@ -322,8 +330,11 @@ internal fun buildPlayerBarState(
                 subtitle = player.currentMedia?.subtitle,
                 artworkUrl = player.currentMedia?.imageUrl,
                 canPlay = player.canPlay && !player.isAnnouncing,
+                canSeek = player.canSeek,
                 duration = player.currentMedia?.duration,
-                elapsedTime = queue?.elapsedTime,
+                // A player fed by another source has no live queue behind it; its own reported
+                // position is the snapshot (the ticking position comes from the tracker either way).
+                elapsedTime = queue?.elapsedTime ?: player.externalElapsedSec(nowEpochSec),
                 shuffleEnabled = queue?.shuffleEnabled ?: false,
                 repeatMode = queue?.repeatMode,
                 isDynamicPlaylist = queue?.isDynamicPlaylist ?: false,

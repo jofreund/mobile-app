@@ -241,6 +241,9 @@ struct PlayerBarItemView: Identifiable {
     let subtitle: String?
     let artworkURL: URL?
     let canPlay: Bool
+    /// Whether a drag on the scrubber can land. False for a player playing from another source
+    /// that cannot seek on its own — the server would refuse the seek and the bar snap back.
+    let canSeek: Bool
     let duration: Double?
     let elapsedTime: Double?
     let shuffleEnabled: Bool
@@ -305,6 +308,7 @@ struct PlayerBarItemView: Identifiable {
         self.subtitle = item.subtitle
         self.artworkURL = item.artworkUrl.flatMap { URL(string: $0) }
         self.canPlay = item.canPlay
+        self.canSeek = item.canSeek
         self.duration = item.duration?.doubleValue
         self.elapsedTime = item.elapsedTime?.doubleValue
         self.shuffleEnabled = item.shuffleEnabled
