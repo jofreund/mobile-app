@@ -10,17 +10,6 @@ captures
 !*.xcodeproj/project.xcworkspace/
 !*.xcworkspace/contents.xcworkspacedata
 **/xcshareddata/WorkspaceSettings.xcsettings
-#built application files
-*.apk
-*.ap_
-*.aab
-
-# files for the dex VM
-*.dex
-
-# Java class files
-*.class
-
 # generated files
 bin/
 gen/
@@ -45,13 +34,6 @@ build/
 captures/
 output.json
 
-#NDK
-obj/
-.externalNativeBuild
-composeApp/keystore.properties
-composeApp/upload-keystore.jks
-androidApp/keystore.properties
-androidApp/upload-keystore.jks
 gha-creds-*.json
 
 .local_gitignore
@@ -70,9 +52,6 @@ testflight-reports/
 
 # Downloaded binary frameworks (too large for git, see IOS-BUILD-INSTRUCTIONS.md step 5)
 iosApp/Frameworks/
-
-# Google Play developer-verification token (per-account, do not commit)
-androidApp/src/selfSignedRelease/assets/adi-registration.properties
 
 # Logs and other junk files
 tmp/
