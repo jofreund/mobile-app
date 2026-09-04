@@ -109,9 +109,10 @@ the player connects, so they lock while it runs and apply on the next start:
 - **Codec preference** — how audio is streamed to the phone. *Opus* is compressed and uses the
   least data; *FLAC* is lossless at moderate bandwidth and the right pick for most Wi-Fi setups;
   *PCM* is lossless too but uncompressed, so only worth it if FLAC gives trouble.
-- **Buffer size** — how much of the current stream may be kept ahead of playback, 5 to 50 MB, to
-  ride out brief network dropouts. The playing time a size holds depends on the codec (many
-  minutes of Opus, far less of PCM). It is not an offline cache and does not preload the next
-  queue item.
+- **Buffer size** — how much of the current stream may be kept ahead of playback, to ride out
+  network dropouts. Four sizes: *Small* for a phone tight on memory, *Medium* (the default) for
+  most Wi-Fi, *Large* and *Maximum* when your network drops out for longer. The playing time a
+  size holds depends on the codec (many minutes of Opus, far less of PCM). It is not an offline
+  cache and does not preload the next queue item.
 - **Require encrypted connection** and **Custom Sendspin connection** — leave both alone unless
   your server setup demands otherwise.

@@ -65,9 +65,12 @@ The Settings screen adapts its UI based on connection and authentication state:
 - Codec preference: Opus / FLAC / PCM, each labelled with its trade-off ("Opus (compressed,
   lowest bandwidth)" …). In SwiftUI this is an inline picker (`LocalPlayerSection.swift`), so
   every option is visible; the label text comes from `LocalPlayerOptions.codecLabelKey`
-- Buffer size: the advertised `buffer_capacity`, 5–50 MB in 5 MB steps (limits from
-  `SendspinConfig`, read through `KmpHelper.sendspinBufferCapacityOptionsMb`); a menu picker
-  labelled "15 MB (default)" style, with a footnote on what the buffer is for
+- Buffer size: the advertised `buffer_capacity`, stored in MB (5–50 in 5 MB steps, limits from
+  `SendspinConfig`, read through `KmpHelper.sendspinBufferCapacityOptionsMb`). The picker does
+  not show that grid: it offers four named tiers — Small 5 / Medium 15 (default) / Large 30 /
+  Maximum 50 MB, `LocalPlayerOptions.tiers` — each with a one-line explanation and the MB as
+  secondary text. A stored size on no tier (older build, upstream) is spliced in as its own row
+  titled by size, so the selection is never empty
 - Fields are **disabled** (not hidden) when player is running — codec and buffer size included,
   both are sent in the client hello and only change on the next connect
 - Toggle button on bottom: "Start Local Player" / "Stop Local Player"

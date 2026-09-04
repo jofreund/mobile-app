@@ -18,7 +18,9 @@
 >
 > Phase 6 addendum (2026-09-04): codec preference and buffer size — already in
 > `SettingsRepository` and the client hello — got their `KmpHelper` pairs and SwiftUI pickers
-> with the catalog's descriptive labels (`LocalPlayerSection`, `LocalPlayerOptions`).
+> with the catalog's descriptive labels (`LocalPlayerSection`, `LocalPlayerOptions`). The
+> buffer picker deliberately diverges from upstream's MB slider: four named tiers over the
+> same MB setting, so the wire value and the Kotlin side are unchanged.
 
 ## Goal
 

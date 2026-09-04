@@ -80,16 +80,28 @@ struct LocalPlayerSection: View {
             .pickerStyle(.inline)
             .disabled(running)
 
-            VStack(alignment: .leading, spacing: 4) {
-                Picker(String(localized: "settings_buffer_size"), selection: bufferBinding) {
-                    ForEach(LocalPlayerOptions.bufferSizeRows(bufferOptions, current: bufferMb), id: \.self) { mb in
-                        Text(bufferSizeLabel(for: mb)).tag(mb)
+            // Buffer size as named tiers over the kernel's MB grid (`LocalPlayerOptions.tiers`):
+            // the choice is about headroom versus memory, not a number, so the number is the
+            // secondary line. Inline too, so the explanations are readable without opening a menu.
+            Picker(selection: bufferBinding) {
+                ForEach(LocalPlayerOptions.bufferSizeRows(kernelOptions: bufferOptions, current: bufferMb)) { row in
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(bufferTitle(for: row))
+                        Text(bufferDetail(for: row))
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
                     }
+                    .tag(row.mb)
                 }
-                Text(String(localized: "settings_buffer_size_hint"))
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+            } label: {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(String(localized: "settings_buffer_size"))
+                    Text(String(localized: "settings_buffer_size_hint"))
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
             }
+            .pickerStyle(.inline)
             .disabled(running)
 
             Toggle(
@@ -198,10 +210,20 @@ struct LocalPlayerSection: View {
         return String(localized: String.LocalizationValue(key))
     }
 
-    /// "15 MB (default)" for the kernel's default, "10 MB" for the rest.
-    private func bufferSizeLabel(for mb: Int) -> String {
-        let size = LocalPlayerOptions.bufferSizeLabel(mb: mb)
-        guard mb == defaultBufferMb else { return size }
-        return String(format: String(localized: "settings_buffer_size_default"), size)
+    /// "Medium (default)" for a tier — the marker follows the kernel's default, not a Swift
+    /// constant — or "20 MB" for a stored size that matches no tier.
+    private func bufferTitle(for row: LocalPlayerOptions.BufferSizeRow) -> String {
+        guard let key = row.tierKey else { return LocalPlayerOptions.bufferSizeLabel(mb: row.mb) }
+        let name = String(localized: String.LocalizationValue(key))
+        guard row.mb == defaultBufferMb else { return name }
+        return String(format: String(localized: "settings_buffer_size_default"), name)
+    }
+
+    /// "Balanced for most Wi-Fi · 15 MB": the explanation, then the size the server is told.
+    /// An untitled row already has its size as the title, so it shows the explanation alone.
+    private func bufferDetail(for row: LocalPlayerOptions.BufferSizeRow) -> String {
+        let description = String(localized: String.LocalizationValue(row.descriptionKey))
+        guard row.tierKey != nil else { return description }
+        return "\(description) · \(LocalPlayerOptions.bufferSizeLabel(mb: row.mb))"
     }
 }

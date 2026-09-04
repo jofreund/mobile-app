@@ -8304,19 +8304,226 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Wie viel Audio des laufenden Streams vorausgepuffert werden darf, um kurze Netzwerkaussetzer zu überbrücken. Größere Puffer brauchen mehr Speicher; die enthaltene Spielzeit hängt vom Codec ab. Nicht für Offline-Wiedergabe gedacht und lädt den nächsten Titel der Warteschlange nicht vor."
+            "value" : "Wie viel des laufenden Streams vorausgepuffert werden darf, um Netzwerkaussetzer zu überbrücken. Die enthaltene Spielzeit hängt vom Codec ab. Kein Offline-Cache: der nächste Titel der Warteschlange wird nicht vorgeladen."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "How much audio of the current stream may be kept ahead of playback, to ride out brief network dropouts. Larger buffers use more memory; the playing time they hold depends on the codec. Not meant for offline listening and does not preload the next queue item."
+            "value" : "How much of the current stream may be kept ahead of playback to ride out network dropouts. The playing time a size holds depends on the codec. Not an offline cache: the next queue item is not preloaded."
           }
         },
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Hoeveel audio van de huidige stream vooruit gebufferd mag worden om korte netwerkonderbrekingen op te vangen. Grotere buffers gebruiken meer geheugen; hoeveel speeltijd ze bevatten hangt af van de codec. Niet bedoeld voor offline luisteren en laadt het volgende item in de wachtrij niet vooraf."
+            "value" : "Hoeveel van de huidige stream vooruit gebufferd mag worden om netwerkonderbrekingen op te vangen. Hoeveel speeltijd dat is hangt af van de codec. Geen offline cache: het volgende item in de wachtrij wordt niet vooraf geladen."
+          }
+        }
+      }
+    },
+    "settings_buffer_tier_custom_hint" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Von einer anderen Version der App gesetzt"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Set by another version of the app"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ingesteld door een andere versie van de app"
+          }
+        }
+      }
+    },
+    "settings_buffer_tier_large" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Groß"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Large"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Groot"
+          }
+        }
+      }
+    },
+    "settings_buffer_tier_large_hint" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Überbrückt längere Aussetzer, braucht mehr Speicher"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rides out longer dropouts, uses more memory"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vangt langere onderbrekingen op, gebruikt meer geheugen"
+          }
+        }
+      }
+    },
+    "settings_buffer_tier_maximum" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Maximum"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Maximum"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Maximaal"
+          }
+        }
+      }
+    },
+    "settings_buffer_tier_maximum_hint" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Größte Reserve für ein unzuverlässiges Netzwerk, meister Speicher"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Most headroom for an unreliable network, most memory"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Meeste reserve voor een onbetrouwbaar netwerk, meeste geheugen"
+          }
+        }
+      }
+    },
+    "settings_buffer_tier_medium" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mittel"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Medium"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gemiddeld"
+          }
+        }
+      }
+    },
+    "settings_buffer_tier_medium_hint" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ausgewogen für die meisten WLANs"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Balanced for most Wi-Fi setups"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uitgebalanceerd voor de meeste wifi-netwerken"
+          }
+        }
+      }
+    },
+    "settings_buffer_tier_small" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Klein"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Small"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Klein"
+          }
+        }
+      }
+    },
+    "settings_buffer_tier_small_hint" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wenigster Speicher, überbrückt nur kurze Aussetzer"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Least memory, covers only brief dropouts"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Minste geheugen, vangt alleen korte onderbrekingen op"
           }
         }
       }
