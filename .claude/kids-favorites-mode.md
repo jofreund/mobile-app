@@ -79,6 +79,24 @@ app with exactly one player and no selection to make. Nothing new crosses the br
 - **Live Activity** still follows the selected player; on a dedicated device that is the room
   player anyway.
 
+## A playlist as the source (considered, not built)
+
+Asked on 2026-09-04 as an alternative to favorites. Everything needed exists on the bridge:
+`fetchPlaylists` for a picker, `fetchTracksByPlaylist` for the cards, and `playFromHere` to
+start the playlist at the tapped track. Two facts to keep straight if it is built:
+
+- The web frontend can add an audiobook to a playlist, and it appears as one entry. The
+  bridge's `fetchTracksByPlaylist` keeps only `Track` items, so such an entry would be dropped
+  on the way to the carousel — that filter would have to widen to `Audiobook` first.
+- Audiobooks that live in Apple Music are structured as music albums. Under the favorites
+  source they arrive as album cards (albums are on by default) and play as an album, which is
+  what is wanted. In a playlist they would only ever be their tracks.
+
+Presentation options, if built: a jukebox (cards are the playlist's entries, a tap plays the
+playlist from there) or one card per album derived from the entries. Kept as a second source
+next to favorites rather than a replacement, since only favorites can carry whole albums and
+audiobooks from every provider.
+
 ## Verification
 
 Written without Xcode. Before merging: `xcodebuild test` (the two test files are in the test
