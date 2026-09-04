@@ -91,12 +91,18 @@ struct KidsFavoritesView: View {
         } else {
             VStack(spacing: 0) {
                 carousel
+                    .padding(.top, Self.portraitTopInset)
                 controls
                     .padding(.horizontal, 32)
                     .padding(.bottom, 24)
             }
         }
     }
+
+    /// Pushes the carousel down in portrait, away from the status bar and the lock glyph. The
+    /// carousel centres itself in whatever height is left, so the cards move by half of this;
+    /// tune the number, not the layout.
+    private static let portraitTopInset: CGFloat = 96
 
     // MARK: - Carousel
 
