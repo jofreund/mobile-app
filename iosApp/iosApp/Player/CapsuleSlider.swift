@@ -87,6 +87,7 @@ struct CapsuleSlider: View {
 
     private let idleHeight: CGFloat = 6
     private let activeHeight: CGFloat = 14
+    private var barHeight: CGFloat { isScrubbing ? activeHeight : idleHeight }
     /// Constant row height: the tallest the capsule ever gets, plus room to touch.
     private let rowHeight: CGFloat = 28
 
@@ -94,14 +95,28 @@ struct CapsuleSlider: View {
         GeometryReader { proxy in
             let width = proxy.size.width
 
+            let fill = filledWidth(in: width)
+
             ZStack(alignment: .leading) {
                 Capsule()
                     .fill(Color.primary.opacity(isScrubbing ? 0.24 : 0.18))
+                // The fill is never narrower than it is tall, and its *right* end is what sits
+                // at the current position.
+                //
+                // A `Capsule` narrower than its height rounds by half its width instead, so in
+                // the first seconds of a track the fill was a near-square sliver poking out
+                // past the track's rounded start. Keeping the fill at least a full circle wide
+                // gives it the same radius as the track at every position; shifting it left by
+                // the shortfall keeps its right edge where the value says, and the clip below
+                // trims whatever the shift pushes past the start — down to nothing at zero, so
+                // an unstarted track still shows no fill.
                 Capsule()
                     .fill(Color.primary.opacity(isScrubbing ? 1 : 0.7))
-                    .frame(width: filledWidth(in: width))
+                    .frame(width: max(fill, barHeight))
+                    .offset(x: min(fill - barHeight, 0))
             }
-            .frame(height: isScrubbing ? activeHeight : idleHeight)
+            .frame(height: barHeight)
+            .clipShape(Capsule())
             .scaleEffect(
                 x: isScrubbing && width > 0 ? (width + activeOverhang * 2) / width : 1,
                 y: 1,
