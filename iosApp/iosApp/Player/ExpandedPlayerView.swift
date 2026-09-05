@@ -914,7 +914,9 @@ private struct ExpandedPlayerRow: View {
             HStack {
                 Text(formattedDuration(sliderValue))
                 Spacer()
-                Text(formattedDuration(duration))
+                // Time left rather than total length, as Apple Music does. Follows the drag
+                // while scrubbing, so both figures describe the same landing point.
+                Text(formattedRemaining(position: sliderValue, duration: duration))
             }
             .font(.caption)
             // Brighten with the bar. While scrubbing the left-hand figure is the only readout of
