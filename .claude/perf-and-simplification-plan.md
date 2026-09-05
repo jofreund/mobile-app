@@ -76,6 +76,11 @@ measurement that points at that code.
   `$(CONFIGURATION)/$(PLATFORM_NAME)`. `scripts/build-kotlin-framework.sh [debug|release]
   [simulator|device|all]`. The CI cache job was not split out — the existing Gradle cache
   already covers the Kotlin build, and a separate job would add a workflow for no measured gain.
+  **Revised 2026-09-05:** a "Build Kotlin Framework" run-script phase is back, first in the app
+  target, calling the script with `--if-changed` (source hash vs. a stamp beside the framework).
+  Removing it entirely had traded a ~1 s hash per build for silent stale-framework failures
+  ("'KmpHelper' has no member …") whenever Kotlin changed; the script's own JDK lookup removes
+  the JAVA_HOME plumbing that motivated the removal. CI still prebuilds and opts the phase out.
 - [x] **17.** Add `WebRTC.xcframework` to the app target as Embed & Sign and delete the
   copy/`xattr`/`codesign` script lines. Keep the Gradle test-executable linker flag. (S)
   **Note:** the vendored build's `Info.plist` declares per-slice `dSYMs` directories it does not

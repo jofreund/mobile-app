@@ -10,9 +10,17 @@
 > arbitration (Now Playing wins while the local player presents), and the SwiftUI
 > `LocalPlayerSection` all landed. The now-playing channel layer WAS ported after all
 > (the plan had marked it Android-oriented) because `NowPlayingCoordinator` needs it.
-> Everything Kotlin parses clean under detekt; neither Kotlin/Native compilation nor
-> Xcode builds are possible in the CI container (egress policy blocks dl.google.com and
-> download.jetbrains.com), so first compile + Phase 8 happen on a Mac.
+> Everything Kotlin parses clean under detekt. Xcode builds are not possible in the CI
+> container; Kotlin/Native compilation is (2026-09-04: `:composeApp:compileKotlinIosSimulatorArm64`
+> succeeded there after overriding `gradle/gradle-daemon-jvm.properties` to plain
+> `toolchainVersion=21`, since the pinned Adoptium download is blocked), so Swift-side
+> verification and Phase 8 happen on a Mac.
+>
+> Phase 6 addendum (2026-09-04): codec preference and buffer size — already in
+> `SettingsRepository` and the client hello — got their `KmpHelper` pairs and SwiftUI pickers
+> with the catalog's descriptive labels (`LocalPlayerSection`, `LocalPlayerOptions`). The
+> buffer picker deliberately diverges from upstream's MB slider: four named tiers over the
+> same MB setting, so the wire value and the Kotlin side are unchanged.
 
 ## Goal
 
