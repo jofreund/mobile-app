@@ -86,9 +86,17 @@ scripts/build-kotlin-framework.sh release device   # what an archive needs
 This runs Gradle's `link*Framework*` tasks and copies the result to
 `iosApp/Frameworks/Kotlin/<Configuration>/<platform>/MusicAssistantKit.framework`, which is
 where the app target's `FRAMEWORK_SEARCH_PATHS` look (`$(CONFIGURATION)/$(PLATFORM_NAME)`).
-Xcode never runs Gradle: an Xcode build is pure Swift. Re-run the script whenever Kotlin
-sources or Gradle files change; Xcode fails with `no such module 'MusicAssistantKit'` when the
-framework for the selected configuration and platform is missing.
+You only need to run it by hand for a configuration or platform you are not about to build in
+Xcode (an archive's Release/device framework, say). The app target's first build phase, **Build
+Kotlin Framework**, calls the same script with `--if-changed` for the configuration and platform
+being built: it hashes `composeApp/src` and the Gradle files, compares that with the stamp the
+script leaves next to the framework, and runs Gradle only when they differ. A Swift-only build
+pays under a second for the hash; a Kotlin change rebuilds the framework before Swift compiles,
+so Xcode never links a stale header. Pass `KOTLIN_FRAMEWORK_PREBUILT=YES` to `xcodebuild` to
+skip the phase entirely, which is what CI does after building the framework in its own step.
+
+The phase needs JDK 21 like the script does; it finds one through `/usr/libexec/java_home -v 21`
+when `JAVA_HOME` is not set, so Xcode launched from the Dock works without extra setup.
 
 **First Kotlin build:** 5–15 minutes (Kotlin/Native compiles its dependencies once).
 **Subsequent Kotlin builds:** under a minute when nothing changed, a few minutes after edits.
@@ -108,7 +116,8 @@ Then in Xcode:
 1. Select a simulator or physical device from the toolbar
 2. Click the **Run** button (⌘R)
 
-Xcode does not run Gradle — build the Kotlin framework first (step 5 above).
+The first build runs Gradle for the Kotlin framework (step 5 above explains the phase); later
+builds do so only after Kotlin or Gradle changes.
 
 ### Build for iOS Simulator (command line)
 

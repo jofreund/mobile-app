@@ -12,7 +12,8 @@ compiled into a static framework the app imports. Controls players and queues on
 JAVA_HOME=/path/to/jdk-21 ./gradlew :composeApp:iosSimulatorArm64Test
 CI=true JAVA_HOME=/path/to/jdk-21 ./gradlew detektAll
 
-# Build the Kotlin framework (re-run when Kotlin or Gradle files change), then Xcode is pure Swift
+# Build the Kotlin framework. Xcode's first build phase does this itself (gated on a source
+# hash) for the configuration and platform it is building; run it by hand for the others.
 scripts/build-kotlin-framework.sh            # debug, simulator + device
 scripts/build-kotlin-framework.sh release device   # before an archive
 open iosApp/iosApp.xcodeproj

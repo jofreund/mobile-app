@@ -605,6 +605,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 7555FFA5242A565B00829871 /* Build configuration list for PBXNativeTarget "iosApp" */;
 			buildPhases = (
+				C8KF00012FB1000000000001 /* Build Kotlin Framework */,
 				7555FF77242A565900829871 /* Sources */,
 				B92378962B6B1156000C7307 /* Frameworks */,
 				7555FF79242A565900829871 /* Resources */,
@@ -713,6 +714,28 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		C8KF00012FB1000000000001 /* Build Kotlin Framework */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Build Kotlin Framework";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Rebuild MusicAssistantKit when Kotlin sources or Gradle files changed since the framework\n# under iosApp/Frameworks/Kotlin/ was last built; a Swift-only build pays only a source hash.\n# The gate and the build live in scripts/build-kotlin-framework.sh. CI builds the framework in\n# its own step and passes KOTLIN_FRAMEWORK_PREBUILT=YES so this phase never runs Gradle there.\nif [ \"$KOTLIN_FRAMEWORK_PREBUILT\" = \"YES\" ]; then\n  echo \"KOTLIN_FRAMEWORK_PREBUILT=YES: using the prebuilt MusicAssistantKit\"\n  exit 0\nfi\ncase \"$CONFIGURATION\" in\n  Debug) BUILD_TYPE=debug ;;\n  Release) BUILD_TYPE=release ;;\n  *) echo \"error: no Kotlin build type for configuration $CONFIGURATION\" >&2; exit 1 ;;\nesac\ncase \"$PLATFORM_NAME\" in\n  iphonesimulator) PLATFORM=simulator ;;\n  iphoneos) PLATFORM=device ;;\n  *) echo \"error: no Kotlin target for platform $PLATFORM_NAME\" >&2; exit 1 ;;\nesac\nexec \"$SRCROOT/../scripts/build-kotlin-framework.sh\" \"$BUILD_TYPE\" \"$PLATFORM\" --if-changed\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		37904671475C70F92C9A3F89 /* Sources */ = {

@@ -36,7 +36,9 @@ System frameworks that carry real weight: `ActivityKit` (Live Activity), `Widget
 ## Toolchain
 
 - Xcode 26+ (developed against the beta), iOS 26.0 deployment target.
-- JDK 21 for Gradle only. Xcode never runs Gradle; `scripts/build-kotlin-framework.sh` does.
+- JDK 21 for Gradle only. `scripts/build-kotlin-framework.sh` runs it; the app target's "Build
+  Kotlin Framework" phase calls that script with `--if-changed`, so Xcode runs Gradle only when
+  Kotlin or Gradle files changed (never in CI, which passes `KOTLIN_FRAMEWORK_PREBUILT=YES`).
 - Gradle 9.6 with the Kotlin/Native `smallBinary` option for release links.
 
 ## Deliberately absent

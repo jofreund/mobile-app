@@ -142,6 +142,7 @@ jobs:
             -configuration Release \
             -destination 'generic/platform=iOS' \
             -archivePath "$PWD/build/iosApp.xcarchive" \
+            KOTLIN_FRAMEWORK_PREBUILT=YES \
             archive
 
       - name: Export IPA

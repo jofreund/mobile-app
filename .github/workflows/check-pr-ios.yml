@@ -72,9 +72,10 @@ jobs:
         if: ${{ !startsWith(github.head_ref, 'chore/bump-ios-build-') }}
         run: ./gradlew :composeApp:iosSimulatorArm64Test
 
-      # Xcode no longer runs Gradle. The Kotlin framework is built here and dropped
-      # under iosApp/Frameworks/Kotlin/, where the project's FRAMEWORK_SEARCH_PATHS
-      # resolve it per configuration and platform.
+      # The Kotlin framework is built here and dropped under iosApp/Frameworks/Kotlin/,
+      # where the project's FRAMEWORK_SEARCH_PATHS resolve it per configuration and
+      # platform. KOTLIN_FRAMEWORK_PREBUILT=YES below keeps the app target's
+      # "Build Kotlin Framework" phase from running Gradle a second time.
       - name: Build Kotlin framework (Debug, simulator)
         if: ${{ !startsWith(github.head_ref, 'chore/bump-ios-build-') }}
         run: scripts/build-kotlin-framework.sh debug simulator
@@ -93,4 +94,5 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_IDENTITY='' \
+            KOTLIN_FRAMEWORK_PREBUILT=YES \
             build
