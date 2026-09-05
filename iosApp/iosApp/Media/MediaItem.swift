@@ -171,3 +171,10 @@ func formattedDuration(_ seconds: Double) -> String {
     let total = Int(seconds)
     return String(format: "%d:%02d", total / 60, total % 60)
 }
+
+/// Apple Music-style countdown for the right-hand seek label: the time left until `duration`,
+/// prefixed with a minus sign (`−6:58`). Clamped at zero so a position past the end never reads
+/// as `−-0:03`.
+func formattedRemaining(position: Double, duration: Double) -> String {
+    "\u{2212}" + formattedDuration(max(duration - position, 0))
+}
