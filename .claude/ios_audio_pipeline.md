@@ -108,6 +108,7 @@ The `NativeAudioController` manages an `AudioQueueRef` directly:
 - [x] Proper codec header handling
 - [x] Native AudioQueue implementation (replacing MPV)
 - [x] Background audio: `AVAudioSession` interruption + route-change handlers — resumes after phone calls, Siri, headphone disconnect (registered in `NativeAudioController.swift:40-95`; shipped 2026-02-20, in production via TestFlight since 2026-04-19)
+- [x] Interruption resume is retried, not one-shot: `.ended` only says the interrupter is done, and a spoken notification announcement still owns the session for a moment after it. The old single attempt read that instant "busy" as "another app took over", cleared `pausedByInterruption` and left playback stopped for good. `attemptInterruptionResume` now retries the silence hint and `setActive` for ~4 s, and a queue start that fails anyway rolls `streamStarted` back (`rollBackQueueStart`) so the next packet rebuilds instead of feeding a dead queue forever (2026-09-08)
 - [x] Compose Metal renderer pauses on app background to prevent GPU command-buffer rejection (`UIBackgroundModes: audio` keeps the run loop alive; without this CMP keeps submitting Metal work iOS rejects) — `iosApp/ComposeRenderingGuard.swift` + `composeApp/.../utils/ComposeRendererBridge.kt`, shipped 2026-04-24 (#265)
 - [x] CarPlay cold-launch black-screen fix shipped (#277, 2026-04-26)
 - [x] Efficient Kotlin→Swift data transfer via `writeRawPcmNSData(NSData)` using `usePinned` bulk copy (completed 2026-02-20)
