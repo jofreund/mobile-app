@@ -45,7 +45,7 @@ High-Performance Audio Pipeline for iOS using native `AudioQueue` services and o
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                     AudioQueue (iOS Core Audio)                  │
-│  • 5x 64KB buffers                                               │
+│  • 5 × 30 ms buffers, 300 ms prime = standing lead              │
 │  • Callback-driven playback                                     │
 │  • System audio session management                              │
 └─────────────────────────────────────────────────────────────────┘
@@ -67,7 +67,14 @@ Per-platform codec support is defined via `Codecs.list`. The iOS implementation 
 
 The `NativeAudioController` manages an `AudioQueueRef` directly:
 
-1.  **Buffering**: Uses 5 buffers of 64KB each to ensure smooth playback and minimize stuttering.
+1.  **Buffering**: 5 buffers of 30 ms each, started once 300 ms of PCM are staged (`kPrimeMillis`).
+    The queue plays back to back, so the prime is also the standing lead — the only audio held
+    ahead of the hardware, since the Kotlin gate delivers each chunk just in time and the write
+    does not block. The controller reports that lead as `sinkLeadMicros`; `AudioStreamManager`
+    releases chunks that much earlier and widens its late-drop threshold by it, so the lead is
+    spent in the queue rather than shifting playback phase. It was 60 ms until 2026-09: iOS
+    coalesces the gate's coroutine timer with the screen off, and Low Power Mode made every
+    late wakeup an audible gap.
 2.  **Format**: Always configures AudioQueue for Linear PCM, 16/24/32-bit signed integer, based on the source stream bit depth.
 3.  **Synchronization**: Uses `NSLock` to protect the PCM buffer shared between the writer (Kotlin->Swift) and the specific reader callback (AudioQueue).
 

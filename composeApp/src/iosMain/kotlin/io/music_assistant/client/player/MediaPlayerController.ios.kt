@@ -53,6 +53,8 @@ actual class MediaPlayerController actual constructor(platformContext: PlatformC
         return data.size
     }
 
+    actual fun sinkLeadMicros(): Long = PlatformPlayerProvider.player?.sinkLeadMicros ?: 0L
+
     actual fun pauseSink() { PlatformPlayerProvider.player?.pauseSink() }
     actual fun resumeSink() { PlatformPlayerProvider.player?.resumeSink() }
     actual fun flush() { PlatformPlayerProvider.player?.flush() }

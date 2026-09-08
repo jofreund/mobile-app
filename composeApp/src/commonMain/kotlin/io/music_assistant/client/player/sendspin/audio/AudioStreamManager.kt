@@ -53,11 +53,20 @@ import kotlin.coroutines.CoroutineContext
  * **Consumer** (dedicated high-priority [audioDispatcher] thread):
  * - Takes oldest frame once queue depth exceeds [reorderDepth]
  * - Decodes (Opus/FLAC → PCM) under [decoderLock]
- * - **Wall-clock gate**: waits until `serverTimeToLocal(frame.timestamp) - userDelayMicros`
- *   before writing, compensating for downstream pipeline lag (AudioTrack buffer,
- *   DAC, speakers). Drops chunks that are >100 ms late (per Sendspin spec).
+ * - **Wall-clock gate**: waits until `serverTimeToLocal(frame.timestamp) - userDelayMicros
+ *   - sinkLeadMicros` before writing, compensating for downstream pipeline lag
+ *   (AudioTrack buffer, DAC, speakers). Drops chunks that are more than 100 ms
+ *   later than the sink can still absorb (per Sendspin spec, widened by the lead).
  * - Writes PCM to [MediaPlayerController] — AudioTrack.write() then blocks on
  *   the hardware ring buffer, which keeps subsequent chunks self-paced.
+ *
+ * A sink whose write does not block (iOS AudioQueue) is paced by this gate alone, and the
+ * only audio it holds ahead of the hardware is what it was primed with. The gate's `delay()`
+ * is a coroutine timer, which iOS coalesces once the screen is off and more so in Low Power
+ * Mode: a late wakeup used to drain a 60 ms prime outright. The sink therefore reports
+ * [MediaPlayerController.sinkLeadMicros] — how much it keeps queued — and the gate releases
+ * every chunk that much earlier, so the lead is spent inside the sink instead of moving the
+ * playback phase, and a late wakeup shorter than the lead is inaudible.
  *
  * [userDelayMicros] is driven by [SendspinClientFactory] from the user's
  * playback-delay setting. Positive → play earlier in server time (compensates
@@ -140,7 +149,7 @@ class AudioStreamManager(
 
     /**
      * User's playback-delay knob in microseconds. Applied per-chunk in the consumer:
-     *   target_local = serverTimeToLocal(ts) - userDelayMicros
+     *   target_local = serverTimeToLocal(ts) - userDelayMicros - sinkLeadMicros
      * Positive values play earlier in server time to compensate for downstream
      * pipeline lag (AudioTrack buffer, DAC, external speakers). Set by
      * [SendspinClientFactory] from the user's setting. Hot-tunable.
@@ -319,9 +328,10 @@ class AudioStreamManager(
     private fun startPlaybackThread() {
         playbackJob?.cancel()
         playbackJob = CoroutineScope(audioDispatcher + SupervisorJob()).launch {
+            val sinkLeadMicros = mediaPlayerController.sinkLeadMicros()
             logger.i {
                 "Playback consumer started (reorderDepth=$reorderDepth, " +
-                        "userDelayMs=${userDelayMicros / 1000})"
+                        "userDelayMs=${userDelayMicros / 1000}, sinkLeadMs=${sinkLeadMicros / 1000})"
             }
 
             // Track the userDelay we last phase-aligned to. When it changes, flush
@@ -368,14 +378,16 @@ class AudioStreamManager(
                         // Decode still happens either way so the codec keeps state.
                         val shouldPlay = if (clockSynchronizer.currentQuality != SyncQuality.LOST) {
                             val target = clockSynchronizer.serverTimeToLocal(frame.timestamp) -
-                                    currentUserDelay
+                                    currentUserDelay - sinkLeadMicros
                             val waitUs = target - clockSynchronizer.getCurrentTimeMicros()
                             when {
                                 waitUs > 1_000 -> {
                                     delay(waitUs / 1000)
                                     true
                                 }
-                                waitUs < -100_000 -> {
+                                // Late by more than the sink can still absorb: it would play
+                                // behind its target however fast it is written now.
+                                waitUs < -(LATE_DROP_GRACE_MICROS + sinkLeadMicros) -> {
                                     logger.d { "Dropped late chunk: lateBy=${-waitUs / 1000}ms" }
                                     false
                                 }
@@ -470,5 +482,10 @@ class AudioStreamManager(
             }
         }
         supervisorJob.cancel()
+    }
+
+    private companion object {
+        /** How far behind its gate time a chunk may run before it is dropped (Sendspin spec). */
+        const val LATE_DROP_GRACE_MICROS = 100_000L
     }
 }
