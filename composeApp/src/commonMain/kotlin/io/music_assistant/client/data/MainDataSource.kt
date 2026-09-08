@@ -1311,14 +1311,18 @@ class MainDataSource(
      *
      *  - Play/pause flips [Player.isPlaying] via the override map — which also freezes/resumes
      *    the position tracker's ticking through the mirror collector in `init`.
-     *  - Next/Previous drops the position anchor to 0 (the track that follows starts there,
-     *    and a `previous` that restarts the current track does too).
-     *  - SeekTo anchors at the target — audiobook chapter skips arrive here already resolved
-     *    into their SeekTo, so they anchor at the chapter start rather than 0.
-     *  - PlayFrom is both: playing, anchored at the server's resume point.
+     *  - Next/Previous holds the position at 0 (the track that follows starts there, and a
+     *    `previous` that restarts the current track does too).
+     *  - SeekTo anchors at the target and *holds* it there until the server's own position
+     *    reflects the seek (see [PlayerPositionTracker.setSeekTarget]) — audiobook chapter
+     *    skips arrive here already resolved into their SeekTo, so they hold at the chapter
+     *    start rather than 0.
+     *  - PlayFrom is both: playing, held at the server's resume point.
      *
-     * Anchors need no rollback bookkeeping: the next server anchor overwrites them, and while
-     * playing one arrives about every second.
+     * The plain anchors need no rollback bookkeeping: the next server anchor overwrites them,
+     * and while playing one arrives about every second. That is exactly why a seek needs the
+     * hold instead — the positions arriving each second while the server is still rebuilding
+     * the stream are the *pre-seek* ones, and one of them would land before the seek does.
      */
     private fun applyOptimisticFeedback(data: PlayerData, resolved: PlayerAction) {
         when (resolved) {
@@ -1327,23 +1331,36 @@ class MainDataSource(
 
             PlayerAction.Play -> setPlaybackOverride(data.playerId, true)
             PlayerAction.Pause -> setPlaybackOverride(data.playerId, false)
+            // The same hold as a seek, for the same reason: the track that follows starts at
+            // 0 (and a `previous` that restarts the current one does too), but the positions
+            // arriving while the server rebuilds the stream still describe the old one.
             PlayerAction.Next, PlayerAction.Previous ->
-                data.queueInfo?.id?.let { positionTracker.setAnchor(it, elapsedSec = 0.0) }
+                data.queueInfo?.id?.let { positionTracker.setSeekTarget(it, targetSec = 0.0) }
 
-            is PlayerAction.SeekTo ->
-                data.queueInfo?.id?.let {
-                    positionTracker.setAnchor(it, elapsedSec = resolved.position.toDouble())
-                }
+            is PlayerAction.SeekTo -> holdSeekTarget(data, resolved.position)
 
             is PlayerAction.PlayFrom -> {
                 setPlaybackOverride(data.playerId, true)
-                data.queueInfo?.id?.let {
-                    positionTracker.setAnchor(it, elapsedSec = resolved.position.toDouble())
-                }
+                holdSeekTarget(data, resolved.position)
             }
 
             else -> Unit
         }
+    }
+
+    /**
+     * Holds the playhead at a user seek's [positionSec] until the server's own position
+     * reflects it. Carries the queue's duration and speed so the hold, once released,
+     * keeps interpolating with the same values a server anchor would have brought.
+     */
+    private fun holdSeekTarget(data: PlayerData, positionSec: Long) {
+        val queue = data.queueInfo ?: return
+        positionTracker.setSeekTarget(
+            queueId = queue.id,
+            targetSec = positionSec.toDouble(),
+            durationSec = queue.currentItem?.track?.duration,
+            speed = queue.playbackSpeed,
+        )
     }
 
     /**
@@ -2091,11 +2108,15 @@ class MainDataSource(
          * How long to wait for a seek to show up in the queue's own elapsed time before pausing
          * regardless. Generous: the server flushes and restarts the stream to seek, and a player
          * that was paused must not be left playing just because that took a while.
+         *
+         * Shared with the position hold ([PlayerPositionTracker.setSeekTarget]) deliberately:
+         * both are waiting for the same event — the seek showing up in the queue's position.
          */
-        private const val SEEK_SETTLE_TIMEOUT_MS = 5_000L
+        private const val SEEK_SETTLE_TIMEOUT_MS = PlayerPositionTracker.SEEK_SETTLE_WINDOW_MS
 
         /** The queue reports elapsed time in whole-ish seconds; this is "close enough to be it". */
-        private const val SEEK_SETTLE_TOLERANCE_SECONDS = 2.0
+        private const val SEEK_SETTLE_TOLERANCE_SECONDS =
+            PlayerPositionTracker.SEEK_SETTLE_TOLERANCE_SEC
 
         /**
          * How long an optimistic play-state override survives without a confirming

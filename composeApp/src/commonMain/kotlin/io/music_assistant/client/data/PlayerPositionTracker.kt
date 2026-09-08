@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
+import kotlin.math.abs
 
 /**
  * Single source of truth for "what elapsed-time is each queue at, right now".
@@ -21,8 +22,10 @@ import kotlinx.coroutines.isActive
  * anchors here, and user transport actions write *optimistic* anchors ahead of
  * the server (seek target, 0.0 on next/previous — see
  * `MainDataSource.applyOptimisticFeedback`), overwritten by the next server
- * anchor either way. Play/pause transitions snapshot the interpolated position
- * so the pause duration doesn't fold into the next forward step. Consumers
+ * anchor either way — except a seek target, which holds the playhead until a
+ * server position reflects it (see [setSeekTarget]). Play/pause transitions
+ * snapshot the interpolated position so the pause duration doesn't fold into
+ * the next forward step. Consumers
  * (in-app slider, audiobook chapter logic) all read the same source —
  * synchronously via [effectiveSec] or as a smoothly-ticking flow via [observe].
  *
@@ -30,7 +33,13 @@ import kotlinx.coroutines.isActive
  * collector is attached AND the queue is playing. Sync reads are O(1) map
  * lookups — no allocations, no ipc.
  */
-class PlayerPositionTracker {
+class PlayerPositionTracker(
+    /**
+     * How long a seek target holds the playhead before a server position is believed
+     * again regardless. Constructor-injected so tests can close the window.
+     */
+    private val seekSettleWindowMs: Long = SEEK_SETTLE_WINDOW_MS,
+) {
     /** Anchor data for a single queue. */
     data class Anchor(
         val elapsedSec: Double,
@@ -46,7 +55,27 @@ class PlayerPositionTracker {
         val speed: Double = 1.0,
         /** Hold the optimistic position until Sendspin confirms audio is flowing. */
         val freezeReason: FreezeReason? = null,
+        /**
+         * Position a user seek asked for, while it is still settling: server anchors
+         * that do not reflect it yet are held off (see [setSeekTarget]). Null unless a
+         * seek is settling.
+         */
+        val settleTargetSec: Double? = null,
+        /** Wall-clock ms after which [settleTargetSec] stops holding server anchors off. */
+        val settleDeadlineMs: Long? = null,
     ) {
+        /**
+         * Whether a server position of [elapsedSec] ends this anchor's hold: it reflects
+         * the seek that is settling, or the hold has run out of patience. An anchor
+         * waiting on Sendspin (no [settleTargetSec]) is never released this way — only
+         * [confirmPlaying] speaks for it.
+         */
+        fun releasedBy(elapsedSec: Double): Boolean {
+            val target = settleTargetSec ?: return false
+            if (abs(elapsedSec - target) <= SEEK_SETTLE_TOLERANCE_SEC) return true
+            return settleDeadlineMs != null && currentTimeMillis() >= settleDeadlineMs
+        }
+
         /** Position right now: anchor + speed-scaled wall-time since anchor (capped at duration). */
         fun effectiveNow(): Double {
             if (!isPlaying || freezeReason != null) return elapsedSec
@@ -78,7 +107,9 @@ class PlayerPositionTracker {
         anchors.update { existing ->
             val current = existing[queueId]
             // Server anchors are noisy during handoff; Sendspin sync is the confirmation.
-            if (current?.freezeReason != null) return@update existing
+            if (current?.freezeReason != null && !current.releasedBy(elapsedSec)) {
+                return@update existing
+            }
             existing + (
                 queueId to Anchor(
                     elapsedSec = elapsedSec,
@@ -109,6 +140,44 @@ class PlayerPositionTracker {
                     durationSec = durationSec ?: current?.durationSec,
                     speed = speed ?: current?.speed ?: 1.0,
                     freezeReason = FreezeReason.SEEK,
+                )
+            )
+        }
+    }
+
+    /**
+     * User seek on a server-driven player: hold the playhead at [targetSec] until the
+     * server reports a position that reflects it.
+     *
+     * A bare anchor is not enough. Seeking is not instant — Music Assistant flushes and
+     * rebuilds the stream, which on a slow transport (an AirPlay speaker takes seconds)
+     * keeps the old audio, and the old position, flowing meanwhile. Those queue updates
+     * would overwrite the seek target within a second, dragging the playhead — and, in a
+     * chaptered audiobook, the chapter the app shows — back to where the listener seeked
+     * away from, so the seek reads as having been thrown away.
+     *
+     * The hold ends the moment a server position lands within [SEEK_SETTLE_TOLERANCE_SEC]
+     * of the target, and in any case after [seekSettleWindowMs]: a server that never
+     * applies the seek must not leave the playhead frozen on a fiction.
+     */
+    fun setSeekTarget(
+        queueId: String,
+        targetSec: Double,
+        durationSec: Double? = null,
+        speed: Double? = null,
+    ) {
+        anchors.update { existing ->
+            val current = existing[queueId]
+            existing + (
+                queueId to Anchor(
+                    elapsedSec = targetSec,
+                    wallMs = currentTimeMillis(),
+                    isPlaying = current?.isPlaying ?: false,
+                    durationSec = durationSec ?: current?.durationSec,
+                    speed = speed ?: current?.speed ?: 1.0,
+                    freezeReason = FreezeReason.SEEK,
+                    settleTargetSec = targetSec,
+                    settleDeadlineMs = currentTimeMillis() + seekSettleWindowMs,
                 )
             )
         }
@@ -147,6 +216,8 @@ class PlayerPositionTracker {
                     wallMs = currentTimeMillis(),
                     isPlaying = true,
                     freezeReason = null,
+                    settleTargetSec = null,
+                    settleDeadlineMs = null,
                 )
             )
         }
@@ -217,7 +288,17 @@ class PlayerPositionTracker {
         anchors.update { emptyMap() }
     }
 
-    private companion object {
-        const val TICK_MS = 500L
+    companion object {
+        private const val TICK_MS = 500L
+
+        /** How close a server position must land to a seek target to count as the seek. */
+        const val SEEK_SETTLE_TOLERANCE_SEC = 2.0
+
+        /**
+         * Upper bound on the hold. Generous: the server flushes and rebuilds the stream
+         * to seek, and a slow transport takes seconds to start playing the new one — the
+         * same reasoning (and value) as `MainDataSource.SEEK_SETTLE_TIMEOUT_MS`.
+         */
+        const val SEEK_SETTLE_WINDOW_MS = 5_000L
     }
 }
