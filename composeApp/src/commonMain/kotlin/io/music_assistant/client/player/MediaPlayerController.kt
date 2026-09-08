@@ -28,6 +28,12 @@ expect class MediaPlayerController(platformContext: PlatformContext) {
 
     fun writeRawPcm(data: ByteArray): Int
 
+    /**
+     * Microseconds of audio the platform sink holds ahead of the hardware while a stream runs.
+     * Zero for a sink that paces itself by blocking in [writeRawPcm] (Android's AudioTrack).
+     */
+    fun sinkLeadMicros(): Long
+
     fun stopRawPcmStream()
 
     // Lightweight sink control (no AudioTrack destruction) — used for network starvation pausing

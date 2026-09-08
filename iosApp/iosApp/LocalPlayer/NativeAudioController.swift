@@ -32,10 +32,20 @@ class NativeAudioController: NSObject, PlatformAudioPlayer {
     /// Milliseconds of PCM to collect before starting the queue. Replaces priming with
     /// silence, which prepended ~1.4 s (4 × 64 KB at CD rate) to every start and — since
     /// `pauseSink` tears the queue down — to every resume.
-    private let kPrimeMillis = 60
+    ///
+    /// This is also the standing lead: the queue plays back to back, so once started it
+    /// holds exactly what it was primed with, and Kotlin's wall-clock gate feeds each chunk
+    /// just in time on top of that. The gate is a coroutine timer, which iOS coalesces once
+    /// the screen is off and far more in Low Power Mode; at 60 ms a single late wakeup
+    /// drained the queue and every stall over 100 ms also cost the chunk itself. 300 ms
+    /// rides out both. The gate subtracts `sinkLeadMicros`, so the extra lead is spent in
+    /// the queue rather than delaying playback against the server clock.
+    private let kPrimeMillis = 300
     /// Start anyway if the stream never reaches [kPrimeMillis], so a short tail or a
-    /// stalling server can't leave audio stranded in the staging buffer.
-    private let kPrimeTimeoutSeconds = 0.2
+    /// stalling server can't leave audio stranded in the staging buffer. Chunks reach the
+    /// staging buffer at the gate's real-time pace, so filling the prime takes about
+    /// `kPrimeMillis` of wall clock; the timeout has to sit clearly above that.
+    private let kPrimeTimeoutSeconds = 1.0
     private var primeTimerScheduled = false
 
 
@@ -184,6 +194,9 @@ class NativeAudioController: NSObject, PlatformAudioPlayer {
     }
 
     // MARK: - PlatformAudioPlayer Protocol
+
+    /// What the gate may release early: the prime, which is what the running queue holds.
+    var sinkLeadMicros: Int64 { Int64(kPrimeMillis) * 1_000 }
 
     func prepareStream(codec: String, sampleRate: Int32, channels: Int32, bitDepth: Int32, codecHeader: String?, listener: MediaPlayerListener) {
         logInfo("prepareStream - codec=\(codec), rate=\(sampleRate), ch=\(channels), bit=\(bitDepth)")

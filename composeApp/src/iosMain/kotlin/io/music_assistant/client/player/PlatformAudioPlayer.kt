@@ -18,6 +18,14 @@ interface PlatformAudioPlayer {
     fun writeRawPcm(data: ByteArray)
 
     /**
+     * Microseconds of audio the sink keeps queued ahead of the hardware once a stream is
+     * running. The consumer releases each chunk this much earlier than its target time, so
+     * the lead is spent inside the sink rather than shifting the playback phase, and a chunk
+     * that reaches the gate late by less than this still plays on time.
+     */
+    val sinkLeadMicros: Long
+
+    /**
      * Efficient variant called from Kotlin: data is already converted to NSData using
      * usePinned bulk-copy, avoiding a byte-by-byte Swift interop loop.
      */
