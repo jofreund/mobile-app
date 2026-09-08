@@ -47,6 +47,19 @@ class NativeAudioController: NSObject, PlatformAudioPlayer {
     /// `kPrimeMillis` of wall clock; the timeout has to sit clearly above that.
     private let kPrimeTimeoutSeconds = 1.0
     private var primeTimerScheduled = false
+    /// Spacing and budget for the post-interruption resume retries. The interrupter can
+    /// still own the session when `.ended` lands — a spoken notification announcement
+    /// keeps it through its last word — and a single attempt there loses playback for
+    /// good. ~4 s of retries outlasts that without keeping a hold on audio another app
+    /// has genuinely taken over.
+    private let kResumeRetryDelaySeconds = 0.5
+    private let kMaxResumeRetries = 8
+    /// How many times a queue start may be deferred because the session would not
+    /// activate before we build it anyway. Deferring is right for the transient case (an
+    /// interrupter still holding audio); doing it forever would turn an activation that
+    /// fails for some other reason into permanent silence, which is worse than trying.
+    private let kMaxDeferredStarts = 3
+    private var deferredStarts = 0
 
 
     // MARK: - Decoder
@@ -75,6 +88,11 @@ class NativeAudioController: NSObject, PlatformAudioPlayer {
     // this is set — so we never spontaneously start playback that the user didn't
     // have running before the interruption.
     private var pausedByInterruption = false
+    // True between `.began` and `.ended`. A resume retry armed by an earlier `.ended`
+    // must not fire into a fresh interruption; the new `.ended` restarts the chain.
+    private var interruptionActive = false
+    // Invalidates retries armed by a superseded `.ended`, so only one chain is ever live.
+    private var resumeGeneration = 0
 
     // MARK: - Format Arithmetic
 
@@ -137,28 +155,69 @@ class NativeAudioController: NSObject, PlatformAudioPlayer {
             // resumes from the same position afterwards instead of skipping ahead while
             // the call held the audio session.
             logInfo("Audio session interrupted")
+            interruptionActive = true
             if isPlaying {
                 pausedByInterruption = true
                 logInfo("Pausing server playback due to interruption")
                 remoteCommandHandler?.onCommand(command: "pause", source: "interruption")
             }
         case .ended:
+            interruptionActive = false
             guard pausedByInterruption else { break }
-            pausedByInterruption = false
             // We deliberately do not use .shouldResume here as it is not guaranteed
             // to be set even in cases it should be. As per Apple, it's a hint not
             // a contract. Instead we track for ourselves if we were interrupted,
             // and once control is handed back, if another app is now using the
             // audio device exclusively.
-            if !AVAudioSession.sharedInstance().secondaryAudioShouldBeSilencedHint {
-                logInfo("Resuming server playback after interruption")
-                remoteCommandHandler?.onCommand(command: "play", source: "interruption")
-            } else {
-                logInfo("Another app holds audio — staying paused")
-            }
+            resumeGeneration += 1
+            attemptInterruptionResume(attempt: 0, generation: resumeGeneration)
         @unknown default:
             break
         }
+    }
+
+    /// Resume the server once the audio session is really ours again.
+    ///
+    /// `.ended` says the interrupter is done, not that it has let go: a spoken
+    /// notification announcement (Announce Notifications on AirPods) still holds the
+    /// session for a moment afterwards, and both the silence hint and `setActive` say
+    /// so. The old one-shot attempt gave up on that instant answer and cleared
+    /// `pausedByInterruption`, so nothing ever resumed — the announcement stopped
+    /// playback for good. Retry on the same interruption instead, and only conclude
+    /// that another app has taken over once the budget is spent.
+    private func attemptInterruptionResume(attempt: Int, generation: Int) {
+        guard pausedByInterruption, generation == resumeGeneration else { return }
+        // A new interruption started while we waited — its `.ended` owns the resume.
+        guard !interruptionActive else { return }
+
+        let retry = { [weak self] in
+            guard let self = self else { return }
+            guard attempt < self.kMaxResumeRetries else {
+                self.pausedByInterruption = false
+                self.logInfo("Audio session still not ours after interruption — staying paused")
+                return
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + self.kResumeRetryDelaySeconds) {
+                self.attemptInterruptionResume(attempt: attempt + 1, generation: generation)
+            }
+        }
+
+        // Never activate over another app's primary audio — that would stop it. Wait it
+        // out instead; a Siri announcement clears this within a second or two.
+        guard !AVAudioSession.sharedInstance().secondaryAudioShouldBeSilencedHint else {
+            logInfo("Another app holds audio — retrying resume (\(attempt + 1)/\(kMaxResumeRetries))")
+            retry()
+            return
+        }
+        guard NowPlayingCoordinator.shared.activatePlayback() else {
+            logInfo("Audio session busy — retrying resume (\(attempt + 1)/\(kMaxResumeRetries))")
+            retry()
+            return
+        }
+
+        pausedByInterruption = false
+        logInfo("Resuming server playback after interruption")
+        remoteCommandHandler?.onCommand(command: "play", source: "interruption")
     }
 
     @objc private func handleAudioRouteChange(_ notification: Notification) {
@@ -310,8 +369,37 @@ class NativeAudioController: NSObject, PlatformAudioPlayer {
 
         guard ready else { return }
         logDebug("Priming done (\(buffered) bytes, force=\(force)) — starting queue")
-        NowPlayingCoordinator.shared.activatePlayback()
+        // A queue built on a session that never activated plays nothing and, with
+        // `streamStarted` latched, nothing would ever try again. Keep buffering and
+        // let the next packet (or the prime timeout) retry the activation instead.
+        if NowPlayingCoordinator.shared.activatePlayback() {
+            deferredStarts = 0
+        } else if deferredStarts < kMaxDeferredStarts {
+            deferredStarts += 1
+            logInfo("Audio session not active — deferring queue start (\(deferredStarts)/\(kMaxDeferredStarts))")
+            rollBackQueueStart()
+            return
+        } else {
+            logError("Audio session still not active — starting the queue anyway")
+            deferredStarts = 0
+        }
         startAudioQueue()
+    }
+
+    /// Undo a start that did not produce a running queue. Without this `streamStarted`
+    /// stays true with a dead or missing queue: every later packet is decoded into
+    /// `pendingPCM`, `drainIdleBuffers` finds nothing to enqueue it into, and playback is
+    /// silently over until the user restarts it by hand. Rolling back lets the next packet
+    /// re-prime — the usual cause is an interrupter that still owns the session, and that
+    /// clears in a moment.
+    private func rollBackQueueStart() {
+        // Also drops the staged PCM, which is stale by the time a retry lands: Kotlin
+        // gates chunks against the server clock, so that audio would be dropped anyway.
+        tearDownQueue()
+        streamStarted = false
+        // Re-prime from the packets still coming in; the timeout is the fallback for a
+        // stream that has gone quiet. Both no-op while the sink is paused.
+        schedulePrimeTimeout()
     }
 
     /// Arms a one-shot fallback start. Only ever one is in flight; it is disarmed by the
@@ -372,8 +460,9 @@ class NativeAudioController: NSObject, PlatformAudioPlayer {
         shouldPlay = true
         NowPlayingCoordinator.shared.activatePlayback()
         isPlaying = true
-        if let queue = audioQueue {
-            AudioQueueStart(queue, nil)
+        if let queue = audioQueue, AudioQueueStart(queue, nil) != noErr {
+            logError("Failed to restart AudioQueue — rebuilding on the next packet")
+            rollBackQueueStart()
         }
     }
 
@@ -436,6 +525,7 @@ class NativeAudioController: NSObject, PlatformAudioPlayer {
 
         guard status == noErr, let queue = queue else {
             logError("Failed to create AudioQueue: \(status)")
+            rollBackQueueStart()
             return
         }
 
@@ -463,6 +553,7 @@ class NativeAudioController: NSObject, PlatformAudioPlayer {
             logInfo("AudioQueue started")
         } else {
             logError("Failed to start AudioQueue: \(startStatus)")
+            rollBackQueueStart()
         }
     }
 

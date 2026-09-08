@@ -370,8 +370,13 @@ final class NowPlayingCoordinator {
         }
     }
 
-    /// Call this when playback starts to ensure we become the Now Playing app
-    func activatePlayback() {
+    /// Call this when playback starts to ensure we become the Now Playing app.
+    /// Returns false when the session refused to activate — the interrupter (Siri
+    /// finishing a notification announcement, a call tearing down) can still hold it
+    /// for a moment after telling us it is done. Callers must not build an AudioQueue
+    /// on a session that never became active: it starts into silence and stays there.
+    @discardableResult
+    func activatePlayback() -> Bool {
         do {
             let session = AVAudioSession.sharedInstance()
             // Re-assert exclusive (non-mixing) playback before activating. The
@@ -387,8 +392,10 @@ final class NowPlayingCoordinator {
             // line here is the tell when iOS shows "Not Playing" despite
             // healthy info-center assignments.
             logInfo("Playback activated: mode=\((currentAudioSessionMode ?? .default).rawValue)")
+            return true
         } catch {
             logError("Failed to activate playback: \(error)")
+            return false
         }
     }
 
