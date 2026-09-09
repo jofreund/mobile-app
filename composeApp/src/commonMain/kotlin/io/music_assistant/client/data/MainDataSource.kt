@@ -209,6 +209,14 @@ class MainDataSource(
             initialValue = DataState.Loading(),
         )
 
+    /**
+     * Per player, a counter bumped by every transport action dispatched for it. A deferred
+     * follow-up (the pause after a seek) carries the value it was dispatched with and stands
+     * down when it no longer matches: by then the listener has asked for something else, and
+     * a pause landing on top of that is not a correction but a countermand.
+     */
+    private val _transportGenerations = MutableStateFlow<Map<String, Long>>(emptyMap())
+
     private val _playersData = MutableStateFlow<DataState<List<PlayerData>>>(DataState.Loading())
     val playersData = _playersData.asStateFlow()
 
@@ -1125,6 +1133,9 @@ class MainDataSource(
     }
 
     fun playerAction(playerId: String, action: PlayerAction) {
+        // Counts as a transport intent like any other, so a pause still waiting on a seek
+        // sent through the other overload stands down (see [restorePauseAfterSeek]).
+        bumpTransportGeneration(playerId)
         launch {
             when (action) {
                 PlayerAction.TogglePlayPause -> {
@@ -1246,15 +1257,32 @@ class MainDataSource(
         }
     }
 
+    /** Claims the newest transport intent for [playerId]; see [_transportGenerations]. */
+    private fun bumpTransportGeneration(playerId: String): Long {
+        var generation = 0L
+        _transportGenerations.update { current ->
+            generation = (current[playerId] ?: 0L) + 1
+            current + (playerId to generation)
+        }
+        return generation
+    }
+
+    /** Whether [generation] is still the newest transport intent for [playerId]. */
+    private fun isCurrentTransportGeneration(playerId: String, generation: Long): Boolean =
+        (_transportGenerations.value[playerId] ?: 0L) == generation
+
     fun playerAction(data: PlayerData, action: PlayerAction) {
         // The local player owns its optimistic update + offline-queue + send path.
         if (data.isLocal) {
             localPlayerController.handleLocalCommand(data, action)
             return
         }
+        val generation = bumpTransportGeneration(data.playerId)
         val resolved = playerRequestFactory.resolve(data, action)
         applyOptimisticFeedback(data, resolved)
-        launch { sendResolvedPlayerAction(data, action, withResumePoint(data, resolved)) }
+        launch {
+            sendResolvedPlayerAction(data, action, withResumePoint(data, resolved), generation)
+        }
     }
 
     /**
@@ -1272,9 +1300,10 @@ class MainDataSource(
             localPlayerController.handleLocalCommand(data, action)
             return true
         }
+        val generation = bumpTransportGeneration(data.playerId)
         val resolved = playerRequestFactory.resolve(data, action)
         applyOptimisticFeedback(data, resolved)
-        return sendResolvedPlayerAction(data, action, withResumePoint(data, resolved))
+        return sendResolvedPlayerAction(data, action, withResumePoint(data, resolved), generation)
     }
 
     /**
@@ -1291,6 +1320,7 @@ class MainDataSource(
         data: PlayerData,
         action: PlayerAction,
         resolved: PlayerAction,
+        generation: Long,
     ): Boolean {
         val request = playerRequestFactory.buildRequest(data, resolved) ?: return false
         val result = apiClient.sendRequest(request)
@@ -1301,7 +1331,7 @@ class MainDataSource(
             ) { "Failed to send player action request for ${data.player.name}: $action" }
             return false
         }
-        restorePauseAfterSeek(data, resolved)
+        restorePauseAfterSeek(data, resolved, generation)
         return true
     }
 
@@ -1448,16 +1478,28 @@ class MainDataSource(
      * only says the command was accepted: server-side it becomes `play_index` at the new
      * position, which flushes and restarts the stream. A pause arriving during that setup tore it
      * down before it applied, and the queue went back to reporting the position it had before —
-     * a seek on a paused player that visibly reverted a few seconds later.
+     * a seek on a paused player that visibly reverted a few seconds later. On a sync group the
+     * server cannot park a stream at all and turns the pause into a full stop, from which the
+     * queue resumes at its saved position: the one the seek had not replaced yet.
      *
      * So this watches the queue's own elapsed time until it reflects the target, then pauses.
      * Bounded, because a server that never applies the seek must not leave a player that was
-     * paused sitting there playing.
+     * paused sitting there playing — but the bound has to clear the server's own patience
+     * (Music Assistant waits up to 5 s for the player to report playing before it even answers
+     * the seek) plus the time a slow transport then needs to have the new stream running.
+     *
+     * The fallback pause also stands down when [generation] is no longer the newest transport
+     * intent for this player: a listener who pressed play, or seeked again, while the first
+     * seek was still settling has said what they want more recently than this.
      *
      * `isPlaying` is the snapshot from when the action was dispatched — deliberately, since the
      * question is what the player was doing when the user grabbed the bar.
      */
-    private suspend fun restorePauseAfterSeek(data: PlayerData, resolved: PlayerAction) {
+    private suspend fun restorePauseAfterSeek(
+        data: PlayerData,
+        resolved: PlayerAction,
+        generation: Long,
+    ) {
         if (resolved !is PlayerAction.SeekTo || data.player.isPlaying) return
 
         val target = resolved.position.toDouble()
@@ -1470,6 +1512,10 @@ class MainDataSource(
                         ?.elapsedTime
                 }
                 .first { elapsed -> abs(elapsed - target) <= SEEK_SETTLE_TOLERANCE_SECONDS }
+        }
+        if (!isCurrentTransportGeneration(data.playerId, generation)) {
+            log.i { "Newer transport action for ${data.player.name}; not restoring pause" }
+            return
         }
         if (applied == null) {
             log.w { "Seek to ${target}s never took hold for ${data.player.name}; pausing anyway" }
@@ -2117,7 +2163,9 @@ class MainDataSource(
         /**
          * How long to wait for a seek to show up in the queue's own elapsed time before pausing
          * regardless. Generous: the server flushes and restarts the stream to seek, and a player
-         * that was paused must not be left playing just because that took a while.
+         * that was paused must not be left playing just because that took a while. Too short is
+         * the worse failure of the two — the pause then lands while the seek is still being set
+         * up and takes it down with it, which is the very thing this exists to avoid.
          *
          * Shared with the position hold ([PlayerPositionTracker.setSeekTarget]) deliberately:
          * both are waiting for the same event — the seek showing up in the queue's position.
