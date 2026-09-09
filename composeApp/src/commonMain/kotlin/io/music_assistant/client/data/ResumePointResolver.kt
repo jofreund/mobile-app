@@ -11,6 +11,7 @@ import io.music_assistant.client.data.model.client.items.PlayableItem
 import io.music_assistant.client.data.model.client.items.PodcastEpisode
 import io.music_assistant.client.data.model.server.ServerMediaItem
 import io.music_assistant.client.data.model.server.events.MediaItemPlayedData
+import io.music_assistant.client.data.model.server.events.PlaylogUpdatedData
 import io.music_assistant.client.ui.compose.common.action.PlayerAction
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.abs
@@ -107,12 +108,31 @@ private fun PlayerAction.resumesPlayback(data: PlayerData): Boolean =
         (this == PlayerAction.Play || this == PlayerAction.TogglePlayPause)
 
 /**
+ * A moved resume point, as either of the two events that announce one reports it.
+ *
+ * `media_item_played` describes a play in progress; `playlog_updated` (which current
+ * servers send instead) describes the playlog entry itself. Only these three fields
+ * matter here, so both events map onto this rather than the consumer learning both.
+ */
+internal data class ResumePointUpdate(
+    val uri: String,
+    val secondsPlayed: Double,
+    val fullyPlayed: Boolean,
+)
+
+internal fun MediaItemPlayedData.asResumePointUpdate() =
+    ResumePointUpdate(uri = uri, secondsPlayed = secondsPlayed, fullyPlayed = fullyPlayed)
+
+internal fun PlaylogUpdatedData.asResumePointUpdate() =
+    ResumePointUpdate(uri = uri, secondsPlayed = secondsPlayed, fullyPlayed = fullyPlayed)
+
+/**
  * Ids of the queues whose paused player is showing the audiobook/episode that [played]
  * reports progress for — another player is moving its resume point, and their displayed
  * position should follow so the slider shows where a resume will actually pick up.
  * A finished item is left alone: its resume point is gone, not moved.
  */
-internal fun List<PlayerData>.queuesFollowing(played: MediaItemPlayedData): List<String> =
+internal fun List<PlayerData>.queuesFollowing(played: ResumePointUpdate): List<String> =
     if (played.fullyPlayed) {
         emptyList()
     } else {

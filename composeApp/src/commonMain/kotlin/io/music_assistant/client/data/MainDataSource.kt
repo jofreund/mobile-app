@@ -30,12 +30,12 @@ import io.music_assistant.client.data.model.server.ServerQueueItem
 import io.music_assistant.client.data.model.server.ServerUser
 import io.music_assistant.client.data.model.server.events.MediaItemAddedEvent
 import io.music_assistant.client.data.model.server.events.MediaItemDeletedEvent
-import io.music_assistant.client.data.model.server.events.MediaItemPlayedData
 import io.music_assistant.client.data.model.server.events.MediaItemPlayedEvent
 import io.music_assistant.client.data.model.server.events.MediaItemUpdatedEvent
 import io.music_assistant.client.data.model.server.events.PlayerAddedEvent
 import io.music_assistant.client.data.model.server.events.PlayerRemovedEvent
 import io.music_assistant.client.data.model.server.events.PlayerUpdatedEvent
+import io.music_assistant.client.data.model.server.events.PlaylogUpdatedEvent
 import io.music_assistant.client.data.model.server.events.QueueAddedEvent
 import io.music_assistant.client.data.model.server.events.QueueItemsUpdatedEvent
 import io.music_assistant.client.data.model.server.events.QueueTimeUpdatedEvent
@@ -1424,7 +1424,7 @@ class MainDataSource(
      * next queue event overwrites this anchor with anyway, so this is a live courtesy while
      * connected, not a second source of truth.
      */
-    private fun followResumePoint(played: MediaItemPlayedData) {
+    private fun followResumePoint(played: ResumePointUpdate) {
         if (played.secondsPlayed <= 0.0) return
         val players = (playersData.value as? DataState.Data)?.data ?: return
         players.queuesFollowing(played).forEach { queueId ->
@@ -1750,7 +1750,13 @@ class MainDataSource(
                             // Not a position source for playing queues — those anchor on
                             // `QueueTimeUpdatedEvent` above. Paused queues showing the same
                             // audiobook/episode follow the resume point it reports.
-                            followResumePoint(event.data)
+                            followResumePoint(event.data.asResumePointUpdate())
+                        }
+
+                        is PlaylogUpdatedEvent -> {
+                            // The same resume point, as current servers announce it: they
+                            // signal the playlog entry rather than the play that moved it.
+                            followResumePoint(event.data.asResumePointUpdate())
                         }
 
                         is MediaItemUpdatedEvent -> {

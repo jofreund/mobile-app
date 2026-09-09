@@ -3,6 +3,7 @@ package io.music_assistant.client.api
 import io.music_assistant.client.data.model.server.events.CoreStateUpdatedEvent
 import io.music_assistant.client.data.model.server.events.PlayerRemovedEvent
 import io.music_assistant.client.data.model.server.events.PlayerUpdatedEvent
+import io.music_assistant.client.data.model.server.events.PlaylogUpdatedEvent
 import io.music_assistant.client.data.model.server.events.QueueAddedEvent
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -44,6 +45,31 @@ class EventTest {
         assertNotNull(decoded)
         assertTrue(decoded is PlayerRemovedEvent)
         assertEquals("pl1", decoded.objectId)
+    }
+
+    @Test
+    fun decodesPlaylogUpdatedEvent() {
+        // Verbatim from a server that announces a moved resume point this way rather than
+        // with `media_item_played`; the payload carries no name/duration/is_playing.
+        val raw = """{
+            "event": "playlog_updated",
+            "object_id": "library://audiobook/43",
+            "data": {
+                "uri": "library://audiobook/43",
+                "media_type": "audiobook",
+                "fully_played": false,
+                "seconds_played": 93,
+                "userid": "nHDDVU3KrxQKf"
+            }
+        }"""
+
+        val decoded = parse(raw).event()
+
+        assertNotNull(decoded)
+        assertTrue(decoded is PlaylogUpdatedEvent)
+        assertEquals("library://audiobook/43", decoded.data.uri)
+        assertEquals(93.0, decoded.data.secondsPlayed)
+        assertEquals(false, decoded.data.fullyPlayed)
     }
 
     @Test

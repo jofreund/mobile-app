@@ -19,6 +19,7 @@ import io.music_assistant.client.data.model.client.testPodcastEpisode
 import io.music_assistant.client.data.model.client.testTrack
 import io.music_assistant.client.data.model.server.events.Event
 import io.music_assistant.client.data.model.server.events.MediaItemPlayedData
+import io.music_assistant.client.data.model.server.events.PlaylogUpdatedData
 import io.music_assistant.client.ui.compose.common.DataState
 import io.music_assistant.client.ui.compose.common.action.PlayerAction
 import io.music_assistant.client.utils.SessionState
@@ -205,14 +206,32 @@ class ResumePointResolverTest {
     // --- queuesFollowing ---
 
     private fun played(uri: String, secondsPlayed: Double = 1500.0, fullyPlayed: Boolean = false) =
-        MediaItemPlayedData(
-            uri = uri,
+        ResumePointUpdate(uri = uri, secondsPlayed = secondsPlayed, fullyPlayed = fullyPlayed)
+
+    @Test
+    fun bothResumePointEventsMapOntoTheSameUpdate() {
+        // media_item_played describes the play; playlog_updated (what current servers send)
+        // describes the playlog entry. The queue-following logic must not care which arrived.
+        val fromPlayed = MediaItemPlayedData(
+            uri = bookUri,
             name = "Book",
             duration = 36_000.0,
-            secondsPlayed = secondsPlayed,
-            fullyPlayed = fullyPlayed,
+            secondsPlayed = 1500.0,
+            fullyPlayed = false,
             isPlaying = false,
-        )
+        ).asResumePointUpdate()
+        val fromPlaylog = PlaylogUpdatedData(
+            uri = bookUri,
+            mediaType = "audiobook",
+            secondsPlayed = 1500.0,
+            fullyPlayed = false,
+            userId = "user-1",
+        ).asResumePointUpdate()
+
+        assertEquals(fromPlayed, fromPlaylog)
+        val players = listOf(playerData(book, isPlaying = false, 1200.0))
+        assertEquals(listOf("queue-1"), players.queuesFollowing(fromPlaylog))
+    }
 
     @Test
     fun pausedQueueShowingTheItemFollows() {
