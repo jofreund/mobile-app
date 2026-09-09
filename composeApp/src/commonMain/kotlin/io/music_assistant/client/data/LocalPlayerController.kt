@@ -790,6 +790,7 @@ class LocalPlayerController(
                     album = null,
                     imageUrl = track.image(ImageType.THUMB)?.url,
                     duration = track.duration,
+                    sourceId = queueInfo.id,
                     queueId = queueInfo.id,
                     queueItemId = item.id,
                     mediaType = (track as? AppMediaItem)?.mediaType,

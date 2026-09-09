@@ -73,6 +73,29 @@ class ServerPlayerSerializationTest {
     }
 
     @Test
+    fun mediaNamingItsQueueAsTheSourceStillBindsThePlayerToThatQueue() {
+        // Current servers name the queue in `source_id` (it used to be `queue_id`), and
+        // `active_source` goes absent while a player is between sources. Without the source
+        // id the player would be left with no queue at all — no chapters, nothing to seek in.
+        val json = """{
+            "player_id": "ap1ed27e29f29c",
+            "state": "playing",
+            "current_media": {
+                "media_type": "audiobook",
+                "title": "Faith",
+                "source_id": "ap1ed27e29f29c",
+                "queue_item_id": "3e1f"
+            }
+        }"""
+
+        val player = playerFactory.create(myJson.decodeFromString<ServerPlayer>(json))
+
+        assertEquals("ap1ed27e29f29c", player.queueId)
+        assertFalse(player.hasExternalMedia)
+        assertTrue(player.canSeek)
+    }
+
+    @Test
     fun seekFeatureUnlocksScrubbingOffTheQueue() {
         val json = """{
             "player_id": "pl1",
