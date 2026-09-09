@@ -91,6 +91,7 @@ class PlayerBarStateTest {
             album = null,
             imageUrl = null,
             duration = 201.0,
+            sourceId = null,
             queueId = null,
             queueItemId = null,
             mediaType = MediaType.TRACK,
