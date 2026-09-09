@@ -295,10 +295,13 @@ class PlayerPositionTracker(
         const val SEEK_SETTLE_TOLERANCE_SEC = 2.0
 
         /**
-         * Upper bound on the hold. Generous: the server flushes and rebuilds the stream
-         * to seek, and a slow transport takes seconds to start playing the new one — the
-         * same reasoning (and value) as `MainDataSource.SEEK_SETTLE_TIMEOUT_MS`.
+         * Upper bound on the hold. Generous, because the server is slow to agree by design:
+         * it flushes and rebuilds the stream to seek and waits up to five seconds for the
+         * player to report playing before it even answers, and a slow transport (an AirPlay
+         * speaker, more so a sync group of them) needs seconds more to have the new stream
+         * running and its position reported against it. Shared with
+         * `MainDataSource.SEEK_SETTLE_TIMEOUT_MS`, which waits for the same thing.
          */
-        const val SEEK_SETTLE_WINDOW_MS = 5_000L
+        const val SEEK_SETTLE_WINDOW_MS = 15_000L
     }
 }
