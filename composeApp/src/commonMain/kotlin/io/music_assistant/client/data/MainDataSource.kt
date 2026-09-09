@@ -1081,7 +1081,7 @@ class MainDataSource(
         launch {
             apiClient.sendRequest(Request(APICommands.AUTH_ME))
                 .resultAs<ServerUser>()
-                ?.let { userPreferences.update(it.preferences) }
+                ?.let { userPreferences.update(it) }
         }
     }
 
@@ -1423,9 +1423,13 @@ class MainDataSource(
      * what the resolver compares the resume point against on the next play — and what the
      * next queue event overwrites this anchor with anyway, so this is a live courtesy while
      * connected, not a second source of truth.
+     *
+     * Another user's resume point is none of this session's business: the server keeps one
+     * per user, and only the signed-in user's says where a resume here would pick up.
      */
     private fun followResumePoint(played: ResumePointUpdate) {
         if (played.secondsPlayed <= 0.0) return
+        if (!played.appliesTo(userPreferences.signedInUserId)) return
         val players = (playersData.value as? DataState.Data)?.data ?: return
         players.queuesFollowing(played).forEach { queueId ->
             positionTracker.setAnchor(queueId = queueId, elapsedSec = played.secondsPlayed)

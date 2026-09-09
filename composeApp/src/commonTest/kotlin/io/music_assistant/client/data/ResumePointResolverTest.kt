@@ -34,6 +34,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
@@ -228,9 +229,27 @@ class ResumePointResolverTest {
             userId = "user-1",
         ).asResumePointUpdate()
 
-        assertEquals(fromPlayed, fromPlaylog)
+        // Same resume point either way; playlog_updated additionally names the user it
+        // applies to, which media_item_played never did.
+        assertEquals(fromPlayed, fromPlaylog.copy(userId = null))
+        assertEquals("user-1", fromPlaylog.userId)
         val players = listOf(playerData(book, isPlaying = false, 1200.0))
         assertEquals(listOf("queue-1"), players.queuesFollowing(fromPlaylog))
+    }
+
+    @Test
+    fun onlyTheSignedInUsersResumePointIsFollowed() {
+        // The server keeps one resume point per user; another user listening on their own
+        // player must not move the position shown here.
+        val mine = played(bookUri).copy(userId = "user-1")
+        val theirs = played(bookUri).copy(userId = "user-2")
+
+        assertTrue(mine.appliesTo("user-1"))
+        assertFalse(theirs.appliesTo("user-1"))
+        // Either id absent means "no user in particular": the change applies to everyone,
+        // or the server never told us who we are.
+        assertTrue(played(bookUri).appliesTo("user-1"))
+        assertTrue(theirs.appliesTo(null))
     }
 
     @Test

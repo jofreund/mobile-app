@@ -118,13 +118,32 @@ internal data class ResumePointUpdate(
     val uri: String,
     val secondsPlayed: Double,
     val fullyPlayed: Boolean,
+    /** The user whose resume point moved; null when it moved for every user. */
+    val userId: String? = null,
 )
 
 internal fun MediaItemPlayedData.asResumePointUpdate() =
     ResumePointUpdate(uri = uri, secondsPlayed = secondsPlayed, fullyPlayed = fullyPlayed)
 
 internal fun PlaylogUpdatedData.asResumePointUpdate() =
-    ResumePointUpdate(uri = uri, secondsPlayed = secondsPlayed, fullyPlayed = fullyPlayed)
+    ResumePointUpdate(
+        uri = uri,
+        secondsPlayed = secondsPlayed,
+        fullyPlayed = fullyPlayed,
+        userId = userId,
+    )
+
+/**
+ * Whether this update speaks for the user the app is signed in as.
+ *
+ * A server with several users keeps a resume point per user, so another user's listening
+ * must not move the position shown here. Either id being absent means "no user in
+ * particular": the server says the change applies to everyone, or it never told us who we
+ * are — and an update that would have been followed before this distinction existed is
+ * still followed.
+ */
+internal fun ResumePointUpdate.appliesTo(signedInUserId: String?): Boolean =
+    userId == null || signedInUserId == null || userId == signedInUserId
 
 /**
  * Ids of the queues whose paused player is showing the audiobook/episode that [played]

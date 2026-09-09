@@ -5,6 +5,12 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class ServerUser(
+    /**
+     * The signed-in user's id, as `auth/me` reports it. Server-side records that are kept
+     * per user — the playlog, and so the resume point of an audiobook or episode — name the
+     * user they belong to with this id.
+     */
+    @SerialName("user_id") val userId: String? = null,
     @SerialName("preferences") val preferences: ServerUserPreferences? = null,
 )
 
