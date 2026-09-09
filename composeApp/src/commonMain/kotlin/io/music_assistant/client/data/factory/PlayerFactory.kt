@@ -36,7 +36,12 @@ class PlayerFactory(
             volumeControl = volumeControl,
             volumeMuted = volumeMuted == true,
             canMute = supportedFeatures.contains(PlayerFeature.VOLUME_MUTE) && muteControl != null && muteControl != PLAYER_CONTROL_NONE,
-            queueId = activeSource ?: currentMedia?.queueId,
+            // `active_source` is the server's own answer, but it goes absent while a player
+            // is between sources (the airplay provider clears it when a stream reclaims the
+            // device from an externally observed one). The media's source id names the same
+            // queue and covers that window — on current servers as `source_id`, on older
+            // ones as `queue_id`.
+            queueId = activeSource ?: currentMedia?.sourceId ?: currentMedia?.queueId,
             isPlaying = state == PlayerState.PLAYING,
             isAnnouncing = announcementInProgress == true,
             canGroupWith = canGroupWith,
@@ -65,6 +70,7 @@ class PlayerFactory(
             album = album,
             imageUrl = imageUrl?.let(apiClient::rebaseServerImageUrl),
             duration = duration.takeIf { clientMediaType != MediaType.RADIO },
+            sourceId = sourceId,
             queueId = queueId,
             queueItemId = queueItemId,
             mediaType = clientMediaType,

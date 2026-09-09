@@ -89,6 +89,14 @@ data class ServerPlayerMedia(
     @SerialName("album") val album: String? = null,
     @SerialName("image_url") val imageUrl: String? = null,
     @SerialName("duration") val duration: Double? = null,
+    /**
+     * Id of whatever feeds this media to the player. For media Music Assistant plays from a
+     * queue that is the queue's id; for another source, that source's id. Servers before the
+     * rename carried no source id and named the queue in [queueId] instead, which is why
+     * both are read.
+     */
+    @SerialName("source_id") val sourceId: String? = null,
+    /** Pre-rename name for a queue id in [sourceId]; absent from current servers. */
     @SerialName("queue_id") val queueId: String? = null,
     @SerialName("queue_item_id") val queueItemId: String? = null,
 //    @SerialName("custom_data") val customData: JsonObject? = null,

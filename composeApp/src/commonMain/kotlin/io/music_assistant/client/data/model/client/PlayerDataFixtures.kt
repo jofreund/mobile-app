@@ -143,6 +143,7 @@ object PlayerDataFixtures {
             album = (this as? Track)?.album?.displayName,
             imageUrl = null,
             duration = duration,
+            sourceId = queueId,
             queueId = queueId,
             queueItemId = queueItemId,
             mediaType = (this as? AppMediaItem)?.mediaType,

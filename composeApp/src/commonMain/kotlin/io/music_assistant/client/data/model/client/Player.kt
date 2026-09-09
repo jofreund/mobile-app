@@ -42,15 +42,21 @@ data class Player(
 
     /**
      * True when the player reports media that Music Assistant is not streaming to it — a
-     * HomePod playing Apple Music, a Home Assistant media player fed by another app. The
-     * server stamps `queue_id`/`queue_item_id` on media it plays from a queue, so media
-     * carrying neither belongs to another source. Such a player's MA queue is idle: its
-     * elapsed time is stale, and the only position that means anything is the player's own.
+     * HomePod playing Apple Music, a Home Assistant media player fed by another app. Such a
+     * player's MA queue is idle: its elapsed time is stale, and the only position that means
+     * anything is the player's own.
+     *
+     * Media the server plays from a queue is stamped with the queue's item id, and names the
+     * queue as its source; a queue carries its player's id, so a source id equal to [id] is
+     * this player's own queue. (Pre-rename servers named the queue in `queue_id` instead, and
+     * sent no source id at all — hence all three.) Media carrying none of them belongs to
+     * another source.
      */
     val hasExternalMedia: Boolean
         get() = currentMedia != null &&
+            currentMedia.queueItemId == null &&
             currentMedia.queueId == null &&
-            currentMedia.queueItemId == null
+            currentMedia.sourceId != id
 
     /**
      * Position in [currentMedia] for a player with [hasExternalMedia], projected to

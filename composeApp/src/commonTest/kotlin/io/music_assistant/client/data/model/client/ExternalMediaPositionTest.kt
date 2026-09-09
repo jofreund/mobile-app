@@ -21,6 +21,7 @@ class ExternalMediaPositionTest {
         album = "I Am Not Lambert",
         imageUrl = null,
         duration = 201.0,
+        sourceId = null,
         queueId = null,
         queueItemId = null,
         mediaType = MediaType.TRACK,
@@ -43,6 +44,27 @@ class ExternalMediaPositionTest {
         assertTrue(external().hasExternalMedia)
         assertFalse(external(media = track().toPlayerMedia()).hasExternalMedia)
         assertFalse(external(media = null).hasExternalMedia)
+    }
+
+    @Test
+    fun `media naming the player's own queue as its source is not external`() {
+        // Current servers name the source rather than stamping a queue id, and a queue
+        // carries its player's id — so this is Music Assistant playing, mid-track-change
+        // (no item stamp yet), not another app on the speaker.
+        val player = PlayerDataFixtures.player(id = "ap1", currentMedia = externalMedia.copy(sourceId = "ap1"))
+
+        assertFalse(player.hasExternalMedia)
+        assertTrue(PlayerDataFixtures.player(id = "ap1", currentMedia = externalMedia).hasExternalMedia)
+    }
+
+    @Test
+    fun `media naming another source stays external`() {
+        val player = PlayerDataFixtures.player(
+            id = "ap1",
+            currentMedia = externalMedia.copy(sourceId = "spotify_connect"),
+        )
+
+        assertTrue(player.hasExternalMedia)
     }
 
     @Test
