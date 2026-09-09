@@ -203,7 +203,9 @@ class SendspinWsHandler(
         }
 
         try {
-            logger.d { "Sending binary message: ${data.size} bytes" }
+            // Not logged: in an encrypted session every outbound message - the
+            // client/time heartbeat included - arrives here as a Noise frame, so
+            // this line fires every tick and says nothing the by-name logs don't.
             currentSession.send(Frame.Binary(true, data))
         } catch (e: Exception) {
             logger.e(e) { "Failed to send binary message" }
