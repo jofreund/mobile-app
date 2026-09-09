@@ -125,7 +125,9 @@ class SendspinWsHandler(
                     when (frame) {
                         is Frame.Text -> {
                             val text = frame.readText()
-                            logger.d { "Received text message, length: ${text.length}" }
+                            // Deliberately not logged: a length alone says nothing, and the
+                            // once-a-second server/time heartbeat made this the loudest line
+                            // in the log. MessageDispatcher logs each message by type.
                             emitEvent(InboundTransportEvent.Text(listenerEpoch, text))
                         }
 
@@ -184,7 +186,9 @@ class SendspinWsHandler(
         }
 
         try {
-            logger.d { "Sending text message, length: ${message.length}" }
+            // Not logged, for the same reason as the inbound text frame above: the
+            // client/time heartbeat dominates it and every message worth seeing is
+            // already logged by name where it is built.
             currentSession.send(Frame.Text(message))
         } catch (e: Exception) {
             logger.e(e) { "Failed to send text message" }

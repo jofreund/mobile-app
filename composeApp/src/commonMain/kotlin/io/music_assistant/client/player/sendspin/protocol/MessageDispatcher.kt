@@ -84,6 +84,9 @@ class MessageDispatcher(
     // Last state value we logged; the heartbeat sends every ~2s but we only log on change.
     private var lastLoggedState: PlayerStateValue? = null
 
+    // Ticks down per clock-sync sample; see handleServerTime.
+    private var clockSyncLogCountdown = 0
+
     private val _serverHelloEvent = MutableSharedFlow<ServerHelloPayload>(extraBufferCapacity = 1)
     val serverHelloEvent: Flow<ServerHelloPayload> = _serverHelloEvent.asSharedFlow()
 
@@ -106,6 +109,7 @@ class MessageDispatcher(
     fun start() {
         logger.i { "Starting MessageDispatcher" }
         lastLoggedState = null
+        clockSyncLogCountdown = 0
         startMessageListener()
     }
 
@@ -143,7 +147,11 @@ class MessageDispatcher(
             val json = myJson.parseToJsonElement(text).jsonObject
             val type = json["type"]?.jsonPrimitive?.contentOrNull
                 ?: throw IllegalArgumentException("Message missing or null 'type' field")
-            logger.d { "Handling message: $type (${text.length} chars)" }
+            // server/time is the once-a-second clock-sync heartbeat: logging every one of
+            // them (here and in handleServerTime) buried every other line in the debug log.
+            if (type != "server/time") {
+                logger.d { "Handling message: $type (${text.length} chars)" }
+            }
 
             when (type) {
                 "server/hello" -> {
@@ -309,7 +317,12 @@ class MessageDispatcher(
             clientReceived = clientReceived,
         )
 
-        logger.d { "Clock sync: offset=${clockSynchronizer.currentOffset}μs, quality=${clockSynchronizer.currentQuality}" }
+        // One sample a second, so log a summary every CLOCK_SYNC_LOG_EVERY-th one.
+        // Quality transitions are logged as they happen by ClockSynchronizer itself.
+        if (clockSyncLogCountdown-- <= 0) {
+            clockSyncLogCountdown = CLOCK_SYNC_LOG_EVERY
+            logger.d { "Clock sync: offset=${clockSynchronizer.currentOffset}μs, quality=${clockSynchronizer.currentQuality}" }
+        }
     }
 
     private suspend fun handleStreamStart(message: StreamStartMessage) {
@@ -395,5 +408,10 @@ class MessageDispatcher(
         logger.i { "Closing MessageDispatcher" }
         stop()
         supervisorJob.cancel()
+    }
+
+    private companion object {
+        /** Clock-sync samples between logged offset summaries (one sample a second). */
+        const val CLOCK_SYNC_LOG_EVERY = 60
     }
 }

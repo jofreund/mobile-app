@@ -150,9 +150,9 @@ class AppGraph(
          */
         fun start(graph: () -> AppGraph, verboseLogging: Boolean) {
             if (instance != null) return
-            // Release builds drop Debug/Verbose logs: the WebSocket layer emits ~4 debug
-            // lines/sec for the idle clock-sync heartbeat, which otherwise floods (and evicts
-            // useful entries from) InMemoryLogWriter for the entire session.
+            // Release builds drop Debug/Verbose logs. The Sendspin heartbeats no longer log
+            // per tick, but debug logging is still chatty enough to evict useful entries
+            // from InMemoryLogWriter over a long session.
             Logger.setMinSeverity(if (verboseLogging) Severity.Verbose else Severity.Info)
             // setLogWriters (not addLogWriter) so each platform's console sink replaces
             // Kermit's default rather than doubling it: on iOS the default NSLog writer

@@ -51,8 +51,7 @@ class StateReporter(
                         is SendspinState.Synchronized,
                         is SendspinState.Buffering,
                         -> {
-                            logger.d { "Periodic state report: SYNCHRONIZED" }
-                            reportNow(PlayerStateValue.SYNCHRONIZED)
+                            report(PlayerStateValue.SYNCHRONIZED, log = false)
                         }
 
                         else -> {
@@ -81,8 +80,15 @@ class StateReporter(
      * Send immediate state report to server (event-driven).
      * Used for volume/mute changes or initial sync.
      */
-    suspend fun reportNow(state: PlayerStateValue) {
-        logger.d { "Reporting state: state=$state" }
+    suspend fun reportNow(state: PlayerStateValue) = report(state, log = true)
+
+    /**
+     * The 2s heartbeat passes `log = false`: it repeats the same state forever and its line
+     * was one of the loudest in the debug log. Transitions still log, and
+     * `MessageDispatcher.sendState` logs the state itself whenever it changes.
+     */
+    private suspend fun report(state: PlayerStateValue, log: Boolean) {
+        if (log) logger.d { "Reporting state: state=$state" }
         messageDispatcher.sendState(PlayerStateObject(state = state))
     }
 
