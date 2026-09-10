@@ -58,12 +58,29 @@ class ResumePointResolverTest {
         serverResumeMs: Long? = 1_500_000,
         serverFullyPlayed: Boolean = false,
         ready: Boolean = true,
+        selfPositioned: Boolean = false,
         client: FakeClient = FakeClient(ready) { itemAnswer(item, serverResumeMs, serverFullyPlayed) },
     ): Pair<PlayerAction, FakeClient> {
         val result = runBlocking {
-            resolver(client).resolve(playerData(item, isPlaying, queueElapsedSec), action)
+            resolver(client).resolve(
+                playerData(item, isPlaying, queueElapsedSec),
+                action,
+                selfPositioned = selfPositioned,
+            )
         }
         return result to client
+    }
+
+    @Test
+    fun aSeekTheListenerJustMadeOutranksTheStoredResumePoint() {
+        // Picking a chapter and pressing play: the seek has not written the playlog yet, so
+        // the stored point still describes where the book was before it. Relocating there
+        // would undo the chapter they picked — which is what "it jumps back" was.
+        val (action, client) = resolve(book, PlayerAction.Play, selfPositioned = true)
+
+        assertEquals(PlayerAction.Play, action)
+        // Not even asked for: nothing the server has stored can outrank a fresh seek.
+        assertTrue(client.sent.isEmpty())
     }
 
     @Test
@@ -257,6 +274,16 @@ class ResumePointResolverTest {
         val players = listOf(playerData(book, isPlaying = false, 1200.0))
 
         assertEquals(listOf("queue-1"), players.queuesFollowing(played(bookUri)))
+    }
+
+    @Test
+    fun aQueueThePlayerPositionedByHandDoesNotFollowAnotherPlayer() {
+        // The same book on two players: the other one keeps writing the resume point, and
+        // every write would otherwise pull this paused queue off the chapter just picked.
+        val players = listOf(playerData(book, isPlaying = false, 1200.0))
+
+        assertTrue(players.queuesFollowing(played(bookUri)) { it == "queue-1" }.isEmpty())
+        assertEquals(listOf("queue-1"), players.queuesFollowing(played(bookUri)) { false })
     }
 
     @Test

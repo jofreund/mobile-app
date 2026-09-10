@@ -210,6 +210,15 @@ class MainDataSource(
         )
 
     /**
+     * Per queue, the uri of the item whose playhead the listener last moved by hand.
+     *
+     * A seek is a statement about where this queue should be, and it outranks the resume
+     * point the server has stored for that item until the server has caught up (see
+     * [isSelfPositioned]).
+     */
+    private val _selfPositioned = MutableStateFlow<Map<String, String>>(emptyMap())
+
+    /**
      * Per player, a counter bumped by every transport action dispatched for it. A deferred
      * follow-up (the pause after a seek) carries the value it was dispatched with and stands
      * down when it no longer matches: by then the listener has asked for something else, and
@@ -1055,6 +1064,7 @@ class MainDataSource(
      */
     private fun clearAllData() {
         log.i { "Clearing all cached data" }
+        _selfPositioned.update { emptyMap() }
         _serverPlayers.update { DataState.NoData() }
         _queueInfos.update { emptyList() }
         _playbackOverrides.update { emptyMap() }
@@ -1310,11 +1320,16 @@ class MainDataSource(
      * Lets [ResumePointResolver] relocate a resume of a paused audiobook/episode to the
      * server's resume point. The play half of the feedback is already showing from
      * [applyOptimisticFeedback]; a relocated resume additionally anchors at its position.
+     *
+     * Unless the listener has just positioned this queue themselves — see [isSelfPositioned],
+     * which is what keeps a chapter they picked from being relocated away by the resume point
+     * the seek has not written yet.
      */
     private suspend fun withResumePoint(data: PlayerData, resolved: PlayerAction): PlayerAction =
-        resumePointResolver.resolve(data, resolved).also { synced ->
-            if (synced is PlayerAction.PlayFrom) applyOptimisticFeedback(data, synced)
-        }
+        resumePointResolver.resolve(data, resolved, selfPositioned = isSelfPositioned(data))
+            .also { synced ->
+                if (synced is PlayerAction.PlayFrom) applyOptimisticFeedback(data, synced)
+            }
 
     private suspend fun sendResolvedPlayerAction(
         data: PlayerData,
@@ -1367,7 +1382,10 @@ class MainDataSource(
             PlayerAction.Next, PlayerAction.Previous ->
                 data.queueInfo?.id?.let { positionTracker.setSeekTarget(it, targetSec = 0.0) }
 
-            is PlayerAction.SeekTo -> holdSeekTarget(data, resolved.position)
+            is PlayerAction.SeekTo -> {
+                rememberSelfPositioned(data)
+                holdSeekTarget(data, resolved.position)
+            }
 
             is PlayerAction.PlayFrom -> {
                 setPlaybackOverride(data.playerId, true)
@@ -1385,12 +1403,49 @@ class MainDataSource(
      */
     private fun holdSeekTarget(data: PlayerData, positionSec: Long) {
         val queue = data.queueInfo ?: return
+        // The wire log names the command and the target player but not the position, which is
+        // the one number that says whether a jump came from the app or from the server.
+        log.i {
+            "Seek ${data.player.name} → ${positionSec}s " +
+                "(queue ${queue.id} at ${queue.elapsedTime}s, playing=${data.player.isPlaying})"
+        }
         positionTracker.setSeekTarget(
             queueId = queue.id,
             targetSec = positionSec.toDouble(),
             durationSec = queue.currentItem?.track?.duration,
             speed = queue.playbackSpeed,
         )
+    }
+
+    /**
+     * Records that the listener has just put this queue's playhead somewhere themselves,
+     * so [withResumePoint] leaves the following resume where they put it.
+     */
+    private fun rememberSelfPositioned(data: PlayerData) {
+        val queue = data.queueInfo ?: return
+        val uri = queue.currentItem?.track?.takeIf { it.hasResumePoint() }?.uri ?: return
+        _selfPositioned.update { it + (queue.id to uri) }
+    }
+
+    /**
+     * Whether the listener positioned this queue's current item themselves and the server
+     * has not caught up yet.
+     *
+     * A seek does not write the server's playlog — that happens when playback stops — so
+     * between the two the stored resume point still describes where the item was *before*
+     * the seek. Following it then would undo the seek, which is what a listener who picked
+     * a chapter and pressed play sees as the book jumping back.
+     *
+     * The mark stands for as long as the queue is playing that item. Deliberately: with the
+     * same book loaded on two players, the stored resume point keeps moving to wherever the
+     * *other* one is, and every one of those moves would otherwise undo the chapter picked
+     * here. Following another player is what a plain resume is for; it is not what someone
+     * who has just said where this player should be is asking for.
+     */
+    private fun isSelfPositioned(data: PlayerData): Boolean {
+        val queue = data.queueInfo ?: return false
+        val markedUri = _selfPositioned.value[queue.id] ?: return false
+        return markedUri == queue.currentItem?.track?.uri
     }
 
     /**
@@ -1461,7 +1516,17 @@ class MainDataSource(
         if (played.secondsPlayed <= 0.0) return
         if (!played.appliesTo(userPreferences.signedInUserId)) return
         val players = (playersData.value as? DataState.Data)?.data ?: return
-        players.queuesFollowing(played).forEach { queueId ->
+        val following = players.queuesFollowing(played) { queueId ->
+            (_selfPositioned.value[queueId] == played.uri).also { self ->
+                if (self) {
+                    log.i { "Queue $queueId was positioned by hand; not following the resume point" }
+                }
+            }
+        }
+        following.forEach { queueId ->
+            log.i {
+                "Following the resume point to ${played.secondsPlayed}s on paused queue $queueId"
+            }
             positionTracker.setAnchor(queueId = queueId, elapsedSec = played.secondsPlayed)
         }
     }
@@ -1519,6 +1584,8 @@ class MainDataSource(
         }
         if (applied == null) {
             log.w { "Seek to ${target}s never took hold for ${data.player.name}; pausing anyway" }
+        } else {
+            log.i { "Seek to ${target}s took hold for ${data.player.name} (at ${applied}s); pausing" }
         }
 
         val request = playerRequestFactory.buildRequest(data, PlayerAction.Pause) ?: return
