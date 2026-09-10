@@ -1403,6 +1403,12 @@ class MainDataSource(
      */
     private fun holdSeekTarget(data: PlayerData, positionSec: Long) {
         val queue = data.queueInfo ?: return
+        // The wire log names the command and the target player but not the position, which is
+        // the one number that says whether a jump came from the app or from the server.
+        log.i {
+            "Seek ${data.player.name} → ${positionSec}s " +
+                "(queue ${queue.id} at ${queue.elapsedTime}s, playing=${data.player.isPlaying})"
+        }
         positionTracker.setSeekTarget(
             queueId = queue.id,
             targetSec = positionSec.toDouble(),
@@ -1509,6 +1515,9 @@ class MainDataSource(
         val players = (playersData.value as? DataState.Data)?.data ?: return
         releaseSelfPositioned(played, players)
         players.queuesFollowing(played).forEach { queueId ->
+            log.i {
+                "Following the resume point to ${played.secondsPlayed}s on paused queue $queueId"
+            }
             positionTracker.setAnchor(queueId = queueId, elapsedSec = played.secondsPlayed)
         }
     }
@@ -1582,6 +1591,8 @@ class MainDataSource(
         }
         if (applied == null) {
             log.w { "Seek to ${target}s never took hold for ${data.player.name}; pausing anyway" }
+        } else {
+            log.i { "Seek to ${target}s took hold for ${data.player.name} (at ${applied}s); pausing" }
         }
 
         val request = playerRequestFactory.buildRequest(data, PlayerAction.Pause) ?: return
