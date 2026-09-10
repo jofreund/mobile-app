@@ -1409,8 +1409,9 @@ class MainDataSource(
         val boundTo = (data.player.syncedTo ?: data.player.activeGroup)
             ?.let { " via $it" }.orEmpty()
         log.i {
-            "Seek ${data.player.name} → ${positionSec}s " +
-                "(queue ${queue.id}$boundTo at ${queue.elapsedTime}s, playing=${data.player.isPlaying})"
+            "Seek ${data.player.name} → ${positionSec}s (queue ${queue.id}$boundTo " +
+                "at ${queue.elapsedTime}s, speed=${queue.playbackSpeed}, " +
+                "playing=${data.player.isPlaying})"
         }
         positionTracker.setSeekTarget(
             queueId = queue.id,
