@@ -1405,13 +1405,15 @@ class MainDataSource(
     private fun holdSeekTarget(data: PlayerData, positionSec: Long) {
         val queue = data.queueInfo ?: return
         // The wire log names the command and the target player but not the position, which is
-        // the one number that says whether a jump came from the app or from the server.
+        // the one number that says whether a jump came from the app or from the server. Repeat
+        // and speed ride along because both change what the server does with a seek, and a
+        // queue left on repeat is what made this one look like the seek was ignored.
         val boundTo = (data.player.syncedTo ?: data.player.activeGroup)
             ?.let { " via $it" }.orEmpty()
         log.i {
             "Seek ${data.player.name} → ${positionSec}s (queue ${queue.id}$boundTo " +
-                "at ${queue.elapsedTime}s, speed=${queue.playbackSpeed}, " +
-                "playing=${data.player.isPlaying})"
+                "at ${queue.elapsedTime}s, repeat=${queue.repeatMode}, " +
+                "speed=${queue.playbackSpeed}, playing=${data.player.isPlaying})"
         }
         positionTracker.setSeekTarget(
             queueId = queue.id,
