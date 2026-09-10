@@ -1436,8 +1436,11 @@ class MainDataSource(
      * the seek. Following it then would undo the seek, which is what a listener who picked
      * a chapter and pressed play sees as the book jumping back.
      *
-     * The mark stops counting as soon as the queue moves to another item, and
-     * [releaseSelfPositioned] drops it once the playlog agrees with where the queue is.
+     * The mark stands for as long as the queue is playing that item. Deliberately: with the
+     * same book loaded on two players, the stored resume point keeps moving to wherever the
+     * *other* one is, and every one of those moves would otherwise undo the chapter picked
+     * here. Following another player is what a plain resume is for; it is not what someone
+     * who has just said where this player should be is asking for.
      */
     private fun isSelfPositioned(data: PlayerData): Boolean {
         val queue = data.queueInfo ?: return false
@@ -1513,29 +1516,19 @@ class MainDataSource(
         if (played.secondsPlayed <= 0.0) return
         if (!played.appliesTo(userPreferences.signedInUserId)) return
         val players = (playersData.value as? DataState.Data)?.data ?: return
-        releaseSelfPositioned(played, players)
-        players.queuesFollowing(played).forEach { queueId ->
+        val following = players.queuesFollowing(played) { queueId ->
+            (_selfPositioned.value[queueId] == played.uri).also { self ->
+                if (self) {
+                    log.i { "Queue $queueId was positioned by hand; not following the resume point" }
+                }
+            }
+        }
+        following.forEach { queueId ->
             log.i {
                 "Following the resume point to ${played.secondsPlayed}s on paused queue $queueId"
             }
             positionTracker.setAnchor(queueId = queueId, elapsedSec = played.secondsPlayed)
         }
-    }
-
-    /**
-     * Drops a "positioned by hand" mark once the server's playlog agrees with where the
-     * queue actually is — from then on the stored resume point describes this queue again
-     * rather than the position the seek replaced, and [ResumePointResolver] can do its job.
-     */
-    private fun releaseSelfPositioned(played: ResumePointUpdate, players: List<PlayerData>) {
-        val settled = players.mapNotNull { data ->
-            val queue = data.queueInfo ?: return@mapNotNull null
-            if (_selfPositioned.value[queue.id] != played.uri) return@mapNotNull null
-            val elapsed = queue.elapsedTime ?: return@mapNotNull null
-            queue.id.takeIf { abs(played.secondsPlayed - elapsed) <= RESUME_DRIFT_TOLERANCE_SEC }
-        }
-        if (settled.isEmpty()) return
-        _selfPositioned.update { it - settled.toSet() }
     }
 
     /**

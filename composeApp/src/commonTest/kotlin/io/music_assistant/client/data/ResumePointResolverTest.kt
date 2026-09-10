@@ -277,6 +277,16 @@ class ResumePointResolverTest {
     }
 
     @Test
+    fun aQueueThePlayerPositionedByHandDoesNotFollowAnotherPlayer() {
+        // The same book on two players: the other one keeps writing the resume point, and
+        // every write would otherwise pull this paused queue off the chapter just picked.
+        val players = listOf(playerData(book, isPlaying = false, 1200.0))
+
+        assertTrue(players.queuesFollowing(played(bookUri)) { it == "queue-1" }.isEmpty())
+        assertEquals(listOf("queue-1"), players.queuesFollowing(played(bookUri)) { false })
+    }
+
+    @Test
     fun playingQueueDoesNotFollow() {
         // Its own time events anchor it; a report from elsewhere must not fight them.
         val players = listOf(playerData(book, isPlaying = true, 1200.0))

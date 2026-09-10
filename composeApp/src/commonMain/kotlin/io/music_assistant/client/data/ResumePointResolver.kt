@@ -92,20 +92,16 @@ class ResumePointResolver(
         }
 
     private companion object {
+        /**
+         * The queue's own pause writes the same resume point the server hands back, give or
+         * take the rounding of both; only a real move by another player should relocate.
+         */
+        const val RESUME_DRIFT_TOLERANCE_SEC = 15.0
+
         /** Well inside the local player's pending-play backstop, so a slow answer can't strand it. */
         const val FETCH_TIMEOUT_MS = 3_000L
     }
 }
-
-/**
- * How far the stored resume point may sit from a queue's own position and still be taken
- * for the same place. The queue's own pause writes the resume point the server hands back,
- * give or take the rounding of both; only a real move by another player should relocate.
- *
- * `MainDataSource` compares against the same distance when deciding that the playlog has
- * caught up with a queue again.
- */
-internal const val RESUME_DRIFT_TOLERANCE_SEC = 15.0
 
 /** Only audiobooks and podcast episodes carry a server-side resume point. */
 internal fun PlayableItem.hasResumePoint(): Boolean = this is Audiobook || this is PodcastEpisode
@@ -169,14 +165,22 @@ internal fun ResumePointUpdate.appliesTo(signedInUserId: String?): Boolean =
  * reports progress for — another player is moving its resume point, and their displayed
  * position should follow so the slider shows where a resume will actually pick up.
  * A finished item is left alone: its resume point is gone, not moved.
+ *
+ * [isSelfPositioned] excludes a queue the listener has positioned by hand: they have said
+ * where that one should be, and another player's progress does not overrule it — the same
+ * rule [ResumePointResolver.resolve] applies to the resume itself.
  */
-internal fun List<PlayerData>.queuesFollowing(played: ResumePointUpdate): List<String> =
+internal fun List<PlayerData>.queuesFollowing(
+    played: ResumePointUpdate,
+    isSelfPositioned: (queueId: String) -> Boolean = { false },
+): List<String> =
     if (played.fullyPlayed) {
         emptyList()
     } else {
         mapNotNull { data ->
             data.queueInfo
                 ?.takeUnless { data.player.isPlaying }
+                ?.takeUnless { isSelfPositioned(it.id) }
                 ?.takeIf { queue ->
                     queue.currentItem?.track?.let { it.hasResumePoint() && it.uri == played.uri } == true
                 }
