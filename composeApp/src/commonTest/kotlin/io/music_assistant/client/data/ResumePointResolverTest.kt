@@ -58,12 +58,29 @@ class ResumePointResolverTest {
         serverResumeMs: Long? = 1_500_000,
         serverFullyPlayed: Boolean = false,
         ready: Boolean = true,
+        selfPositioned: Boolean = false,
         client: FakeClient = FakeClient(ready) { itemAnswer(item, serverResumeMs, serverFullyPlayed) },
     ): Pair<PlayerAction, FakeClient> {
         val result = runBlocking {
-            resolver(client).resolve(playerData(item, isPlaying, queueElapsedSec), action)
+            resolver(client).resolve(
+                playerData(item, isPlaying, queueElapsedSec),
+                action,
+                selfPositioned = selfPositioned,
+            )
         }
         return result to client
+    }
+
+    @Test
+    fun aSeekTheListenerJustMadeOutranksTheStoredResumePoint() {
+        // Picking a chapter and pressing play: the seek has not written the playlog yet, so
+        // the stored point still describes where the book was before it. Relocating there
+        // would undo the chapter they picked — which is what "it jumps back" was.
+        val (action, client) = resolve(book, PlayerAction.Play, selfPositioned = true)
+
+        assertEquals(PlayerAction.Play, action)
+        // Not even asked for: nothing the server has stored can outrank a fresh seek.
+        assertTrue(client.sent.isEmpty())
     }
 
     @Test

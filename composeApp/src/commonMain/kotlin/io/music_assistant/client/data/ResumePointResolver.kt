@@ -48,9 +48,24 @@ class ResumePointResolver(
      * Compares against the queue's *server-reported* elapsed time, not the live tracker
      * anchor: the server resumes a paused queue from the former, and the tracker may already
      * have been moved to the resume point by [queuesFollowing] while paused.
+     *
+     * [selfPositioned] says the listener moved this queue's playhead themselves and the
+     * server has not caught up: a seek does not write the playlog, so until playback stops
+     * the stored resume point still describes where the item was *before* the seek, and
+     * relocating to it would undo what they just asked for. Their seek wins.
      */
-    suspend fun resolve(data: PlayerData, action: PlayerAction): PlayerAction {
+    suspend fun resolve(
+        data: PlayerData,
+        action: PlayerAction,
+        selfPositioned: Boolean = false,
+    ): PlayerAction {
         if (!action.resumesPlayback(data)) return action
+        if (selfPositioned) {
+            log.i {
+                "Resuming ${data.player.name} where the listener put it, not at the resume point"
+            }
+            return action
+        }
         val queueInfo = data.queueInfo ?: return action
         val item = queueInfo.currentItem?.track?.takeIf { it.hasResumePoint() } ?: return action
         val uri = item.uri ?: return action
@@ -77,16 +92,20 @@ class ResumePointResolver(
         }
 
     private companion object {
-        /**
-         * The queue's own pause writes the same resume point the server hands back, give or
-         * take the rounding of both; only a real move by another player should relocate.
-         */
-        const val RESUME_DRIFT_TOLERANCE_SEC = 15.0
-
         /** Well inside the local player's pending-play backstop, so a slow answer can't strand it. */
         const val FETCH_TIMEOUT_MS = 3_000L
     }
 }
+
+/**
+ * How far the stored resume point may sit from a queue's own position and still be taken
+ * for the same place. The queue's own pause writes the resume point the server hands back,
+ * give or take the rounding of both; only a real move by another player should relocate.
+ *
+ * `MainDataSource` compares against the same distance when deciding that the playlog has
+ * caught up with a queue again.
+ */
+internal const val RESUME_DRIFT_TOLERANCE_SEC = 15.0
 
 /** Only audiobooks and podcast episodes carry a server-side resume point. */
 internal fun PlayableItem.hasResumePoint(): Boolean = this is Audiobook || this is PodcastEpisode
