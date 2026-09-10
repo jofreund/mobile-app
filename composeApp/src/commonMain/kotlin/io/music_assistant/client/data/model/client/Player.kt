@@ -137,3 +137,35 @@ data class Player(
         )
     }
 }
+
+/**
+ * The id of the queue [this] player is actually playing from, which is not always its own.
+ *
+ * A player synced to another, or taken over by a group, plays that one's queue: the server
+ * redirects every playback command there and reports the position against it, while the
+ * player's own queue sits idle holding whatever it last had. Binding a grouped player to its
+ * own queue is how a book on it showed 0:00 however far in it really was — and why picking a
+ * chapter there looked like it did nothing, the seek having moved a queue nothing was
+ * watching.
+ *
+ * Mirrors the server's own `get_active_queue`: sync leader first, then active group, then the
+ * player's own active source. Bounded against a cycle in the reported parents, which would
+ * otherwise not terminate.
+ */
+fun Player.activeQueueId(allPlayers: List<Player>): String? {
+    var current = this
+    repeat(MAX_PLAYER_PARENT_HOPS) {
+        val parentId = current.syncedTo?.takeIf { it != current.id }
+            ?: current.activeGroup?.takeIf { it != current.id }
+            ?: return current.queueId
+        val parent = allPlayers.firstOrNull { it.id == parentId } ?: return current.queueId
+        current = parent
+    }
+    return current.queueId
+}
+
+/**
+ * How far to follow "this player is really playing that one's queue" before giving up.
+ * Groups nest at most a couple of levels; beyond this the reported parents form a cycle.
+ */
+private const val MAX_PLAYER_PARENT_HOPS = 4
