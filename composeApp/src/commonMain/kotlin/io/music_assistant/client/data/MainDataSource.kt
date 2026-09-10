@@ -15,6 +15,7 @@ import io.music_assistant.client.data.factory.QueueFactory
 import io.music_assistant.client.data.model.client.ImageType
 import io.music_assistant.client.data.model.client.Player
 import io.music_assistant.client.data.model.client.PlayerData
+import io.music_assistant.client.data.model.client.activeQueueId
 import io.music_assistant.client.data.model.client.Queue
 import io.music_assistant.client.data.model.client.QueueInfo
 import io.music_assistant.client.data.model.client.isBefore
@@ -883,7 +884,7 @@ class MainDataSource(
                 } else {
                     val newData = PlayerData(
                         player = player,
-                        queue = queues.find { it.id == player.queueId }
+                        queue = queues.find { it.id == player.activeQueueId(allPlayers) }
                             ?.let { queueInfo ->
                                 DataState.Data(
                                     Queue(info = queueInfo, items = DataState.NoData()),
@@ -1405,9 +1406,11 @@ class MainDataSource(
         val queue = data.queueInfo ?: return
         // The wire log names the command and the target player but not the position, which is
         // the one number that says whether a jump came from the app or from the server.
+        val boundTo = (data.player.syncedTo ?: data.player.activeGroup)
+            ?.let { " via $it" }.orEmpty()
         log.i {
             "Seek ${data.player.name} → ${positionSec}s " +
-                "(queue ${queue.id} at ${queue.elapsedTime}s, playing=${data.player.isPlaying})"
+                "(queue ${queue.id}$boundTo at ${queue.elapsedTime}s, playing=${data.player.isPlaying})"
         }
         positionTracker.setSeekTarget(
             queueId = queue.id,
