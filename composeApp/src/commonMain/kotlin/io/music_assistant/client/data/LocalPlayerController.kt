@@ -26,10 +26,9 @@ import io.music_assistant.client.player.sendspin.SendspinState
 import io.music_assistant.client.player.sendspin.WebRTCSendspinChannelExhausted
 import io.music_assistant.client.player.sendspin.model.GoodbyeReason
 import io.music_assistant.client.settings.SettingsRepository
-import io.music_assistant.client.settings.getServerIdentifier
 import io.music_assistant.client.ui.compose.common.DataState
 import io.music_assistant.client.ui.compose.common.action.PlayerAction
-import io.music_assistant.client.utils.SessionState
+import io.music_assistant.client.utils.authenticatedToken
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
@@ -461,13 +460,12 @@ class LocalPlayerController(
      * Safe for background: this controller is a singleton held by the foreground service.
      */
     suspend fun start() = sendspinMutex.withLock {
-        // Get prerequisites. Token lookup goes through the connection-derived server
-        // identifier ("direct:wss://host:port" / "webrtc:remoteId") — this fork keys the
-        // token store by how the connection was made, NOT by `serverInfo.serverId` as
-        // upstream does; the wrong key returns null and Sendspin never authenticates.
-        val authToken = (apiClient.sessionState.value as? SessionState.Connected)
-            ?.let { settings.getServerIdentifier(it) }
-            ?.let { settings.getTokenForServer(it) }
+        // Get prerequisites. The token comes from the live session state, not from settings:
+        // the settings copy is written by AuthenticationManager's own sessionState collector on
+        // the main dispatcher, so reading it here (IO, same emission) can observe it empty and
+        // dead-end the whole start — no client, no state, no dot. It also sidesteps the
+        // token store's key entirely (this fork keys it by connection, upstream by serverId).
+        val authToken = apiClient.sessionState.value.authenticatedToken()
 
         // Stop existing client if any (but preserve if it's actively connected, connecting, or reconnecting)
         sendspinClient?.let { existing ->
