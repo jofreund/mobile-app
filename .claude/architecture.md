@@ -67,6 +67,12 @@ not ready means the load failed, not that the library is empty. Every screen tha
 fetch result must make that distinction, and retry-on-connect subscriptions should fire on the
 not-ready → ready edge, seeded from the current value.
 
+**List payloads.** `library_items` and `player_queues/items` answer in one message, and the
+server caps a message at about 9 MB, so never send a huge `limit`: list builders default to
+`SERVER_PAGE_SIZE` (500). A caller that needs the whole list pages with `Request.fetchAllPages`
+(`api/Paging.kt`). `playlist_tracks` is different: the server streams it in `partial` batches
+that `RpcEngine` reassembles.
+
 **Interop gotchas.**
 - `NativeStateFlow<T>`/`NativeSuspend<T>` lose Swift's automatic bridging when `T` is `String`
   or `List<X>`: cast with `as? String` / `as? [X]` at the call site. Class-typed `T` bridges
@@ -92,6 +98,12 @@ Swift reads it through `KmpHelper.sessionState`. `AppRouter` maps each value to 
 a process-lifetime latch), the banner, and whether the server's
 `min_supported_schema_version` has climbed past `LOCAL_SCHEMA_VERSION`. The router starts in
 `iOSApp.init`, right after `bootstrapKmp()`, so the latch sees every transition.
+
+A request in flight when its transport goes away is failed, not left waiting: replies never
+cross connections, so `RpcEngine.failAll` runs at every transport-loss point, after the state
+update. Offline-queued local-player commands call `requestCommandRecovery()` to run the same
+recovery gate `sendRequest` uses, and `SessionHold` keeps background teardown off while one is
+trying to get through.
 
 `AuthenticationManager` persists one token per server identifier, decides
 `willAutoLoginOnLaunch` at construction, and handles the OAuth callback URL; Swift supplies
