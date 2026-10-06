@@ -27,8 +27,11 @@ object SendspinCapabilities {
 
     private fun buildSupportedFormats(codecPreference: Codec): List<AudioFormatSpec> {
         // Build format variations for the selected codec
-        // Stereo (2 channels) × 3 bit depths (16, 24, 32) × 5 sample rates = 15 formats
-        val sampleRates = listOf(44100, 48000, 88200, 96000, 192000)
+        // Stereo (2 channels) × 3 bit depths (16, 24, 32) × 5 sample rates = 15 formats.
+        // Order matters: the server treats the first advertised format as preferred, and iOS
+        // output routes (built-in, AirPods, CarPlay) run at 48 kHz — leading with 44.1 kHz
+        // made the device resample every stream.
+        val sampleRates = listOf(48000, 44100, 88200, 96000, 192000)
         val bitDepths = listOf(16, 24, 32)
 
         return buildList {

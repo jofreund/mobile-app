@@ -122,7 +122,7 @@ class LegacyWireGoldenTest {
                             {
                                 "codec": "opus",
                                 "channels": 2,
-                                "sample_rate": 44100,
+                                "sample_rate": 48000,
                                 "bit_depth": 16
                             },
         """.trimIndent()
