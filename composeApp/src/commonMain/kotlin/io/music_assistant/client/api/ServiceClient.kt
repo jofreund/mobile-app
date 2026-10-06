@@ -34,6 +34,14 @@ interface ServiceClient {
     fun disconnectByUser()
     fun connect(connection: ConnectionInfo)
     fun connectWebRTC(remoteId: RemoteId)
+
+    /**
+     * Asks for the command session back for a request that cannot go through
+     * [sendRequest] yet (an offline-queued local-player command). Fire-and-forget:
+     * the caller is not blocked while the session recovers.
+     */
+    fun requestCommandRecovery()
+
     fun onPlaybackActive()
     fun onPlaybackInactive()
     fun forceDisconnect(reason: Exception)
