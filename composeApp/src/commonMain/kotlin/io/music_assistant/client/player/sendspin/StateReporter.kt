@@ -79,8 +79,20 @@ class StateReporter(
     /**
      * Send immediate state report to server (event-driven).
      * Used for volume/mute changes or initial sync.
+     *
+     * Best-effort, like the periodic path above: a report racing a transport that is
+     * going down must not escape into the caller's collector, which typically runs in
+     * a supervised scope with no exception handler.
      */
-    suspend fun reportNow(state: PlayerStateValue) = report(state, log = true)
+    suspend fun reportNow(state: PlayerStateValue) {
+        try {
+            report(state, log = true)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.w { "Dropped state report ($state): ${e.message}" }
+        }
+    }
 
     /**
      * The 2s heartbeat passes `log = false`: it repeats the same state forever and its line

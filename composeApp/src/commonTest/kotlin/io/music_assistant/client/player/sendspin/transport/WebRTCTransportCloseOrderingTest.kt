@@ -14,7 +14,9 @@ import kotlinx.coroutines.withTimeout
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
+import kotlin.test.assertTrue
 
 /**
  * The channel-closed signal must be produced by the same coroutine that pumps
@@ -28,6 +30,37 @@ class WebRTCTransportCloseOrderingTest {
 
         override suspend fun receive(): DataChannelInbound =
             script.receiveCatching().getOrNull() ?: throw CancellationException("source closed")
+    }
+
+    /**
+     * Both transports report a send on a dead connection the same way: they throw.
+     * A silent drop would be worse than a throw on the encrypted protocol, where the
+     * Noise nonce is already spent on the frame before the transport ever sees it.
+     */
+    @Test
+    fun sendingAfterTheDataChannelClosesThrows() = runTest {
+        withContext(Dispatchers.Default) {
+            val source = ScriptedReceiveSource()
+            val wrapper = DataChannelWrapper(
+                dataChannel = null,
+                connectionEvents = null,
+                receiveSource = source,
+                initialState = DataChannelState.Open,
+                label = "sendspin",
+            )
+            val transport = WebRTCDataChannelTransport(wrapper)
+            val events = transport.events.produceIn(this)
+            transport.connect()
+            assertIs<InboundTransportEvent.Connected>(withTimeout(5_000) { events.receive() })
+
+            wrapper.close()
+
+            assertFailsWith<IllegalStateException> { transport.sendText("after-close") }
+            assertFailsWith<IllegalStateException> { transport.sendBinary(byteArrayOf(4, 1, 2, 3)) }
+            assertTrue(transport.isSingleUse)
+            events.cancel()
+            transport.close()
+        }
     }
 
     @Test
