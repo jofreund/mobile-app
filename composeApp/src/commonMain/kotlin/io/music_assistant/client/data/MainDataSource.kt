@@ -7,6 +7,7 @@ import co.touchlab.kermit.Logger
 import io.music_assistant.client.api.APICommands
 import io.music_assistant.client.api.Request
 import io.music_assistant.client.api.ServiceClient
+import io.music_assistant.client.api.fetchAllPages
 import io.music_assistant.client.api.isAccepted
 import io.music_assistant.client.data.MainDataSource.Companion.resolveSelectedPlayerId
 import io.music_assistant.client.data.factory.MediaItemFactory
@@ -2180,8 +2181,11 @@ class MainDataSource(
     }
 
     private suspend fun fetchQueueItemsInto(fullData: PlayerData, queueInfo: QueueInfo) {
-        val queueTracks = apiClient.sendRequest(Request.Queue.items(queueInfo.id))
-            .resultAs<List<ServerQueueItem>>()?.let { queueFactory.createTrackList(it) }
+        // Paged so a huge queue never exceeds the server's per-message cap. A queue edited
+        // between two pages can duplicate or skip an item until the next queue event.
+        val queueTracks = Request.Queue.items(queueInfo.id)
+            .fetchAllPages { apiClient.sendRequest(it).resultAs<List<ServerQueueItem>>() }
+            ?.let { queueFactory.createTrackList(it) }
 
         // Forward to the local player controller so its own PlayerData carries the items.
         if (fullData.isLocal && queueTracks != null) {

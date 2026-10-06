@@ -12,6 +12,7 @@ import io.music_assistant.client.api.ConnectionInfo
 import io.music_assistant.client.api.ErrorMessageBus
 import io.music_assistant.client.api.Request
 import io.music_assistant.client.api.ServiceClient
+import io.music_assistant.client.api.fetchAllPages
 import io.music_assistant.client.api.isAccepted
 import io.music_assistant.client.auth.AuthState
 import io.music_assistant.client.auth.AuthenticationManager
@@ -717,37 +718,36 @@ object KmpHelper {
 
     fun fetchPlaylists(completion: (List<AppMediaItem>?) -> Unit) {
         launchFetch("playlists", completion) {
-            mediaItemRepository.fetchMediaItems(Request.Playlist.listLibrary()).getOrNull()
+            Request.Playlist.listLibrary().fetchAllPages { mediaItemRepository.fetchMediaItems(it).getOrNull() }
                 ?: emptyList()
         }
     }
 
     fun fetchAlbums(completion: (List<AppMediaItem>?) -> Unit) {
         launchFetch("albums", completion) {
-            mediaItemRepository.fetchMediaItems(Request.Album.listLibrary()).getOrNull()
+            Request.Album.listLibrary().fetchAllPages { mediaItemRepository.fetchMediaItems(it).getOrNull() }
                 ?: emptyList()
         }
     }
 
     fun fetchArtists(completion: (List<AppMediaItem>?) -> Unit) {
         launchFetch("artists", completion) {
-            mediaItemRepository.fetchMediaItems(Request.Artist.listLibrary()).getOrNull()
+            Request.Artist.listLibrary().fetchAllPages { mediaItemRepository.fetchMediaItems(it).getOrNull() }
                 ?: emptyList()
         }
     }
 
     fun fetchAudiobooks(completion: (List<AppMediaItem>?) -> Unit) {
         launchFetch("audiobooks", completion) {
-            mediaItemRepository.fetchMediaItems(Request.Audiobook.listLibrary()).getOrNull()
+            Request.Audiobook.listLibrary().fetchAllPages { mediaItemRepository.fetchMediaItems(it).getOrNull() }
                 ?: emptyList()
         }
     }
 
     /**
-     * Capped, unlike every other `fetchX` in this file: a track library is routinely the
-     * largest catalog in the app (often thousands of rows, versus dozens-to-hundreds of
-     * artists/albums/playlists), and LibraryListView.swift has no pagination yet. Fetching
-     * it unbounded (the `Int.MAX_VALUE` default) was observed to make the round trip +
+     * Capped, unlike every other `fetchX` in this file (which walk every page): a track library
+     * is routinely the largest catalog in the app (often thousands of rows, versus
+     * dozens-to-hundreds of artists/albums/playlists). Fetching it whole was observed to make the round trip +
      * decode large enough that the simulator's own background/foreground lifecycle
      * spuriously fired mid-request, cancelling it — `TRACKS_FETCH_LIMIT` keeps the request
      * small enough that this doesn't happen while native search/pagination isn't built yet.
@@ -761,14 +761,14 @@ object KmpHelper {
 
     fun fetchPodcasts(completion: (List<AppMediaItem>?) -> Unit) {
         launchFetch("podcasts", completion) {
-            mediaItemRepository.fetchMediaItems(Request.Podcast.listLibrary()).getOrNull()
+            Request.Podcast.listLibrary().fetchAllPages { mediaItemRepository.fetchMediaItems(it).getOrNull() }
                 ?: emptyList()
         }
     }
 
     fun fetchRadioStations(completion: (List<AppMediaItem>?) -> Unit) {
         launchFetch("radioStations", completion) {
-            mediaItemRepository.fetchMediaItems(Request.RadioStation.listLibrary()).getOrNull()
+            Request.RadioStation.listLibrary().fetchAllPages { mediaItemRepository.fetchMediaItems(it).getOrNull() }
                 ?: emptyList()
         }
     }
@@ -1330,7 +1330,7 @@ object KmpHelper {
      */
     fun fetchEditablePlaylists(completion: (List<Playlist>?) -> Unit) {
         launchFetch("editablePlaylists", completion) {
-            mediaItemRepository.fetchMediaItems(Request.Playlist.listLibrary()).getOrNull()
+            Request.Playlist.listLibrary().fetchAllPages { mediaItemRepository.fetchMediaItems(it).getOrNull() }
                 ?.filterIsInstance<Playlist>()
                 ?.filter { it.isEditable && !it.isDynamic }
                 ?: emptyList()
