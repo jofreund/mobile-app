@@ -66,6 +66,9 @@ class StubServiceClient : ServiceClient {
     override fun connectWebRTC(remoteId: RemoteId) {
     }
 
+    override fun requestCommandRecovery() {
+    }
+
     override fun onPlaybackActive() {
     }
 

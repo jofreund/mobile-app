@@ -283,6 +283,7 @@ private class StubServiceClient : ServiceClient {
     override fun disconnectByUser() = Unit
     override fun connect(connection: ConnectionInfo) = Unit
     override fun connectWebRTC(remoteId: RemoteId) = Unit
+    override fun requestCommandRecovery() = Unit
     override fun onPlaybackActive() = Unit
     override fun onPlaybackInactive() = Unit
     override fun forceDisconnect(reason: Exception) = Unit

@@ -36,4 +36,12 @@ class SortOptionTest {
         val sorted = shuffled.clientSorted(SortOption(SortField.ORIGINAL), SubItemContext.PLAYLIST_ITEMS)
         assertEquals(listOf("p1", "p2", "p3"), sorted.map { it.itemId })
     }
+
+    // The server silently drops unknown order_by keys (no ORDER BY at all), so a wrong key
+    // looks like "sort does nothing" rather than an error.
+    @Test
+    fun `artist sort uses the server album artist key`() {
+        assertEquals("album_artist_name", SortOption(SortField.ARTIST_NAME).toServerString())
+        assertEquals("album_artist_name_desc", SortOption(SortField.ARTIST_NAME, descending = true).toServerString())
+    }
 }

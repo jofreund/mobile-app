@@ -168,7 +168,7 @@ data class Request @OptIn(ExperimentalUuidApi::class) constructor(
 
         fun items(
             queueId: String,
-            limit: Int = Int.MAX_VALUE,
+            limit: Int = SERVER_PAGE_SIZE,
             offset: Int = 0,
         ) = Request(
             command = APICommands.PLAYER_QUEUES_ITEMS,
@@ -321,7 +321,7 @@ data class Request @OptIn(ExperimentalUuidApi::class) constructor(
         fun listLibrary(
             favorite: Boolean? = null,
             search: String? = null,
-            limit: Int = Int.MAX_VALUE,
+            limit: Int = SERVER_PAGE_SIZE,
             offset: Int = 0,
             orderBy: String? = null,
             providers: List<String>? = null,
@@ -389,7 +389,7 @@ data class Request @OptIn(ExperimentalUuidApi::class) constructor(
         fun listLibrary(
             favorite: Boolean? = null,
             search: String? = null,
-            limit: Int = Int.MAX_VALUE,
+            limit: Int = SERVER_PAGE_SIZE,
             offset: Int = 0,
             orderBy: String? = null,
             providers: List<String>? = null,
@@ -425,7 +425,7 @@ data class Request @OptIn(ExperimentalUuidApi::class) constructor(
         fun listLibrary(
             favorite: Boolean? = null,
             search: String? = null,
-            limit: Int = Int.MAX_VALUE,
+            limit: Int = SERVER_PAGE_SIZE,
             offset: Int = 0,
             orderBy: String? = null,
             providers: List<String>? = null,
@@ -452,7 +452,7 @@ data class Request @OptIn(ExperimentalUuidApi::class) constructor(
         fun listLibrary(
             favorite: Boolean? = null,
             search: String? = null,
-            limit: Int = Int.MAX_VALUE,
+            limit: Int = SERVER_PAGE_SIZE,
             offset: Int = 0,
             orderBy: String? = null,
             providers: List<String>? = null,
@@ -479,7 +479,7 @@ data class Request @OptIn(ExperimentalUuidApi::class) constructor(
         fun listLibrary(
             favorite: Boolean? = null,
             search: String? = null,
-            limit: Int = Int.MAX_VALUE,
+            limit: Int = SERVER_PAGE_SIZE,
             offset: Int = 0,
             orderBy: String? = null,
             providers: List<String>? = null,
@@ -524,7 +524,7 @@ data class Request @OptIn(ExperimentalUuidApi::class) constructor(
         fun listLibrary(
             favorite: Boolean? = null,
             search: String? = null,
-            limit: Int = Int.MAX_VALUE,
+            limit: Int = SERVER_PAGE_SIZE,
             offset: Int = 0,
             orderBy: String? = null,
             albumArtistsOnly: Boolean = false,
@@ -600,7 +600,7 @@ data class Request @OptIn(ExperimentalUuidApi::class) constructor(
         fun listLibrary(
             favorite: Boolean? = null,
             search: String? = null,
-            limit: Int = Int.MAX_VALUE,
+            limit: Int = SERVER_PAGE_SIZE,
             offset: Int = 0,
             orderBy: String? = null,
             albumTypes: List<String>? = null,
@@ -634,7 +634,7 @@ data class Request @OptIn(ExperimentalUuidApi::class) constructor(
         fun list(
             favorite: Boolean? = null,
             search: String? = null,
-            limit: Int = Int.MAX_VALUE,
+            limit: Int = SERVER_PAGE_SIZE,
             offset: Int = 0,
             orderBy: String? = null,
             providers: List<String>? = null,

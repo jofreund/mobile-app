@@ -29,6 +29,8 @@ class WebRTCDataChannelTransport(
     private val eventsChannel = Channel<InboundTransportEvent>(Channel.UNLIMITED)
     override val events: Flow<InboundTransportEvent> = eventsChannel.receiveAsFlow()
 
+    override val isSingleUse: Boolean = true
+
     private var pumping = false
 
     init {
@@ -70,7 +72,9 @@ class WebRTCDataChannelTransport(
                 }
             } finally {
                 // Single producer: the closed signal follows every buffered frame
-                // instead of racing past them on a separate coroutine.
+                // instead of racing past them on a separate coroutine. Whether that
+                // disconnect is terminal is [isSingleUse], not a state peek here —
+                // the wrapper's Closed state is published after the inbound feed ends.
                 eventsChannel.trySend(InboundTransportEvent.Disconnected(EPOCH))
             }
         }

@@ -163,7 +163,7 @@ class LocalPlayerController(
      * request. Routes uniformly through the MA REST API (no transport split).
      */
     fun handleLocalCommand(data: PlayerData, action: PlayerAction) {
-        val resolved = playerRequestFactory.resolve(data, action)
+        val resolved = playerRequestFactory.resolve(data, resolveLocalToggle(data, action))
         applyOptimisticUpdate(data, resolved)
         launch {
             // A resume of a paused audiobook/episode may come back relocated to the server's
@@ -204,6 +204,21 @@ class LocalPlayerController(
         }
     }
 
+    /**
+     * The spinner is the only feedback an offline Play gives; [armPendingPlayTimeout] bounds it.
+     * The sink only resumes once the command can actually reach the server: resuming it
+     * while the command waits in the offline queue would play stale buffered audio.
+     */
+    private fun optimisticPlay() {
+        if (apiClient.isReadyForCommands.value) {
+            mediaPlayerController.resumeSink()
+        } else {
+            log.i { "Local play queued while the command transport is not ready; sink stays paused" }
+        }
+        _localPlayerData.update { current -> current?.copy(pendingPlay = true) }
+        armPendingPlayTimeout()
+    }
+
     private fun cancelPendingPlayTimeout() {
         pendingPlayTimeoutJob?.cancel()
         pendingPlayTimeoutJob = null
@@ -223,25 +238,11 @@ class LocalPlayerController(
                         )
                     }
                 } else {
-                    if (!apiClient.isReadyForCommands.value) {
-                        log.i { "Suppressing pending local play while command transport is not ready" }
-                        return
-                    }
-                    mediaPlayerController.resumeSink()
-                    _localPlayerData.update { current -> current?.copy(pendingPlay = true) }
-                    armPendingPlayTimeout()
+                    optimisticPlay()
                 }
             }
 
-            PlayerAction.Play -> {
-                if (!apiClient.isReadyForCommands.value) {
-                    log.i { "Suppressing pending local play while command transport is not ready" }
-                    return
-                }
-                mediaPlayerController.resumeSink()
-                _localPlayerData.update { current -> current?.copy(pendingPlay = true) }
-                armPendingPlayTimeout()
-            }
+            PlayerAction.Play -> optimisticPlay()
 
             PlayerAction.Pause -> {
                 cancelPendingPlayTimeout()
@@ -326,7 +327,12 @@ class LocalPlayerController(
         // The Result.isFailure fallback closes the TOCTOU window where the state
         // flips between the check and the send.
         if (!apiClient.isReadyForCommands.value) {
+            // Enqueue first: the drain must see the entry when readiness flips.
             enqueue(action, request)
+            // Every command here comes from a user gesture or an interruption, so ask for the
+            // session back instead of waiting for readiness on its own — a backgrounded session
+            // torn down for idleness would otherwise only come back on the next foreground.
+            apiClient.requestCommandRecovery()
             return
         }
         if (apiClient.sendRequest(request).isFailure) enqueue(action, request)
@@ -893,6 +899,20 @@ class LocalPlayerController(
 }
 
 /** The transport intents that supersede one another in the offline queue. */
+/**
+ * Resolves a local play/pause toggle to the explicit action the user asked for,
+ * against the state they see. A queued `play_pause` would replay against the
+ * server's state instead, and the offline queue dedups toggles in their own
+ * class, so a toggle and a later Pause would both survive an outage. Local only:
+ * remote players keep the atomic server-side command.
+ */
+internal fun resolveLocalToggle(data: PlayerData, action: PlayerAction): PlayerAction =
+    if (action == PlayerAction.TogglePlayPause) {
+        if (data.player.isPlaying || data.pendingPlay) PlayerAction.Pause else PlayerAction.Play
+    } else {
+        action
+    }
+
 private fun PlayerAction.isPlayOrPause(): Boolean =
     this is PlayerAction.Play || this is PlayerAction.Pause || this is PlayerAction.PlayFrom
 
