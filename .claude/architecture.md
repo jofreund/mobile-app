@@ -141,6 +141,28 @@ throttled trim) → network. `mawebrtc://` URLs resolve through `MAWebRTCURLProt
 SVG, rendered by `SVGRasterizer` through one serialized `WKWebView` that is torn down after
 30 s idle. MA artwork URLs carry an empty checksum, so caches expire by age, not by signal.
 
+## Announcements (intercom tab)
+
+Ported from upstream's #1101 (`data/announcement/`), one part changed. The server has two kinds:
+typed (`players/cmd/play_announcement`, schema 46 and a TTS engine) and spoken (schema 48),
+where raw s16le mono PCM goes over `/live_announcement` (direct) or a `live_announcement` data
+channel (WebRTC): auth, start, `started`, audio frames, stop, then `finished` or `error` once
+the clip **has played**. The server plays every clip that has audio in it, also when the link
+drops half-way, and has no way to discard one.
+
+Upstream streams the microphone live. This fork records in Swift (`Intercom/IntercomRecorder`,
+home-intercom's `AVAudioRecorder` flow) and sends the finished clip on release
+(`AnnouncementRepository.sendClip` → upstream's `runLiveAnnouncement`, unchanged), because the
+tab must be able to send nothing: slide off the card, let go too early, a call. A
+`TrackingLink` notes whether audio and the stop went out; `ClipResult` carries both flags to
+Swift, where `AnnouncementError` turns them into "safe to resend" or "may have played". Sends
+run in the repository's own scope and are never cancelled: a closed link announces what
+arrived.
+
+`IntercomAudioSession` shares the session with the local player: it saves and restores the
+category around each press, never sets a preferred sample rate, and does not deactivate a
+session the local player had live. The grid is `PlayerBarStore.players` minus the local player.
+
 ## Local player (Sendspin)
 
 Off by default. When `sendspinEnabled` is on, `LocalPlayerActivation` (Swift) builds

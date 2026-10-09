@@ -38,6 +38,8 @@ script. See `docs/IOS-BUILD-INSTRUCTIONS.md`.
 - Remote access over WebRTC (signaling server + data channel proxy), QR-scanned remote id
 - Lock screen / Dynamic Island Live Activity with play/pause for the selected player
 - Optional on-device player (Sendspin, Noise-encrypted), off by default
+- Intercom tab: hold a player's card, speak, release — the message plays on that player
+  (spoken announcements, schema 48+; design and behaviour from ios-home-intercom)
 
 ## Architecture
 
@@ -53,7 +55,7 @@ script. See `docs/IOS-BUILD-INSTRUCTIONS.md`.
 - **Volume**: `.claude/volume-control.md`
 - **Local player**: `.claude/local-player-integration-plan.md` — how Sendspin was ported back and gated
 - **Kids mode**: `.claude/kids-favorites-mode.md` — the favorites carousel that replaces the shell on a child's device, and why "favorites of the signed-in account" is the source
-- **Intercom tab** (plan): `.claude/intercom-tab-plan.md` — porting upstream's announcements (#1101) as a push-to-talk tab built from `ios-home-intercom`, and why clips are sent on release
+- **Intercom tab**: `.claude/intercom-tab-plan.md` — upstream's announcements (#1101) as a push-to-talk tab built from `ios-home-intercom`, and why clips are sent on release
 - **CarPlay & Siri**: removed from this fork. `.claude/carplay.md` and `.claude/siri-integration-overview.md` describe upstream's versions for a possible port back
 - **Performance and simplification**: `.claude/perf-and-simplification-plan.md` — the numbered plan; tick items there
 

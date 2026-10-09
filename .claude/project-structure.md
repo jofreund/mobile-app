@@ -23,6 +23,7 @@ api/            ServiceClient, KtorServiceClient, RpcEngine, Request/Answer, Eve
 auth/           AuthenticationManager, OAuthCallback, AuthState
 connection/     ConnectionManager (auto-connect on launch and foreground)
 data/           MainDataSource, PlayerBarState, PlayerPositionTracker, LocalPlayerController
+  announcement/   AnnouncementRepository, the live-announcement protocol, RecordedAnnouncement
   model/server/   DTOs as the server sends them (+ events/)
   model/client/   Domain models: PlayerData, QueueInfo, AppMediaItem and items/
   factory/        DTO → domain mappers
@@ -63,6 +64,8 @@ Player/             MiniPlayerView, ExpandedPlayerView, PlayerBarStore, sliders,
 Media/              MediaItem, ArtworkView/Loader/DiskCache, SVGRasterizer, MAWebRTCURLProtocol, ItemContextMenu
 Settings/           SettingsView, ConnectionSetupView/Store, QrScanView, LocalPlayerSection (+ LocalPlayerOptions, pure), KidsModeSection
 Kids/               KidsFavoritesView (the kids-mode shell), KidsFavoritesCatalog (pure logic, also in tests)
+Intercom/           The intercom tab, from ios-home-intercom: IntercomView, IntercomCard, IntercomViewModel,
+                    IntercomRecorder + IntercomAudioSession, WAV files, KmpAnnouncementSender (pure parts also in tests)
 LiveActivity/       PlayerActivityController, PlayerActivityShared (also compiled into the widget)
 LocalPlayer/        LocalPlayerActivation, NativeAudioController, AudioDecoders, NowPlayingCoordinator
 Localizable.xcstrings, Assets.xcassets, Info.plist, PrivacyInfo.xcprivacy

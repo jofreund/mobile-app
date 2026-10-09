@@ -1,6 +1,6 @@
 # Intercom tab — plan
 
-**Status:** decided, being built. Written 2026-10-09.
+**Status:** built 2026-10-09 (Kotlin compiles and lints; Swift and every test still need a Mac — see "Order of work"). Written 2026-10-09.
 
 Upstream added spoken and typed announcements in `4bbab882` ("Play announcement (typed or
 spoken)", #1101): an entry in the expanded player's overflow menu opens a Compose dialog with a
@@ -97,35 +97,37 @@ Fork-only additions, in the same package so they sit next to what they wrap:
   | link lost after stop | yes | yes | The clip plays anyway. Not an error |
   | server `error` after stop | yes | yes | Playback failed (player gone, timeout). Show it |
 
-- `PlayerBarItem` gains `isLocal` (voice is never offered for the phone's own player), and
-  optionally `isAnnouncing` for a "Durchsage läuft" line on the tile.
+- `PlayerBarItem` gains `isLocal` (voice is never offered for the phone's own player) and
+  `isAnnouncing` for a "Durchsage läuft" line on the tile.
 
 `KmpHelper`, new section `// MARK: - Announcements (intercom tab)`:
 
 ```kotlin
 val announcementAvailability: NativeStateFlow<AnnouncementAvailability>
 
+/** The server's schema is known and below 48 — the tab says so. Non-reactive. */
+fun isServerTooOldForSpokenAnnouncements(): Boolean
+
 /** Streams a finished recording to [playerId]. Never cancellable — see RecordedAnnouncement. */
 fun sendRecordedAnnouncement(
     playerId: String,
-    pcm: NSData,                 // the WAV's data chunk; copied with usePinned + memcpy
+    pcm: NSData,                 // the WAV's data chunk (mono s16le); copied with usePinned + memcpy
     sampleRate: Int,
-    channels: Int,
     onAudioLeftDevice: () -> Unit,
-    onResult: (AnnouncementResult) -> Unit,  // flat: played, reason, audioSent, stopSent
+    onResult: (ClipResult) -> Unit,  // flat: played, reason, audioSent, stopSent
 )
-
-fun playTextAnnouncement(playerId: String, message: String)  // only if the TTS option is taken
 ```
 
-Callbacks land on the main thread like every other bridge callback. `AnnouncementResult` is a
-flat class with plain `Boolean`s, per `PlayerBarState.kt`'s rule against `Boolean?`.
+Callbacks land on the main thread like every other bridge callback. `ClipResult` is a flat
+class with plain `Boolean`s, per `PlayerBarState.kt`'s rule against `Boolean?`. No typed
+announcement reaches Swift (decision 2).
 
 Tests (commonTest): `LiveAnnouncementSessionTest` and `AnnouncementRequestTest` verbatim;
-`ConnectionInfoTest` adapted to the URL builder; `AnnouncementAvailabilityTest` needs
-`ktor-client-mock` (upstream has it; add it to `libs.versions.toml` and commonTest, and to
-`dependencies.md`). New: `RecordedAnnouncementTest` — chunking, and each row of the table
-above against a fake link.
+`ConnectionInfoTest` new, for the URL builder; `AnnouncementAvailabilityTest` adapted —
+availability never touches its `HttpClient`, so a plain `createPlatformHttpClient()` stands in
+for upstream's `MockEngine` and no test dependency is added. `StubServiceClient` became `open`,
+as upstream's is. New: `RecordedAnnouncementTest` — chunking, and each row of the table above
+against a fake link.
 
 ## Swift
 
@@ -146,7 +148,7 @@ its comments; the table says what has to change.
 | `Audio/AudioEngine.swift` | `IntercomAudioSession.swift` | Coexistence with the local player (below) |
 | `Audio/WAVFile.swift`, `WAVConverter.swift` | same | Target format; plus a data-chunk reader for the sender |
 | `Support/Haptics.swift`, `ImmediatePress.swift`, `ImmediateTouches.swift` | same | Verbatim |
-| `Support/Backdrop.swift`, `BackdropStyle.swift` | same | Verbatim; always `.aurora` (decision 4) |
+| `Support/Backdrop.swift`, `BackdropStyle.swift` | `Backdrop.swift` | Aurora's hues written into it; `BackdropStyle` not ported (decision 4) |
 | `Support/Palette.swift` + `CancelColor.colorset` | same | `Color.cancel` and the asset |
 | `Networking/*` (HA client, WebSocket, endpoints), `Storage/*`, `RoomStatus`, `RoomIcon`, `IntercomConfig`, `EntityState`, `PreviewIntercomClient` | not ported | Music Assistant replaces Home Assistant; previews get a `PreviewAnnouncementSender` |
 
@@ -222,7 +224,7 @@ status), `WAVFormatTests`, `AnnouncementErrorTests` (from `SendResultTests` and
    `text` flag, so a sheet can follow without touching Kotlin.
 3. **No per-announcement chime or volume.** Neither is sent, so each player's own
    announcement settings apply.
-4. **Fixed backdrop.** `Backdrop(style: .aurora)`; no picker, no preference.
+4. **Fixed backdrop.** `Backdrop()` with Aurora's hues; no picker, no preference.
 
 ## Order of work
 
@@ -236,4 +238,10 @@ status), `WAVFormatTests`, `AnnouncementErrorTests` (from `SendResultTests` and
    its route; Bluetooth headphones; a fifth announcement while four are still playing is
    rejected with the server's reason; background the app mid-send.
 5. Docs: `architecture.md` (announcements line, like upstream's), `project-structure.md`
-   (`Intercom/`), `dependencies.md` (`ktor-client-mock`), `USING-THE-APP.md`.
+   (`Intercom/`), `USING-THE-APP.md`.
+
+Done in the Linux session that built it: steps 1, 2, 3 and 5 are written; `detektAll` passes,
+and `compileKotlinIosSimulatorArm64` / `compileTestKotlinIosSimulatorArm64` pass through klib
+cross-compilation (`-Pkotlin.native.enableKlibsCrossCompilation=true`). Not run there: the
+Kotlin tests (they need the simulator), anything Swift (no Xcode), and step 4. The PR's
+`Check PR (iOS)` workflow covers the Kotlin tests and the app build.
