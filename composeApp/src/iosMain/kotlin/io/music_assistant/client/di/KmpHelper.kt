@@ -27,6 +27,10 @@ import io.music_assistant.client.data.NowPlayingModes
 import io.music_assistant.client.data.NowPlayingTrack
 import io.music_assistant.client.data.NowPlayingTransport
 import io.music_assistant.client.data.PlayerBarState
+import io.music_assistant.client.data.announcement.AnnouncementAvailability
+import io.music_assistant.client.data.announcement.AnnouncementOptions
+import io.music_assistant.client.data.announcement.AnnouncementRepository
+import io.music_assistant.client.data.announcement.ClipResult
 import io.music_assistant.client.data.model.client.LibraryFilters
 import io.music_assistant.client.data.model.client.MediaType
 import io.music_assistant.client.data.model.client.PlayerData
@@ -97,6 +101,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import platform.Foundation.NSData
 import platform.Foundation.create
+import platform.posix.memcpy
 
 private val log = Logger.withTag("KmpHelper")
 
@@ -176,6 +181,7 @@ object KmpHelper {
     private val errorBus: ErrorMessageBus get() = graph.errorBus
     private val logSharer: LogSharer get() = graph.logSharer
     private val artworkHttpClient: HttpClient get() = graph.webrtcHttpClient
+    private val announcementRepository: AnnouncementRepository get() = graph.announcementRepository
 
     // Provide a scope for Swift to launch coroutines if needed
     val mainScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -1640,4 +1646,47 @@ object KmpHelper {
 
     fun toggleMemberMute(playerId: String, isMutedNow: Boolean) =
         mainDataSource.playerAction(playerId, PlayerAction.ToggleMute(isMutedNow))
+
+    // MARK: - Announcements (intercom tab)
+    //
+    // The tab records in Swift and hands over the finished clip on release; see
+    // `AnnouncementRepository` for why nothing streams while the card is held. The send runs in
+    // the repository's own scope and cannot be cancelled from here: a link closed half-way
+    // through a clip still announces the half that arrived.
+
+    /** What the signed-in server can announce; `voice` gates the intercom tab. */
+    val announcementAvailability: NativeStateFlow<AnnouncementAvailability>
+        get() = NativeStateFlow(announcementRepository.availability, mainScope)
+
+    /**
+     * Announces a finished recording on [playerId]: [pcm] is raw s16le mono at [sampleRate],
+     * the WAV's data chunk. [onAudioLeftDevice] fires once the whole clip and the stop have gone
+     * out — from then on it plays whatever happens to the connection. [onResult] fires once,
+     * after playback or as soon as it is clear the clip did not get through. Both on the main
+     * thread. Leaves each player's own chime and announcement volume in charge.
+     */
+    fun sendRecordedAnnouncement(
+        playerId: String,
+        pcm: NSData,
+        sampleRate: Int,
+        onAudioLeftDevice: () -> Unit,
+        onResult: (ClipResult) -> Unit,
+    ) {
+        announcementRepository.sendClip(
+            playerId = playerId,
+            pcm = pcm.toByteArray(),
+            sampleRate = sampleRate,
+            options = AnnouncementOptions(),
+            onAudioLeftDevice = { mainScope.launch { onAudioLeftDevice() } },
+            onResult = { result -> mainScope.launch { onResult(result) } },
+        )
+    }
+
+    private fun NSData.toByteArray(): ByteArray {
+        val size = length.toInt()
+        if (size == 0) return ByteArray(0)
+        return ByteArray(size).apply {
+            usePinned { pinned -> memcpy(pinned.addressOf(0), bytes, length) }
+        }
+    }
 }

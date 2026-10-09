@@ -285,6 +285,10 @@ struct PlayerBarItemView: Identifiable {
     let isGroup: Bool
     /// Sync-group leader with members — shows the extra group-volume row in group settings.
     let isGrouped: Bool
+    /// The phone's own player. The intercom tab leaves it out.
+    let isLocal: Bool
+    /// An announcement is playing on this player right now.
+    let isAnnouncing: Bool
     let groupVolume: Float?
     let groupVolumeMuted: Bool
     /// Raw own volume/mute (not group-adjusted like `volumeLevel`) — the group-settings pivot row.
@@ -330,6 +334,8 @@ struct PlayerBarItemView: Identifiable {
         self.isSpokenWord = item.isSpokenWord
         self.isGroup = item.isGroup
         self.isGrouped = item.isGrouped
+        self.isLocal = item.isLocal
+        self.isAnnouncing = item.isAnnouncing
         self.groupVolume = item.groupVolume?.floatValue
         self.groupVolumeMuted = item.groupVolumeMuted
         self.ownVolume = item.ownVolume?.floatValue
