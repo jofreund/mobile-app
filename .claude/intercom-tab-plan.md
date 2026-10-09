@@ -1,6 +1,6 @@
 # Intercom tab — plan
 
-**Status:** plan, nothing built. Written 2026-10-09.
+**Status:** decided, being built. Written 2026-10-09.
 
 Upstream added spoken and typed announcements in `4bbab882` ("Play announcement (typed or
 spoken)", #1101): an entry in the expanded player's overflow menu opens a Compose dialog with a
@@ -136,7 +136,7 @@ its comments; the table says what has to change.
 |---|---|---|
 | `Features/Rooms/RoomsView.swift` | `IntercomView.swift` | Players instead of rooms. Drop the not-configured and load-failure branches, pull-to-refresh, polling and the HA live-status lifecycle; keep the pop-over, hold hint, haptic warm-up and the background cancel. The gear calls `AppRouter.shared.requestSettings()` or goes |
 | `Features/Rooms/RoomCard.swift` | `IntercomCard.swift` | `Room` → `IntercomTarget`. The room symbol becomes `PlayerIcon(iconId)`. Status row: "Aus" for a powered-off player, "Durchsage läuft" if `isAnnouncing` is bridged |
-| `Features/Rooms/RoomsViewModel.swift` | `IntercomViewModel.swift` | Loading, polling, live status, room refresh and `/config` go; targets are pushed in from `PlayerBarStore` (`update(targets:)`). No "Alle Räume" card (see open decisions). `client.send(wav:target:onBodySent:)` becomes `sender.send(clip:to:onAudioLeftDevice:)`; the held/released/superseded bookkeeping stays as it is. Max length a constant (60 s, the server allows 300) |
+| `Features/Rooms/RoomsViewModel.swift` | `IntercomViewModel.swift` | Loading, polling, live status, room refresh and `/config` go; targets are pushed in from `PlayerBarStore` (`update(targets:)`). No "Alle Räume" card (decision 1). `client.send(wav:target:onBodySent:)` becomes `sender.send(clip:to:onAudioLeftDevice:)`; the held/released/superseded bookkeeping stays as it is. Max length a constant (60 s, the server allows 300) |
 | `Features/Rooms/RecordingWaveform.swift` | same | Renamed recorder type only |
 | `Models/Room.swift` | `IntercomTarget.swift` | Pure value: player id, name, icon id, isGroup, isPoweredOff. `canReceiveAnnouncement` = in the list and not local |
 | `Networking/APIError.swift` | `AnnouncementError.swift` | Pure. Messages for the table above; `mayHaveBeenDelivered` = audio sent |
@@ -146,9 +146,8 @@ its comments; the table says what has to change.
 | `Audio/AudioEngine.swift` | `IntercomAudioSession.swift` | Coexistence with the local player (below) |
 | `Audio/WAVFile.swift`, `WAVConverter.swift` | same | Target format; plus a data-chunk reader for the sender |
 | `Support/Haptics.swift`, `ImmediatePress.swift`, `ImmediateTouches.swift` | same | Verbatim |
-| `Support/Backdrop.swift`, `BackdropStyle.swift` | same | Verbatim; the style comes from `AppPreferences` (default `aurora`) |
+| `Support/Backdrop.swift`, `BackdropStyle.swift` | same | Verbatim; always `.aurora` (decision 4) |
 | `Support/Palette.swift` + `CancelColor.colorset` | same | `Color.cancel` and the asset |
-| `Features/Settings/BackdropPicker.swift` | optional | A small "Intercom" section in Settings |
 | `Networking/*` (HA client, WebSocket, endpoints), `Storage/*`, `RoomStatus`, `RoomIcon`, `IntercomConfig`, `EntityState`, `PreviewIntercomClient` | not ported | Music Assistant replaces Home Assistant; previews get a `PreviewAnnouncementSender` |
 
 **Names.** `AudioFormat` collides with the Kotlin `AudioFormat` that `MusicAssistantKit` exports,
@@ -198,7 +197,7 @@ for the pure files the tests compile too).
 
 **Swift tests.** `IntercomViewModelTests` from `RoomsViewModelTests` (minus polling and live
 status), `WAVFormatTests`, `AnnouncementErrorTests` (from `SendResultTests` and
-`UploadRetrySafetyTests`), `BackdropStyleTests` if the picker comes along.
+`UploadRetrySafetyTests`).
 
 ## Behaviour mapping
 
@@ -213,19 +212,17 @@ status), `WAVFormatTests`, `AnnouncementErrorTests` (from `SendResultTests` and
 | Partial delivery ("Nur N von M Räumen") | No equivalent (one player per clip) |
 | Recording too short / silent | Unchanged — nothing reaches the server |
 
-## Open decisions
+## Decisions (2026-10-09)
 
-1. **"Alle Räume".** Music Assistant has no broadcast and allows four live sessions at once.
-   Options: no such card (an MA group player shows up as its own card and plays on all its
-   members); or one card that sends the same clip to every player in turn. Recommended: no
-   card, use a group.
-2. **Typed announcements.** Upstream's *Type* mode has no place in a push-to-talk grid. Options:
-   leave it out; or a toolbar button opening a small sheet (player, message). Recommended:
-   leave it out of the first version; the kernel half costs nothing to keep.
-3. **Chime and volume.** Upstream lets each announcement override the player's chime and
-   volume. Recommended: send neither, so each player's own settings apply; a global chime
-   toggle in the Intercom settings section can follow.
-4. **Backdrop picker.** Port it into Settings, or fix the backdrop to one style.
+1. **No "Alle Räume" card.** Music Assistant has no broadcast and allows four live sessions at
+   once. A group player shows up as its own card, and the server fans a group's announcement
+   out to its members.
+2. **No typed announcements in the tab.** Upstream's *Type* mode has no place in a
+   push-to-talk grid. The kernel keeps `AnnouncementRepository.type` and the availability's
+   `text` flag, so a sheet can follow without touching Kotlin.
+3. **No per-announcement chime or volume.** Neither is sent, so each player's own
+   announcement settings apply.
+4. **Fixed backdrop.** `Backdrop(style: .aurora)`; no picker, no preference.
 
 ## Order of work
 
