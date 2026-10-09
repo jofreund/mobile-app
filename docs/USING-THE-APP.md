@@ -94,6 +94,26 @@ Two things live in the expanded player's header:
   set each member's volume, and set the group volume. Some members are fixed by the server and
   can't be removed; those controls are disabled rather than hidden.
 
+## Intercom
+
+Speak to a room. Every player appears as a card — groups too, which play the message on all
+their members. The player on this phone is left out.
+
+Hold a card: it grows, you feel a tap, and the microphone is on. Speak, then let go — the card
+says **Gesendet** as soon as the message has left the phone, and the player lowers or pauses its
+music, plays the message (with its chime, if it has one set), and carries on.
+
+- **Slide off** the enlarged card before letting go to throw the recording away. Nothing is sent.
+- **Let go too early** — before the tap — and nothing is sent either; the card says so.
+- A message that could not be sent stays on the card with **Erneut senden** and a bin. If the
+  card adds *evtl. schon abgespielt*, part of it may already have played, and sending it again
+  plays it again.
+- A recording stops on its own after a minute and is sent.
+
+The microphone is only used while a card is held; the app asks for access on the first press.
+Spoken announcements need a Music Assistant server with schema 48 or newer; on an older one the
+tab says so.
+
 ## Settings
 
 Reachable from the gear in Home's toolbar; it opens over the app and closes with ✕.

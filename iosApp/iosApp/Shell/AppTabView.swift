@@ -31,7 +31,7 @@ struct ItemDetailsRoute: Hashable {
 /// that fires, same as it always has, so Settings was never a good fit for a peer tab with its
 /// own content in the first place.
 enum AppTab: Hashable {
-    case home, library, search
+    case home, library, search, intercom
 }
 
 /// Replaces `MainTabHostView` (Phase E1/E2's single shared `NavigationStack` over one Compose
@@ -88,12 +88,20 @@ struct AppTabView: View {
     /// accessory's content is rebuilt as tabs change, and state inside it went back to nil each
     /// time, snapping the pager to the first player before animating to the selected one.
     @State private var miniPlayerScrollID: String?
+    /// The intercom tab's cards and recorder. Here rather than in `IntercomView`, for the same
+    /// reason as `playerBarStore`: this body rebuilds every tab's view, and that one would
+    /// rebuild a recorder each time.
+    @State private var intercomViewModel = IntercomViewModel.live()
 
     var body: some View {
         TabView(selection: $selectedTab) {
             Tab("nav_home", systemImage: "house", value: .home) { homeTab }
             Tab("nav_library", systemImage: "square.stack", value: .library) { libraryTab }
             Tab("nav_search", systemImage: "magnifyingglass", value: .search) { searchTab }
+            // Owns its NavigationStack — see `IntercomView`.
+            Tab("nav_intercom", systemImage: "megaphone", value: .intercom) {
+                IntercomView(store: playerBarStore, viewModel: intercomViewModel)
+            }
         }
         // Minimising the tab bar on scroll widens the accessory into the space the bar leaves —
         // it doesn't make it taller. There is no way to ask for a taller accessory: the API is
@@ -123,6 +131,10 @@ struct AppTabView: View {
                     case .home: homePath.append(route)
                     case .library: libraryPath.append(route)
                     case .search: searchPath.append(route)
+                    // The intercom grid has nowhere to push to; the item opens on Home.
+                    case .intercom:
+                        selectedTab = .home
+                        homePath.append(route)
                     }
                 },
                 onCollapse: { playerExpanded = false }

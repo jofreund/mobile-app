@@ -115,6 +115,13 @@ data class PlayerBarItem(
     val isGroup: Boolean,
     /** A non-GROUP player currently leading a sync group — shows the extra group-volume row. */
     val isGrouped: Boolean,
+    /**
+     * The phone's own player (the local Sendspin player). The intercom tab leaves it out: a
+     * spoken announcement to it would be recorded and played on the same device.
+     */
+    val isLocal: Boolean,
+    /** An announcement is playing on this player right now — the intercom card says so. */
+    val isAnnouncing: Boolean,
     val groupVolume: Float?,
     val groupVolumeMuted: Boolean,
     /** The player's RAW own volume/mute (`player.volumeLevel`/`volumeMuted`) — unlike
@@ -359,6 +366,8 @@ internal fun buildPlayerBarState(
                     .let { it is Audiobook || it is PodcastEpisode },
                 isGroup = player.isGroup,
                 isGrouped = player.isGrouped,
+                isLocal = data.isLocal,
+                isAnnouncing = player.isAnnouncing,
                 groupVolume = player.groupVolume,
                 groupVolumeMuted = player.groupVolumeMuted,
                 ownVolume = player.volumeLevel,

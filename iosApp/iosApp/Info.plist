@@ -46,7 +46,7 @@
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Taktgeber connects to your Music Assistant server on your local network to browse and play your music library.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Taktgeber does not access the microphone. This description is required because an included framework (WebRTC) references microphone APIs that this app does not use.</string>
+	<string>Taktgeber uses the microphone only while you hold a card on the Intercom tab, to send a spoken announcement to a speaker through your Music Assistant server.</string>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
 	<key>UIApplicationSceneManifest</key>

@@ -19,6 +19,7 @@ import io.music_assistant.client.data.PlayerPositionTracker
 import io.music_assistant.client.data.PlayerRequestFactory
 import io.music_assistant.client.data.ResumePointResolver
 import io.music_assistant.client.data.UserPreferences
+import io.music_assistant.client.data.announcement.AnnouncementRepository
 import io.music_assistant.client.data.factory.MediaItemFactory
 import io.music_assistant.client.data.factory.PlayerFactory
 import io.music_assistant.client.data.factory.QueueFactory
@@ -35,6 +36,9 @@ import io.music_assistant.client.settings.SettingsRepository
 import io.music_assistant.client.utils.NetworkMonitor
 import io.music_assistant.client.utils.createPlatformHttpClient
 import io.music_assistant.client.utils.myJson
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 
 /**
  * The app's object graph, wired by hand.
@@ -96,6 +100,18 @@ class AppGraph(
     val queueFactory = QueueFactory(mediaItemFactory)
     val resumePointResolver = ResumePointResolver(serviceClient, mediaItemFactory)
     val mediaItemRepository by lazy { MediaItemRepository(serviceClient, mediaItemFactory) }
+
+    /**
+     * Typed and spoken announcements. Its own scope rather than a caller's: the server answers
+     * only after playback, and a clip whose link closes early is announced cut short.
+     */
+    val announcementRepository by lazy {
+        AnnouncementRepository(
+            apiClient = serviceClient,
+            httpClient = webrtcHttpClient,
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
+        )
+    }
 
     val mediaPlayerController by lazy { MediaPlayerController(platformContext) }
     private val sendspinKeyStore: SendspinKeyStore by lazy { SettingsSendspinKeyStore(settingsStore) }
