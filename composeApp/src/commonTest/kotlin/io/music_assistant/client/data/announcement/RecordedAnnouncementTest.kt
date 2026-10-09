@@ -81,6 +81,37 @@ class RecordedAnnouncementTest {
     }
 
     @Test
+    fun `the chime is always decided and the player's setting fills it in`() {
+        assertEquals(true, AnnouncementOptions().withChime(setting = true).preAnnounce)
+        assertEquals(false, AnnouncementOptions().withChime(setting = false).preAnnounce)
+        // No answer from the server: the setting's own default, which is on.
+        assertEquals(true, AnnouncementOptions().withChime(setting = null).preAnnounce)
+        // A choice the caller made is never overridden.
+        assertEquals(false, AnnouncementOptions(preAnnounce = false).withChime(setting = true).preAnnounce)
+    }
+
+    @Test
+    fun `start carries the chime the player is set to`() = runTest {
+        val link = FakeLink()
+        val result = async {
+            runRecordedAnnouncement(
+                link,
+                "token-1",
+                "player-1",
+                ByteArray(2),
+                24_000,
+                AnnouncementOptions().withChime(setting = true),
+            ) {}
+        }
+        runCurrent()
+
+        val start = myJson.parseToJsonElement(link.sent[1] as String).jsonObject
+        assertEquals("true", start.getValue("pre_announce").jsonPrimitive.content)
+        link.server.trySend(LinkInbound.Closed(null, null))
+        result.await()
+    }
+
+    @Test
     fun `start carries the clip's rate`() = runTest {
         val link = FakeLink()
         val result = send(link, ByteArray(2))

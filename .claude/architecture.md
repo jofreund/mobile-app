@@ -159,6 +159,9 @@ Swift, where `AnnouncementError` turns them into "safe to resend" or "may have p
 run in the repository's own scope and are never cancelled: a closed link announces what
 arrived.
 
+The chime is always sent explicitly, read from the player's `tts_pre_announce`: the server
+applies that setting only to spoken text, so a clip without `pre_announce` plays unannounced.
+
 `IntercomAudioSession` shares the session with the local player: it saves and restores the
 category around each press, never sets a preferred sample rate, and does not deactivate a
 session the local player had live. The grid is `PlayerBarStore.players` minus the local player.

@@ -54,6 +54,17 @@ internal suspend fun runRecordedAnnouncement(
     )
 }
 
+/**
+ * The options with the chime decided: the caller's choice when it made one, else [setting] —
+ * the player's own `tts_pre_announce` — else on, which is that setting's default.
+ *
+ * Never left unset. The server reads the player's chime setting only for a spoken *text*;
+ * a recorded clip that arrives without `pre_announce` plays with no chime at all, whatever
+ * the player is set to. Upstream's dialog sends the setting explicitly for the same reason.
+ */
+internal fun AnnouncementOptions.withChime(setting: Boolean?): AnnouncementOptions =
+    if (preAnnounce != null) this else copy(preAnnounce = setting ?: true)
+
 /** The clip in frames of at most [FRAME_BYTES]; an even size, so no sample is split. */
 internal fun ByteArray.frames(): List<ByteArray> =
     (indices step FRAME_BYTES).map { start -> copyOfRange(start, minOf(start + FRAME_BYTES, size)) }

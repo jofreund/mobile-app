@@ -18,7 +18,9 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.JsonObject
+import kotlin.time.Duration.Companion.seconds
 
 /** What the signed-in server can announce. Voice is further hidden for the phone's own player. */
 data class AnnouncementAvailability(val text: Boolean = false, val voice: Boolean = false)
@@ -110,6 +112,8 @@ class AnnouncementRepository(
         if (pcm.isEmpty()) return ClipResult.notSent()
         val state = apiClient.sessionState.value
         val token = state.authenticatedToken() ?: return ClipResult.notSent()
+        // Read before the link opens: the server waits only 10 s for the start message.
+        val chime = options.preAnnounce ?: withTimeoutOrNull(CHIME_LOOKUP_TIMEOUT) { chimeSetting(playerId) }
         val link = when (state) {
             is SessionState.Connected.Direct ->
                 WebSocketLink.connect(httpClient, state.connectionInfo.liveAnnouncementUrl)
@@ -119,7 +123,15 @@ class AnnouncementRepository(
 
             else -> null
         } ?: return ClipResult.notSent()
-        return runRecordedAnnouncement(link, token, playerId, pcm, sampleRate, options, onAudioLeftDevice)
+        return runRecordedAnnouncement(
+            link,
+            token,
+            playerId,
+            pcm,
+            sampleRate,
+            options.withChime(chime),
+            onAudioLeftDevice,
+        )
     }
 
     private suspend fun hasTtsEngine(): Boolean =
@@ -134,5 +146,8 @@ class AnnouncementRepository(
         const val TEXT_SCHEMA = 46
         const val VOICE_SCHEMA = 48
         const val LIVE_ANNOUNCEMENT_CHANNEL = "live_announcement"
+
+        /** A lost reply must not hold the clip back; the player's default chime applies then. */
+        val CHIME_LOOKUP_TIMEOUT = 5.seconds
     }
 }

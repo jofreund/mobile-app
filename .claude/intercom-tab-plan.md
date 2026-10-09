@@ -222,8 +222,12 @@ status), `WAVFormatTests`, `AnnouncementErrorTests` (from `SendResultTests` and
 2. **No typed announcements in the tab.** Upstream's *Type* mode has no place in a
    push-to-talk grid. The kernel keeps `AnnouncementRepository.type` and the availability's
    `text` flag, so a sheet can follow without touching Kotlin.
-3. **No per-announcement chime or volume.** Neither is sent, so each player's own
-   announcement settings apply.
+3. **No per-announcement chime or volume** in the UI; each player's own settings apply. For
+   the chime that means *sending* it: the server reads a player's `tts_pre_announce` only for
+   spoken text, and a recorded clip without `pre_announce` played with no chime at all (found
+   on the first device test). `sendClip` reads the setting (`config/players/get_value`) and
+   sends it, as upstream's dialog does. The volume needs nothing — the server applies the
+   player's announcement volume to every announcement.
 4. **Fixed backdrop.** `Backdrop()` with Aurora's hues; no picker, no preference.
 
 ## Order of work
