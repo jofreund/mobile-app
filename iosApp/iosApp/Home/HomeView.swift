@@ -27,6 +27,8 @@ struct HomeView: View {
     @State private var reloadTrigger = UUID()
     @State private var sessionSubscription: Cancellable?
     @State private var wasReady = false
+    @State private var isLoading = false
+    @State private var readyDuringLoad = false
 
     @State private var homeRowsConfig: [HomeRowPref] = []
     @State private var isEditing = false
@@ -76,6 +78,14 @@ struct HomeView: View {
                     let justBecameReady = ready && !wasReady
                     wasReady = ready
                     guard justBecameReady, loadFailed || recommendations == nil else { return }
+                    // A load already in flight was parked in `sendRequest`'s readiness gate and
+                    // proceeds on its own now. Restarting it sent every request twice on cold
+                    // start, doubling the load on the server exactly while it was slowest. Only
+                    // if that load still fails is the retry owed — `load()` collects it.
+                    if isLoading {
+                        readyDuringLoad = true
+                        return
+                    }
                     reloadTrigger = UUID()
                 }
             }
@@ -227,6 +237,9 @@ struct HomeView: View {
         // what you have until better data arrives. The first load needs no help from it either:
         // `recommendations` already starts nil, which is what shows the spinner.
         loadFailed = false
+        isLoading = true
+        readyDuringLoad = false
+        defer { isLoading = false }
         homeRowsConfig = AppPreferences.shared.homeRows
 
         async let recommendationsResult: [RecommendationFolder]? = withCheckedContinuation { continuation in
@@ -254,6 +267,10 @@ struct HomeView: View {
             // error has already surfaced as a toast via `ErrorMessageBus`. The flag still
             // matters for the empty case, and for the reconnect retry in `body`.
             loadFailed = true
+            if readyDuringLoad {
+                readyDuringLoad = false
+                reloadTrigger = UUID()
+            }
             return
         }
         recommendations = loadedRecommendations
