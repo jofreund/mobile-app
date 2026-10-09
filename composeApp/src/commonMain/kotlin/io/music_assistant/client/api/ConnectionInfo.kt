@@ -13,4 +13,12 @@ data class ConnectionInfo(
         host = host,
         port = port,
     ).buildString()
+
+    /** The webserver socket that takes a spoken announcement as live PCM. */
+    val liveAnnouncementUrl = URLBuilder(
+        protocol = if (isTls) URLProtocol.WSS else URLProtocol.WS,
+        host = host,
+        port = port,
+        pathSegments = listOf("live_announcement"),
+    ).buildString()
 }
