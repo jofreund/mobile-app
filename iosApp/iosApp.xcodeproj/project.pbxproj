@@ -132,6 +132,37 @@
 		C8WD00242FA0000000000024 /* TaktgeberWidgetsBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8WD00132FA0000000000013 /* TaktgeberWidgetsBundle.swift */; };
 		C8WD00252FA0000000000025 /* PlayerLiveActivityWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8WD00142FA0000000000014 /* PlayerLiveActivityWidget.swift */; };
 		C8WD00262FA0000000000026 /* TaktgeberWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = C8WD00152FA0000000000015 /* TaktgeberWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		C8IN20012F90000000002001 /* AnnouncementError.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8IN10012F90000000001001 /* AnnouncementError.swift */; };
+		C8IN20022F90000000002002 /* AnnouncementSending.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8IN10022F90000000001002 /* AnnouncementSending.swift */; };
+		C8IN20032F90000000002003 /* Backdrop.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8IN10032F90000000001003 /* Backdrop.swift */; };
+		C8IN20042F90000000002004 /* Haptics.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8IN10042F90000000001004 /* Haptics.swift */; };
+		C8IN20052F90000000002005 /* ImmediatePress.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8IN10052F90000000001005 /* ImmediatePress.swift */; };
+		C8IN20062F90000000002006 /* ImmediateTouches.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8IN10062F90000000001006 /* ImmediateTouches.swift */; };
+		C8IN20072F90000000002007 /* IntercomAudioFormat.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8IN10072F90000000001007 /* IntercomAudioFormat.swift */; };
+		C8IN20082F90000000002008 /* IntercomAudioSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8IN10082F90000000001008 /* IntercomAudioSession.swift */; };
+		C8IN20092F90000000002009 /* IntercomCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8IN10092F90000000001009 /* IntercomCard.swift */; };
+		C8IN20102F90000000002010 /* IntercomPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8IN10102F90000000001010 /* IntercomPalette.swift */; };
+		C8IN20112F90000000002011 /* IntercomRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8IN10112F90000000001011 /* IntercomRecorder.swift */; };
+		C8IN20122F90000000002012 /* IntercomTarget.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8IN10122F90000000001012 /* IntercomTarget.swift */; };
+		C8IN20132F90000000002013 /* IntercomView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8IN10132F90000000001013 /* IntercomView.swift */; };
+		C8IN20142F90000000002014 /* IntercomViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8IN10142F90000000001014 /* IntercomViewModel.swift */; };
+		C8IN20152F90000000002015 /* KmpAnnouncementSender.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8IN10152F90000000001015 /* KmpAnnouncementSender.swift */; };
+		C8IN20162F90000000002016 /* RecordingWaveform.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8IN10162F90000000001016 /* RecordingWaveform.swift */; };
+		C8IN20172F90000000002017 /* WAVConverter.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8IN10172F90000000001017 /* WAVConverter.swift */; };
+		C8IN20182F90000000002018 /* WAVFile.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8IN10182F90000000001018 /* WAVFile.swift */; };
+		C8IN30012F90000000003001 /* AnnouncementError.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8IN10012F90000000001001 /* AnnouncementError.swift */; };
+		C8IN30022F90000000003002 /* AnnouncementSending.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8IN10022F90000000001002 /* AnnouncementSending.swift */; };
+		C8IN30032F90000000003003 /* Haptics.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8IN10042F90000000001004 /* Haptics.swift */; };
+		C8IN30042F90000000003004 /* IntercomAudioFormat.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8IN10072F90000000001007 /* IntercomAudioFormat.swift */; };
+		C8IN30052F90000000003005 /* IntercomAudioSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8IN10082F90000000001008 /* IntercomAudioSession.swift */; };
+		C8IN30062F90000000003006 /* IntercomRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8IN10112F90000000001011 /* IntercomRecorder.swift */; };
+		C8IN30072F90000000003007 /* IntercomTarget.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8IN10122F90000000001012 /* IntercomTarget.swift */; };
+		C8IN30082F90000000003008 /* IntercomViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8IN10142F90000000001014 /* IntercomViewModel.swift */; };
+		C8IN30092F90000000003009 /* WAVConverter.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8IN10172F90000000001017 /* WAVConverter.swift */; };
+		C8IN30102F90000000003010 /* WAVFile.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8IN10182F90000000001018 /* WAVFile.swift */; };
+		C8IN30112F90000000003011 /* AnnouncementErrorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8IN10192F90000000001019 /* AnnouncementErrorTests.swift */; };
+		C8IN30122F90000000003012 /* IntercomViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8IN10202F90000000001020 /* IntercomViewModelTests.swift */; };
+		C8IN30132F90000000003013 /* IntercomWAVFileTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8IN10212F90000000001021 /* IntercomWAVFileTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -276,6 +307,27 @@
 		C8WD00152FA0000000000015 /* TaktgeberWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = TaktgeberWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		C8WD00172FA0000000000017 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		C8WD00182FA0000000000018 /* TaktgeberWidgets.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TaktgeberWidgets.entitlements; sourceTree = "<group>"; };
+		C8IN10012F90000000001001 /* AnnouncementError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnnouncementError.swift; sourceTree = "<group>"; };
+		C8IN10022F90000000001002 /* AnnouncementSending.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnnouncementSending.swift; sourceTree = "<group>"; };
+		C8IN10032F90000000001003 /* Backdrop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Backdrop.swift; sourceTree = "<group>"; };
+		C8IN10042F90000000001004 /* Haptics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Haptics.swift; sourceTree = "<group>"; };
+		C8IN10052F90000000001005 /* ImmediatePress.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImmediatePress.swift; sourceTree = "<group>"; };
+		C8IN10062F90000000001006 /* ImmediateTouches.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImmediateTouches.swift; sourceTree = "<group>"; };
+		C8IN10072F90000000001007 /* IntercomAudioFormat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntercomAudioFormat.swift; sourceTree = "<group>"; };
+		C8IN10082F90000000001008 /* IntercomAudioSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntercomAudioSession.swift; sourceTree = "<group>"; };
+		C8IN10092F90000000001009 /* IntercomCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntercomCard.swift; sourceTree = "<group>"; };
+		C8IN10102F90000000001010 /* IntercomPalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntercomPalette.swift; sourceTree = "<group>"; };
+		C8IN10112F90000000001011 /* IntercomRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntercomRecorder.swift; sourceTree = "<group>"; };
+		C8IN10122F90000000001012 /* IntercomTarget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntercomTarget.swift; sourceTree = "<group>"; };
+		C8IN10132F90000000001013 /* IntercomView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntercomView.swift; sourceTree = "<group>"; };
+		C8IN10142F90000000001014 /* IntercomViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntercomViewModel.swift; sourceTree = "<group>"; };
+		C8IN10152F90000000001015 /* KmpAnnouncementSender.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KmpAnnouncementSender.swift; sourceTree = "<group>"; };
+		C8IN10162F90000000001016 /* RecordingWaveform.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingWaveform.swift; sourceTree = "<group>"; };
+		C8IN10172F90000000001017 /* WAVConverter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WAVConverter.swift; sourceTree = "<group>"; };
+		C8IN10182F90000000001018 /* WAVFile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WAVFile.swift; sourceTree = "<group>"; };
+		C8IN10192F90000000001019 /* AnnouncementErrorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AnnouncementErrorTests.swift; sourceTree = "<group>"; };
+		C8IN10202F90000000001020 /* IntercomViewModelTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IntercomViewModelTests.swift; sourceTree = "<group>"; };
+		C8IN10212F90000000001021 /* IntercomWAVFileTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IntercomWAVFileTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -347,6 +399,9 @@
 				C8MQ00122FC0000000000012 /* MarqueeCycleTests.swift */,
 				C8KD00132FA5000000000013 /* KidsFavoritesCatalogTests.swift */,
 				C8LP00132FB0000000000013 /* LocalPlayerOptionsTests.swift */,
+				C8IN10192F90000000001019 /* AnnouncementErrorTests.swift */,
+				C8IN10202F90000000001020 /* IntercomViewModelTests.swift */,
+				C8IN10212F90000000001021 /* IntercomWAVFileTests.swift */,
 			);
 			path = iosAppTests;
 			sourceTree = "<group>";
@@ -392,6 +447,7 @@
 				C8HV00062F61000000000006 /* Home */,
 				C8ST00062F63000000000006 /* Settings */,
 				C8KD00062FA5000000000006 /* Kids */,
+				C8IN40012F90000000004001 /* Intercom */,
 				C8WD00062FA0000000000006 /* LiveActivity */,
 				C8PR00012F2D000000000001 /* PrivacyInfo.xcprivacy */,
 				C8LC00112F4F000000000011 /* Localizable.xcstrings */,
@@ -573,6 +629,31 @@
 			path = TaktgeberWidgets;
 			sourceTree = "<group>";
 		};
+		C8IN40012F90000000004001 /* Intercom */ = {
+			isa = PBXGroup;
+			children = (
+				C8IN10012F90000000001001 /* AnnouncementError.swift */,
+				C8IN10022F90000000001002 /* AnnouncementSending.swift */,
+				C8IN10032F90000000001003 /* Backdrop.swift */,
+				C8IN10042F90000000001004 /* Haptics.swift */,
+				C8IN10052F90000000001005 /* ImmediatePress.swift */,
+				C8IN10062F90000000001006 /* ImmediateTouches.swift */,
+				C8IN10072F90000000001007 /* IntercomAudioFormat.swift */,
+				C8IN10082F90000000001008 /* IntercomAudioSession.swift */,
+				C8IN10092F90000000001009 /* IntercomCard.swift */,
+				C8IN10102F90000000001010 /* IntercomPalette.swift */,
+				C8IN10112F90000000001011 /* IntercomRecorder.swift */,
+				C8IN10122F90000000001012 /* IntercomTarget.swift */,
+				C8IN10132F90000000001013 /* IntercomView.swift */,
+				C8IN10142F90000000001014 /* IntercomViewModel.swift */,
+				C8IN10152F90000000001015 /* KmpAnnouncementSender.swift */,
+				C8IN10162F90000000001016 /* RecordingWaveform.swift */,
+				C8IN10172F90000000001017 /* WAVConverter.swift */,
+				C8IN10182F90000000001018 /* WAVFile.swift */,
+			);
+			path = Intercom;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -735,6 +816,19 @@
 			buildActionMask = 2147483647;
 			files = (
 				C8HV00052F61000000000005 /* RecommendationRowTitle.swift in Sources */,
+				C8IN30012F90000000003001 /* AnnouncementError.swift in Sources */,
+				C8IN30022F90000000003002 /* AnnouncementSending.swift in Sources */,
+				C8IN30032F90000000003003 /* Haptics.swift in Sources */,
+				C8IN30042F90000000003004 /* IntercomAudioFormat.swift in Sources */,
+				C8IN30052F90000000003005 /* IntercomAudioSession.swift in Sources */,
+				C8IN30062F90000000003006 /* IntercomRecorder.swift in Sources */,
+				C8IN30072F90000000003007 /* IntercomTarget.swift in Sources */,
+				C8IN30082F90000000003008 /* IntercomViewModel.swift in Sources */,
+				C8IN30092F90000000003009 /* WAVConverter.swift in Sources */,
+				C8IN30102F90000000003010 /* WAVFile.swift in Sources */,
+				C8IN30112F90000000003011 /* AnnouncementErrorTests.swift in Sources */,
+				C8IN30122F90000000003012 /* IntercomViewModelTests.swift in Sources */,
+				C8IN30132F90000000003013 /* IntercomWAVFileTests.swift in Sources */,
 				C29F123E61DAA17B671EC95E /* RecommendationRowTitleTests.swift in Sources */,
 				C8SS00052F80000000000005 /* SearchSectionsTests.swift in Sources */,
 				C8SS00042F80000000000004 /* SearchSections.swift in Sources */,
@@ -779,6 +873,24 @@
 			buildActionMask = 2147483647;
 			files = (
 				C8AU00012FB0000000000001 /* NativeAudioController.swift in Sources */,
+				C8IN20012F90000000002001 /* AnnouncementError.swift in Sources */,
+				C8IN20022F90000000002002 /* AnnouncementSending.swift in Sources */,
+				C8IN20032F90000000002003 /* Backdrop.swift in Sources */,
+				C8IN20042F90000000002004 /* Haptics.swift in Sources */,
+				C8IN20052F90000000002005 /* ImmediatePress.swift in Sources */,
+				C8IN20062F90000000002006 /* ImmediateTouches.swift in Sources */,
+				C8IN20072F90000000002007 /* IntercomAudioFormat.swift in Sources */,
+				C8IN20082F90000000002008 /* IntercomAudioSession.swift in Sources */,
+				C8IN20092F90000000002009 /* IntercomCard.swift in Sources */,
+				C8IN20102F90000000002010 /* IntercomPalette.swift in Sources */,
+				C8IN20112F90000000002011 /* IntercomRecorder.swift in Sources */,
+				C8IN20122F90000000002012 /* IntercomTarget.swift in Sources */,
+				C8IN20132F90000000002013 /* IntercomView.swift in Sources */,
+				C8IN20142F90000000002014 /* IntercomViewModel.swift in Sources */,
+				C8IN20152F90000000002015 /* KmpAnnouncementSender.swift in Sources */,
+				C8IN20162F90000000002016 /* RecordingWaveform.swift in Sources */,
+				C8IN20172F90000000002017 /* WAVConverter.swift in Sources */,
+				C8IN20182F90000000002018 /* WAVFile.swift in Sources */,
 				C8AU00092FB0000000000009 /* LocalPlayerActivation.swift in Sources */,
 				C8AU00022FB0000000000002 /* AudioDecoders.swift in Sources */,
 				C8AU00032FB0000000000003 /* NowPlayingCoordinator.swift in Sources */,
