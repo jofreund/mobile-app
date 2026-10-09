@@ -1659,6 +1659,19 @@ object KmpHelper {
         get() = NativeStateFlow(announcementRepository.availability, mainScope)
 
     /**
+     * The server is known and older than spoken announcements, so the tab says so instead of
+     * waiting for them. Non-reactive like [isSleepTimerSupported]: Swift reads it in a body that
+     * re-runs on every availability emission, and the schema only changes across reconnects.
+     * A server that is merely reconnecting keeps its info, so this does not flicker.
+     */
+    fun isServerTooOldForSpokenAnnouncements(): Boolean =
+        (serviceClient.sessionState.value as? HasConnectionData)
+            ?.connectionData
+            ?.serverInfo
+            ?.schemaVersion
+            ?.let { it < AnnouncementRepository.VOICE_SCHEMA } == true
+
+    /**
      * Announces a finished recording on [playerId]: [pcm] is raw s16le mono at [sampleRate],
      * the WAV's data chunk. [onAudioLeftDevice] fires once the whole clip and the stop have gone
      * out — from then on it plays whatever happens to the connection. [onResult] fires once,

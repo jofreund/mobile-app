@@ -130,7 +130,7 @@ class AnnouncementRepository(
             ?.takeIf { it.dataConnectionState is DataConnectionState.Authenticated }
             ?.serverInfo?.schemaVersion
 
-    private companion object {
+    internal companion object {
         const val TEXT_SCHEMA = 46
         const val VOICE_SCHEMA = 48
         const val LIVE_ANNOUNCEMENT_CHANNEL = "live_announcement"
