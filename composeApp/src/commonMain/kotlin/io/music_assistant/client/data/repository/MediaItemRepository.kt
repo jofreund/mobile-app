@@ -28,6 +28,7 @@ import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.scan
 import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * Single seam between RPC + DTO land and the UI's typed `AppMediaItem` world.
@@ -113,7 +114,16 @@ class MediaItemRepository(
             coroutineScope {
                 folders.map { folder ->
                     async {
-                        folder.copy(items = fetchRecommendationRowItems(folder).orEmpty())
+                        // Bounded per row: on a cold server cache a single row can take longer
+                        // than the caller's whole budget, and awaiting it unbounded threw away
+                        // every row that had already arrived. A row that misses its budget comes
+                        // back empty (Home drops it) and returns on the next load.
+                        val items = withTimeoutOrNull(RECOMMENDATION_ROW_TIMEOUT_MS) {
+                            fetchRecommendationRowItems(folder).orEmpty()
+                        } ?: emptyList<AppMediaItem>().also {
+                            Logger.w { "Recommendation row ${folder.provider}/${folder.itemId} timed out" }
+                        }
+                        folder.copy(items = items)
                     }
                 }.awaitAll()
             },
@@ -211,3 +221,4 @@ private fun <T : AppMediaItem> List<T>.replacing(changed: T): List<T> =
 
 /** Server schema version that split `music/recommendations` into rows + per-row items. */
 private const val RECOMMENDATION_ITEMS_SCHEMA = 39
+private const val RECOMMENDATION_ROW_TIMEOUT_MS = 10_000L
