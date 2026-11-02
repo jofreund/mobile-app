@@ -61,10 +61,6 @@ import io.music_assistant.client.data.repository.MediaItemRepository
 import io.music_assistant.client.data.repository.SearchResultData
 import io.music_assistant.client.logging.InMemoryLogWriter
 import io.music_assistant.client.logging.LogSharer
-import io.music_assistant.client.player.sendspin.SendspinConfig
-import io.music_assistant.client.player.sendspin.SendspinState
-import io.music_assistant.client.player.sendspin.audio.Codecs
-import io.music_assistant.client.player.sendspin.audio.codecByName
 import io.music_assistant.client.settings.ConnectionHistoryEntry
 import io.music_assistant.client.settings.SettingsRepository
 import io.music_assistant.client.ui.compose.common.DataState
@@ -77,6 +73,9 @@ import io.music_assistant.client.utils.SessionState
 import io.music_assistant.client.utils.currentTimeMillis
 import io.music_assistant.client.utils.resultAs
 import io.music_assistant.client.webrtc.model.RemoteId
+import io.music_assistant.sendspin.api.AudioCodec
+import io.music_assistant.sendspin.api.AudioPhase
+import io.music_assistant.sendspin.api.PlayerState
 import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.addressOf
@@ -544,9 +543,9 @@ object KmpHelper {
     }
 
     // MARK: - Local player (Sendspin) — settings read/write pairs plus a coarse
-    // status feed for the Settings section. Lifecycle is NOT driven from here:
-    // `MainDataSource` watches `sendspinEnabled` and starts/stops the player, so
-    // the toggle only writes the setting.
+    // status feed for the Settings section. Lifecycle is NOT driven from here: the
+    // `:sendspin-kmp` player follows `LocalPlayerAdapter`'s config (enabled + endpoint),
+    // so the toggle only writes the setting.
 
     val sendspinEnabled: NativeStateFlow<Boolean>
         get() = NativeStateFlow(settingsRepository.sendspinEnabled, mainScope)
@@ -597,17 +596,10 @@ object KmpHelper {
         settingsRepository.setSendspinUseTls(enabled)
     }
 
-    val sendspinRequireEncryption: NativeStateFlow<Boolean>
-        get() = NativeStateFlow(settingsRepository.sendspinRequireEncryption, mainScope)
-
-    fun setSendspinRequireEncryption(enabled: Boolean) {
-        settingsRepository.setSendspinRequireEncryption(enabled)
-    }
-
     /**
      * Codec preference as the enum's `name` ("OPUS", "FLAC", "PCM"): strings cross the
      * bridge without exposing the Kotlin enum, and Swift turns names into labels through
-     * `LocalPlayerOptions`. Connect-time config — the factory reads it when a client is built.
+     * `LocalPlayerOptions`. A change reconnects the player (and restarts a playing stream).
      */
     private val sendspinCodecPreferenceFlow: StateFlow<String> by lazy {
         settingsRepository.sendspinCodecPreference
@@ -618,51 +610,55 @@ object KmpHelper {
     val sendspinCodecPreference: NativeStateFlow<String>
         get() = NativeStateFlow(sendspinCodecPreferenceFlow, mainScope)
 
-    /** The codecs this platform can decode, in the order the picker should offer them. */
+    /**
+     * The codecs the picker offers, in order. The native player decodes all three
+     * (`AudioDecoders.swift`), so this is the module's whole list.
+     */
     val sendspinCodecOptions: List<String>
-        get() = Codecs.list.map { it.name }
+        get() = listOf(AudioCodec.OPUS, AudioCodec.FLAC, AudioCodec.PCM).map { it.name }
 
     /** Unknown names are dropped rather than written, so the setting never leaves the enum. */
     fun setSendspinCodecPreference(codecName: String) {
-        codecByName(codecName)?.let { settingsRepository.setSendspinCodecPreference(it) }
+        AudioCodec.entries.firstOrNull { it.name == codecName }
+            ?.let { settingsRepository.setSendspinCodecPreference(it) }
     }
 
-    /** Advertised `buffer_capacity`, in MB; the picker offers [sendspinBufferCapacityOptionsMb]. */
-    val sendspinBufferCapacityMb: NativeStateFlow<Int>
-        get() = NativeStateFlow(settingsRepository.sendspinBufferCapacityMb, mainScope)
+    /** Seconds of audio the player buffers; the picker offers [sendspinBufferSecondsOptions]. */
+    val sendspinBufferSeconds: NativeStateFlow<Int>
+        get() = NativeStateFlow(settingsRepository.sendspinBufferSeconds, mainScope)
 
-    /** Every size the setting accepts, from `SendspinConfig`'s limits and step. */
-    val sendspinBufferCapacityOptionsMb: List<Int>
-        get() = (SendspinConfig.BUFFER_MB_MIN..SendspinConfig.BUFFER_MB_MAX step SendspinConfig.BUFFER_MB_STEP)
-            .toList()
+    /** Every length the setting accepts, from `SettingsRepository`'s limits and step. */
+    val sendspinBufferSecondsOptions: List<Int>
+        get() = (
+            SettingsRepository.BUFFER_SECONDS_MIN..SettingsRepository.BUFFER_SECONDS_MAX
+                step SettingsRepository.BUFFER_SECONDS_STEP
+            ).toList()
 
-    val sendspinBufferCapacityDefaultMb: Int
-        get() = SendspinConfig.BUFFER_MB_DEFAULT
+    val sendspinBufferSecondsDefault: Int
+        get() = SettingsRepository.BUFFER_SECONDS_DEFAULT
 
-    fun setSendspinBufferCapacityMb(mb: Int) {
-        settingsRepository.setSendspinBufferCapacityMb(mb)
+    fun setSendspinBufferSeconds(seconds: Int) {
+        settingsRepository.setSendspinBufferSeconds(seconds)
     }
 
     /**
-     * Coarse local-player status for the Settings section: "stopped" while no client
-     * exists, else a lifecycle label. Kept as a plain string (not the sealed
-     * `SendspinState`) so Swift renders text without pattern-matching exported
-     * Kotlin subclasses.
+     * Coarse local-player status for the Settings section: "stopped" while the player is
+     * off, else a lifecycle label. Kept as a plain string (not the sealed `PlayerState`)
+     * so Swift renders text without pattern-matching exported Kotlin subclasses.
      */
     private val sendspinStatusFlow: StateFlow<String> by lazy {
         mainDataSource.sendspinState
             .map { state ->
                 when (state) {
-                    null -> "stopped"
-                    is SendspinState.Idle -> "idle"
-                    is SendspinState.Connecting -> "connecting"
-                    is SendspinState.Authenticating -> "authenticating"
-                    is SendspinState.Handshaking -> "handshaking"
-                    is SendspinState.Ready -> "ready"
-                    is SendspinState.Buffering -> "buffering"
-                    is SendspinState.Synchronized -> "playing"
-                    is SendspinState.Reconnecting -> "reconnecting"
-                    is SendspinState.Error -> "error"
+                    null, PlayerState.Disabled -> "stopped"
+                    is PlayerState.Connecting -> "connecting"
+                    is PlayerState.Connected -> when (state.audio.phase) {
+                        AudioPhase.Idle -> "ready"
+                        AudioPhase.Buffering -> "buffering"
+                        AudioPhase.Playing -> "playing"
+                    }
+                    is PlayerState.Reconnecting -> "reconnecting"
+                    is PlayerState.Failed -> "error"
                 }
             }
             .stateIn(mainScope, SharingStarted.Eagerly, "stopped")
@@ -1183,6 +1179,7 @@ object KmpHelper {
     fun playOnSelectedPlayer(item: AppMediaItem, option: QueueOption, endlessMix: Boolean): Boolean {
         val mediaUri = item.mediaUri ?: return false
         val queueId = mainDataSource.selectedPlayer?.queueOrPlayerId ?: return false
+        mainDataSource.onPlaybackRequested(queueId)
         mainScope.launch {
             serviceClient.sendRequest(
                 Request.Library.play(
@@ -1203,6 +1200,7 @@ object KmpHelper {
     fun playChapterOnSelectedPlayer(item: AppMediaItem, chapterPosition: Int): Boolean {
         val uri = item.referenceUri
         val queueId = mainDataSource.selectedPlayer?.queueOrPlayerId ?: return false
+        mainDataSource.onPlaybackRequested(queueId)
         mainScope.launch {
             serviceClient.sendRequest(
                 Request.Library.play(
@@ -1302,6 +1300,7 @@ object KmpHelper {
     fun playFromHere(parent: AppMediaItem, startItem: AppMediaItem): Boolean {
         val mediaUri = parent.mediaUri ?: return false
         val queueId = mainDataSource.selectedPlayer?.queueOrPlayerId ?: return false
+        mainDataSource.onPlaybackRequested(queueId)
         mainScope.launch {
             serviceClient.sendRequest(
                 Request.Library.play(
@@ -1395,7 +1394,7 @@ object KmpHelper {
     // below resolves the current PlayerData via [currentPlayerData] and calls the
     // PlayerData-based `mainDataSource.playerAction(data, action)` overload — the exact same
     // path Compose's own PlayerControls/PlayersPager use, which routes through
-    // PlayerRequestFactory (or LocalPlayerController for the local player). Deliberately NOT
+    // PlayerRequestFactory (or LocalPlayerAdapter for the local player). Deliberately NOT
     // the sibling `playerAction(playerId: String, action)` overload: that one has its own
     // hand-duplicated `when` that only covers a subset of PlayerAction's cases (no
     // ToggleShuffle/ToggleRepeatMode/SeekBy/SetPlaybackSpeed/SetPower — they silently no-op via

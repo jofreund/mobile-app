@@ -59,6 +59,8 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
+            // Upstream's Sendspin player (built from source, see sendspin-kmp/UPSTREAM).
+            implementation(project(":sendspin-kmp"))
             implementation(libs.ktor.client.core)
             implementation(libs.ktor.client.websockets)
             implementation(libs.ktor.client.json)

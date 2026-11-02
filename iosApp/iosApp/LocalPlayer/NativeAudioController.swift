@@ -38,8 +38,9 @@ class NativeAudioController: NSObject, PlatformAudioPlayer {
     /// just in time on top of that. The gate is a coroutine timer, which iOS coalesces once
     /// the screen is off and far more in Low Power Mode; at 60 ms a single late wakeup
     /// drained the queue and every stall over 100 ms also cost the chunk itself. 300 ms
-    /// rides out both. The gate subtracts `sinkLeadMicros`, so the extra lead is spent in
-    /// the queue rather than delaying playback against the server clock.
+    /// rides out both. `AudioQueueSink` reports `sinkLeadMicros` as the sink's latency and
+    /// the `:sendspin-kmp` scheduler releases each chunk that much earlier, so the extra lead
+    /// is spent in the queue rather than delaying playback against the server clock.
     private let kPrimeMillis = 300
     /// Start anyway if the stream never reaches [kPrimeMillis], so a short tail or a
     /// stalling server can't leave audio stranded in the staging buffer. Chunks reach the
@@ -159,7 +160,7 @@ class NativeAudioController: NSObject, PlatformAudioPlayer {
             if isPlaying {
                 pausedByInterruption = true
                 logInfo("Pausing server playback due to interruption")
-                remoteCommandHandler?.onCommand(command: "pause", source: "interruption")
+                remoteCommandHandler.withSnapshot { $0?.onCommand(command: "pause", source: "interruption") }
             }
         case .ended:
             interruptionActive = false
@@ -217,7 +218,7 @@ class NativeAudioController: NSObject, PlatformAudioPlayer {
 
         pausedByInterruption = false
         logInfo("Resuming server playback after interruption")
-        remoteCommandHandler?.onCommand(command: "play", source: "interruption")
+        remoteCommandHandler.withSnapshot { $0?.onCommand(command: "play", source: "interruption") }
     }
 
     @objc private func handleAudioRouteChange(_ notification: Notification) {
@@ -249,7 +250,7 @@ class NativeAudioController: NSObject, PlatformAudioPlayer {
         shouldPlay = false
         streamStarted = false
         stopAudioQueue()
-        remoteCommandHandler?.onCommand(command: "pause", source: "route_loss")
+        remoteCommandHandler.withSnapshot { $0?.onCommand(command: "pause", source: "route_loss") }
     }
 
     // MARK: - PlatformAudioPlayer Protocol
@@ -615,7 +616,11 @@ class NativeAudioController: NSObject, PlatformAudioPlayer {
 
     // MARK: - Now Playing (Control Center / Lock Screen)
 
-    private var remoteCommandHandler: RemoteCommandHandler?
+    /// Kotlin's `AudioQueueSink` replaces the handler on every stream open and clears it on
+    /// close, from its own threads, while the audio session's notifications and the remote
+    /// command center read it on the main thread. The store makes that swap atomic and keeps
+    /// the old handler alive until the swap is done (upstream #48f7001f).
+    private let remoteCommandHandler = RemoteCommandHandlerStore<RemoteCommandHandler?>(nil)
 
     func setLongFormSeekIntervals(backSeconds: Int64, forwardSeconds: Int64) {
         NowPlayingCoordinator.shared.setLongFormSeekIntervals(
@@ -625,11 +630,11 @@ class NativeAudioController: NSObject, PlatformAudioPlayer {
     }
 
     func setRemoteCommandHandler(handler: RemoteCommandHandler?) {
-        self.remoteCommandHandler = handler
+        remoteCommandHandler.replace(handler)
 
         NowPlayingCoordinator.shared.setCommandHandler { [weak self] command in
             self?.logInfo("Remote command: \(command)")
-            self?.remoteCommandHandler?.onCommand(command: command, source: "remote")
+            self?.remoteCommandHandler.withSnapshot { $0?.onCommand(command: command, source: "remote") }
         }
     }
 }
@@ -641,4 +646,35 @@ private let audioQueueCallback: AudioQueueOutputCallback = { userData, queue, bu
 
     let controller = Unmanaged<NativeAudioController>.fromOpaque(userData).takeUnretainedValue()
     controller.fillBuffer(queue: queue, buffer: buffer)
+}
+
+// MARK: - Remote command handler store
+
+/// A value swapped under a lock and read as a snapshot outside it, so a reader never sees a
+/// half-replaced handler and a replaced one is released only after the lock is dropped.
+/// Ported from upstream's `RemoteCommandHandlerStore.swift`; kept in this file so the Xcode
+/// project needs no new entry.
+final class RemoteCommandHandlerStore<Value> {
+    private let lock = NSLock()
+    private var value: Value
+
+    init(_ value: Value) {
+        self.value = value
+    }
+
+    func replace(_ value: Value) {
+        lock.lock()
+        let oldValue = self.value
+        self.value = value
+        withExtendedLifetime(oldValue) {
+            lock.unlock()
+        }
+    }
+
+    func withSnapshot(_ body: (Value) -> Void) {
+        lock.lock()
+        let snapshot = value
+        lock.unlock()
+        body(snapshot)
+    }
 }

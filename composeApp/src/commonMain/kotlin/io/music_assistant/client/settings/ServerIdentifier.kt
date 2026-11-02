@@ -7,10 +7,11 @@ import io.music_assistant.client.utils.SessionState
  * "direct:ws(s)://host:port" or "webrtc:remoteId", matching
  * [SettingsRepository.getDirectServerIdentifier] / [SettingsRepository.getWebRTCServerIdentifier].
  *
- * Shared by [io.music_assistant.client.auth.AuthenticationManager] (token lifecycle) and
- * `LocalPlayerController` (Sendspin proxy auth): upstream keys tokens by the server's own
- * `server_id`, this fork keys them by how the connection was made, so anything ported from
- * upstream must resolve the token through this and never through `serverInfo.serverId`.
+ * Used by [io.music_assistant.client.auth.AuthenticationManager] (token lifecycle); the
+ * local player reads the live session's token instead (`authenticatedToken`). Upstream keys
+ * tokens by the server's own `server_id`, this fork keys them by how the connection was made,
+ * so anything ported from upstream must resolve the token through this and never through
+ * `serverInfo.serverId`.
  */
 fun SettingsRepository.getServerIdentifier(sessionState: SessionState): String? {
     return when (sessionState) {

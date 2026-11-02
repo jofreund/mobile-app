@@ -417,7 +417,7 @@ class WebRTCConnectionManager(
             // (unreliable) was previously tried and caused ~15% packet loss with audible
             // distortion; reliable delivery is mandatory for the Opus framing.
             val sendspinChannel = pc.createDataChannel(
-                label = "sendspin",
+                label = SENDSPIN_CHANNEL_LABEL,
                 ordered = true,
             )
             setupSendspinDataChannel(sendspinChannel)
@@ -654,6 +654,9 @@ class WebRTCConnectionManager(
         // that genuinely-dead links don't feel sticky. See the DISCONNECTED branch in the
         // connection-state collector for rationale.
         private const val ICE_DISCONNECT_GRACE_MS = 4_000L
+
+        /** The label the server bridges to its Sendspin server; also reopened in-band (schema 49+). */
+        const val SENDSPIN_CHANNEL_LABEL = "sendspin"
 
         // Label the server routes proxied HTTP requests on (schema 49+).
         private const val HTTP_PROXY_CHANNEL_LABEL = "http_proxy"

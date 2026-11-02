@@ -1,0 +1,243 @@
+package io.music_assistant.client.data
+
+import co.touchlab.kermit.Logger
+import io.ktor.http.URLBuilder
+import io.ktor.http.URLProtocol
+import io.ktor.http.encodedPath
+import io.music_assistant.client.api.ServiceClient
+import io.music_assistant.client.data.model.server.ENCRYPTED_SENDSPIN_MIN_SCHEMA
+import io.music_assistant.client.data.model.server.sendspinWireFor
+import io.music_assistant.client.data.model.server.supportsEncryptedSendspin
+import io.music_assistant.client.settings.SettingsRepository
+import io.music_assistant.client.utils.AuthProcessState
+import io.music_assistant.client.utils.DataConnectionState
+import io.music_assistant.client.utils.SessionState
+import io.music_assistant.client.utils.authenticatedToken
+import io.music_assistant.client.webrtc.DataChannelInbound
+import io.music_assistant.client.webrtc.DataChannelState
+import io.music_assistant.client.webrtc.DataChannelWrapper
+import io.music_assistant.client.webrtc.WebRTCConnectionManager
+import io.music_assistant.sendspin.api.Endpoint
+import io.music_assistant.sendspin.api.Frame
+import io.music_assistant.sendspin.api.SendspinTransport
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.channels.ReceiveChannel
+import kotlinx.coroutines.channels.produce
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.runningFold
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
+
+/**
+ * Derives the Sendspin [Endpoint] from the MA session. The endpoint follows the
+ * session's transport: a WebRTC session gets the data channel, a direct one the
+ * proxied WebSocket (or the custom Sendspin server from settings).
+ * A known schema below [ENCRYPTED_SENDSPIN_MIN_SCHEMA] yields [Endpoint.Unsupported];
+ * an unknown schema is allowed through so the handshake decides. The schema and the
+ * server version pick the wire dialect ([sendspinWireFor]); a wire change restarts the connection.
+ *
+ * Transient session states keep the last endpoint: the Sendspin connection
+ * lives with the process and reconnects on its own, so a reconnecting MA
+ * session must not tear it down. Only a logout, a terminal auth failure, or no
+ * server at all clears it. The WebRTC endpoint instance is reused while the
+ * session stays WebRTC, because a new instance restarts the connection.
+ *
+ * Ported from upstream (music-assistant/mobile-app `LocalPlayerEndpoints`); the fork keeps
+ * its custom-connection settings as separate flows instead of upstream's settings object.
+ */
+class LocalPlayerEndpoints(
+    private val apiClient: ServiceClient,
+    private val settings: SettingsRepository,
+    scope: CoroutineScope,
+) {
+    private val log = Logger.withTag("LocalPlayerEndpoints")
+
+    /** Every custom-connection field, so an edit re-derives the endpoint. */
+    private val connectionOverride = combine(
+        settings.sendspinUseCustomConnection,
+        settings.sendspinUseTls,
+        settings.sendspinHost,
+        settings.sendspinPort,
+        settings.sendspinPath,
+    ) { enabled, tls, host, port, path -> ConnectionOverride(enabled, tls, host, port, path) }
+
+    val endpoint: StateFlow<Endpoint?> = combine(apiClient.sessionState, connectionOverride) { state, _ -> state }
+        .runningFold(null as Endpoint?, ::next)
+        .stateIn(scope, SharingStarted.Eagerly, null)
+
+    /** Pure reducer; a Connected session is Clear (terminal auth), Replace (proven), or Keep (auth pending). */
+    internal fun next(previous: Endpoint?, state: SessionState): Endpoint? = when (state) {
+        is SessionState.Connected -> when {
+            state.authIsTerminal() -> null
+            else -> connected(previous, state) ?: previous
+        }
+
+        is SessionState.Disconnected.ByUser,
+        SessionState.Disconnected.Initial,
+        SessionState.Disconnected.NoServerData,
+        -> null
+
+        else -> previous
+    }
+
+    /** A logout or a failed reauthorization keeps the session Connected; nothing follows on its own. */
+    private fun SessionState.Connected.authIsTerminal(): Boolean {
+        val connection = dataConnectionState as? DataConnectionState.AwaitingAuth ?: return false
+        return connection.authProcessState is AuthProcessState.LoggedOut ||
+            connection.authProcessState is AuthProcessState.Failed
+    }
+
+    /**
+     * The endpoint for a proven session, or null while the server info or the authentication
+     * is still pending. Without server info the wire is unknown, and a guessed wire replaced on
+     * `server/hello` would spend the single-use WebRTC channel and renegotiate in a loop.
+     */
+    private fun connected(previous: Endpoint?, state: SessionState.Connected): Endpoint? {
+        val info = state.serverInfo ?: return null
+        val schema = info.schemaVersion
+        // Missing schema is inconclusive, so let the wire handshake establish compatibility.
+        if (schema != null && !supportsEncryptedSendspin(schema)) {
+            return Endpoint.Unsupported(
+                "MA server schema $schema does not support encrypted Sendspin; " +
+                    "requires schema $ENCRYPTED_SENDSPIN_MIN_SCHEMA",
+            )
+        }
+        val wire = sendspinWireFor(schema, info.serverVersion)
+        return when (state) {
+            is SessionState.Connected.WebRTC ->
+                (previous as? Endpoint.WebRtc)?.takeIf { it.wire == wire } ?: Endpoint.WebRtc(wire, ::openFreshChannel)
+
+            is SessionState.Connected.Direct -> state.authenticatedToken()?.let { token ->
+                Endpoint.WebSocket(webSocketUrl(state), wire, authToken = token)
+            }
+        }
+    }
+
+    private fun webSocketUrl(state: SessionState.Connected.Direct): String {
+        val main = state.connectionInfo
+        val override = ConnectionOverride(
+            enabled = settings.sendspinUseCustomConnection.value,
+            tls = settings.sendspinUseTls.value,
+            host = settings.sendspinHost.value,
+            port = settings.sendspinPort.value,
+            path = settings.sendspinPath.value,
+        )
+        // Same reverse proxy as the control socket, so the same host, port and TLS.
+        if (!override.enabled) return sendspinUrl(main.isTls, main.host, main.port, DEFAULT_PATH)
+        val host = override.host.takeIf { it.isNotEmpty() } ?: main.host
+        return sendspinUrl(override.tls, host, override.port, override.path)
+    }
+
+    private fun sendspinUrl(tls: Boolean, host: String, port: Int, path: String): String = URLBuilder(
+        protocol = if (tls) URLProtocol.WSS else URLProtocol.WS,
+        host = host,
+        port = port,
+    ).apply { encodedPath = path.takeIf { it.startsWith("/") } ?: "/$path" }.buildString()
+
+    // --- WebRTC: one single-use channel per connection attempt ---
+
+    private var usedChannel: DataChannelWrapper? = null
+
+    /**
+     * The negotiated channel if no attempt used it yet, else a new channel on the live peer,
+     * else a renegotiated peer connection. Only the last one interrupts the MA session.
+     */
+    private suspend fun openFreshChannel(): SendspinTransport {
+        val fresh = unusedNegotiatedChannel() ?: reopenedChannel() ?: renegotiatedChannel()
+        withTimeout(CHANNEL_TIMEOUT_MILLIS) { fresh.state.first { it == DataChannelState.Open } }
+        usedChannel = fresh
+        return DataChannelTransport(fresh)
+    }
+
+    private fun unusedNegotiatedChannel(): DataChannelWrapper? = apiClient.webrtcSendspinChannel
+        ?.takeIf { it !== usedChannel && it.state.value != DataChannelState.Closed }
+
+    /**
+     * A new channel on the live peer, signalled in-band. The server bridges one `sendspin`
+     * channel for each peer and refuses a second one while the first is open, so the spent
+     * channel must close first. A server without label routing gets a renegotiation instead.
+     */
+    private suspend fun reopenedChannel(): DataChannelWrapper? {
+        val state = apiClient.sessionState.value as? SessionState.Connected.WebRTC ?: return null
+        val schema = state.serverInfo?.schemaVersion ?: return null
+        if (schema < LABEL_ROUTED_CHANNELS_SCHEMA) return null
+        usedChannel?.let { spent ->
+            withTimeoutOrNull(SPENT_CLOSE_TIMEOUT_MILLIS) { spent.state.first { it == DataChannelState.Closed } }
+        }
+        return apiClient.openWebRTCDataChannel(WebRTCConnectionManager.SENDSPIN_CHANNEL_LABEL)
+            ?.also { log.i { "Sendspin data channel reopened on the live peer" } }
+    }
+
+    private suspend fun renegotiatedChannel(): DataChannelWrapper {
+        val current = apiClient.webrtcSendspinChannel
+        log.i { "Sendspin data channel spent; renegotiating WebRTC" }
+        apiClient.forceWebRTCReconnect()
+        withTimeout(CHANNEL_TIMEOUT_MILLIS) {
+            apiClient.sessionState.first {
+                it is SessionState.Connected.WebRTC &&
+                    apiClient.webrtcSendspinChannel.let { c -> c != null && c !== current }
+            }
+        }
+        return checkNotNull(apiClient.webrtcSendspinChannel)
+    }
+
+    /** The custom Sendspin server from settings; [enabled] false means the MA server's own proxy. */
+    private data class ConnectionOverride(
+        val enabled: Boolean,
+        val tls: Boolean,
+        val host: String,
+        val port: Int,
+        val path: String,
+    )
+
+    private companion object {
+        const val DEFAULT_PATH = "/sendspin"
+        const val CHANNEL_TIMEOUT_MILLIS = 30_000L
+        const val SPENT_CLOSE_TIMEOUT_MILLIS = 2_000L
+
+        /** Server schema with label-routed data channels (music-assistant/server#5635, MA 2.10). */
+        const val LABEL_ROUTED_CHANNELS_SCHEMA = 49
+    }
+}
+
+/** [SendspinTransport] over one open [DataChannelWrapper]. */
+@OptIn(ExperimentalCoroutinesApi::class) // produce
+private class DataChannelTransport(private val wrapper: DataChannelWrapper) : SendspinTransport {
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    override val inbound: ReceiveChannel<Frame> = scope.produce(capacity = INBOUND_CAPACITY) {
+        wrapper.inbound.collect { message ->
+            send(
+                when (message) {
+                    is DataChannelInbound.Text -> Frame.Text(message.text)
+                    is DataChannelInbound.Binary -> Frame.Binary(message.bytes)
+                },
+            )
+        }
+    }
+
+    override suspend fun send(frame: Frame) {
+        check(wrapper.state.value == DataChannelState.Open) { "data channel not open (${wrapper.state.value})" }
+        when (frame) {
+            is Frame.Text -> wrapper.send(frame.text)
+            is Frame.Binary -> wrapper.sendBinary(frame.bytes)
+        }
+    }
+
+    override suspend fun close() {
+        wrapper.close()
+        scope.coroutineContext[Job]?.cancel()
+    }
+
+    private companion object {
+        const val INBOUND_CAPACITY = 64
+    }
+}

@@ -29,54 +29,54 @@ final class LocalPlayerOptionsTests: XCTestCase {
         XCTAssertEqual(LocalPlayerOptions.codecRows(["OPUS"], current: ""), ["OPUS"])
     }
 
-    private let kernelGrid = Array(stride(from: 5, through: 50, by: 5))
+    private let kernelGrid = Array(stride(from: 5, through: 30, by: 5))
 
     func testEveryTierIsOnTheKernelGrid() {
-        // The tiers are Swift constants; the kernel's grid is what the server may be told.
+        // The tiers are Swift constants; the kernel's grid is what the setting accepts.
         for tier in LocalPlayerOptions.tiers {
-            XCTAssertTrue(kernelGrid.contains(tier.mb), "\(tier.mb) MB is not a size the kernel accepts")
+            XCTAssertTrue(kernelGrid.contains(tier.seconds), "\(tier.seconds) s is not a length the kernel accepts")
         }
     }
 
-    func testTheDefaultSizeIsATier() {
-        // `SendspinConfig.BUFFER_MB_DEFAULT` is 15; the "(default)" marker must land on a named row.
-        XCTAssertTrue(LocalPlayerOptions.tiers.contains { $0.mb == 15 && $0.tierKey != nil })
+    func testTheDefaultLengthIsATier() {
+        // `SettingsRepository.BUFFER_SECONDS_DEFAULT` is 10; the "(default)" marker must land on a named row.
+        XCTAssertTrue(LocalPlayerOptions.tiers.contains { $0.seconds == 10 && $0.tierKey != nil })
     }
 
     func testACurrentValueOnATierAddsNoRow() {
-        let rows = LocalPlayerOptions.bufferSizeRows(kernelOptions: kernelGrid, current: 30)
+        let rows = LocalPlayerOptions.bufferSizeRows(kernelOptions: kernelGrid, current: 20)
 
         XCTAssertEqual(rows, LocalPlayerOptions.tiers)
     }
 
     func testACurrentValueOffTheTiersGetsAnUntitledRowInOrder() {
-        let rows = LocalPlayerOptions.bufferSizeRows(kernelOptions: kernelGrid, current: 20)
+        let rows = LocalPlayerOptions.bufferSizeRows(kernelOptions: kernelGrid, current: 15)
 
-        XCTAssertEqual(rows.map(\.mb), [5, 15, 20, 30, 50])
-        let custom = rows.first { $0.mb == 20 }
+        XCTAssertEqual(rows.map(\.seconds), [5, 10, 15, 20, 30])
+        let custom = rows.first { $0.seconds == 15 }
         XCTAssertNil(custom?.tierKey)
         XCTAssertEqual(custom?.descriptionKey, "settings_buffer_tier_custom_hint")
     }
 
     func testATierOutsideTheKernelGridIsDropped() {
-        // If the kernel ever lowers its maximum, the picker must not offer a size it would reject.
-        let rows = LocalPlayerOptions.bufferSizeRows(kernelOptions: [5, 10, 15, 20, 25, 30], current: 15)
+        // If the kernel ever lowers its maximum, the picker must not offer a length it would reject.
+        let rows = LocalPlayerOptions.bufferSizeRows(kernelOptions: [5, 10, 15, 20], current: 10)
 
-        XCTAssertEqual(rows.map(\.mb), [5, 15, 30])
+        XCTAssertEqual(rows.map(\.seconds), [5, 10, 20])
     }
 
     func testBufferSizeLabelsCarryTheUnit() {
         let en = Locale(identifier: "en_US")
 
-        XCTAssertEqual(LocalPlayerOptions.bufferSizeLabel(mb: 5, locale: en), "5 MB")
-        XCTAssertEqual(LocalPlayerOptions.bufferSizeLabel(mb: 50, locale: en), "50 MB")
+        XCTAssertEqual(LocalPlayerOptions.bufferSizeLabel(seconds: 5, locale: en), "5 s")
+        XCTAssertEqual(LocalPlayerOptions.bufferSizeLabel(seconds: 30, locale: en), "30 s")
     }
 
     func testBufferSizeLabelsUseLocaleDigits() {
         // Arabic locales format digits differently; the label must follow the locale, not ASCII.
         let ar = Locale(identifier: "ar_EG")
 
-        XCTAssertNotEqual(LocalPlayerOptions.bufferSizeLabel(mb: 15, locale: ar), "15 MB")
-        XCTAssertTrue(LocalPlayerOptions.bufferSizeLabel(mb: 15, locale: ar).hasSuffix(" MB"))
+        XCTAssertNotEqual(LocalPlayerOptions.bufferSizeLabel(seconds: 10, locale: ar), "10 s")
+        XCTAssertTrue(LocalPlayerOptions.bufferSizeLabel(seconds: 10, locale: ar).hasSuffix(" s"))
     }
 }

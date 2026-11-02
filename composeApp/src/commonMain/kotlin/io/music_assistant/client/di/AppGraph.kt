@@ -13,11 +13,14 @@ import io.music_assistant.client.api.KtorServiceClient
 import io.music_assistant.client.api.ServiceClient
 import io.music_assistant.client.auth.AuthenticationManager
 import io.music_assistant.client.connection.ConnectionManager
-import io.music_assistant.client.data.LocalPlayerController
+import io.music_assistant.client.data.LocalPlayerAdapter
+import io.music_assistant.client.data.LocalPlayerEndpoints
+import io.music_assistant.client.data.LocalPlayerPorts
 import io.music_assistant.client.data.MainDataSource
 import io.music_assistant.client.data.PlayerPositionTracker
 import io.music_assistant.client.data.PlayerRequestFactory
 import io.music_assistant.client.data.ResumePointResolver
+import io.music_assistant.client.data.SendspinLocalPlayerFactory
 import io.music_assistant.client.data.UserPreferences
 import io.music_assistant.client.data.announcement.AnnouncementRepository
 import io.music_assistant.client.data.factory.MediaItemFactory
@@ -28,11 +31,9 @@ import io.music_assistant.client.logging.InMemoryLogWriter
 import io.music_assistant.client.logging.LogSharer
 import io.music_assistant.client.logging.platformLogWriters
 import io.music_assistant.client.platform.PlatformContext
-import io.music_assistant.client.player.MediaPlayerController
-import io.music_assistant.client.player.sendspin.SendspinClientFactory
-import io.music_assistant.client.player.sendspin.identity.SendspinKeyStore
-import io.music_assistant.client.player.sendspin.identity.SettingsSendspinKeyStore
+import io.music_assistant.client.player.MediaSessionBridge
 import io.music_assistant.client.settings.SettingsRepository
+import io.music_assistant.client.settings.SettingsSendspinKeyStore
 import io.music_assistant.client.utils.NetworkMonitor
 import io.music_assistant.client.utils.createPlatformHttpClient
 import io.music_assistant.client.utils.myJson
@@ -53,17 +54,19 @@ import kotlinx.coroutines.SupervisorJob
  *
  * Laziness mirrors what Koin did: singles were created on first use, except
  * [connectionManager] and [authManager], which were `createdAtStart`. The heavy objects —
- * the data source, the local player, the Sendspin factory — stay lazy, so a launch that never
- * touches them pays nothing.
+ * the data source and the local player — stay lazy, so a launch that never touches them pays
+ * nothing.
  *
  * Platform inputs come in through the constructor; there is no `expect` here. [webRtcClient]
- * is a [Lazy] because the Ktor WebRTC engine is only needed once a remote connection starts.
+ * is a [Lazy] because the Ktor WebRTC engine is only needed once a remote connection starts;
+ * [localPlayerPorts] are the native audio output and decoders `:sendspin-kmp` leaves to the app.
  */
 @OptIn(ExperimentalKtorApi::class)
 class AppGraph(
     settingsStore: Settings,
     platformContext: PlatformContext,
     webRtcClient: Lazy<WebRtcClient>,
+    private val localPlayerPorts: LocalPlayerPorts,
 ) {
     val settingsRepository = SettingsRepository(settingsStore)
     val networkMonitor = NetworkMonitor(platformContext)
@@ -113,36 +116,43 @@ class AppGraph(
         )
     }
 
-    val mediaPlayerController by lazy { MediaPlayerController(platformContext) }
-    private val sendspinKeyStore: SendspinKeyStore by lazy { SettingsSendspinKeyStore(settingsStore) }
-    val sendspinClientFactory by lazy {
-        SendspinClientFactory(
-            settings = settingsRepository,
-            mediaPlayerController = mediaPlayerController,
-            serviceClient = serviceClient,
-            networkMonitor = networkMonitor,
-            keyStore = sendspinKeyStore,
-        )
-    }
-    val localPlayerController by lazy {
-        LocalPlayerController(
+    val mediaSessionBridge = MediaSessionBridge()
+
+    /**
+     * The local (Sendspin) player. Built on first use, and from then on it follows its config
+     * by itself: Sendspin enabled plus an endpoint from [LocalPlayerEndpoints] starts it.
+     * The sink reports lock-screen commands back to the adapter, read when a command arrives.
+     */
+    val localPlayerAdapter: LocalPlayerAdapter by lazy {
+        LocalPlayerAdapter(
             settings = settingsRepository,
             apiClient = serviceClient,
-            mediaPlayerController = mediaPlayerController,
-            sendspinClientFactory = sendspinClientFactory,
             playerRequestFactory = playerRequestFactory,
             resumePointResolver = resumePointResolver,
             positionTracker = positionTracker,
             userPreferences = userPreferences,
             errorBus = errorBus,
+            endpoints = LocalPlayerEndpoints(
+                apiClient = serviceClient,
+                settings = settingsRepository,
+                scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
+            ),
+            playerFactory = SendspinLocalPlayerFactory(
+                sink = localPlayerPorts.sink { command -> localPlayerAdapter.onRemoteCommand(command) },
+                decoders = localPlayerPorts.decoders,
+                keyStore = SettingsSendspinKeyStore(settingsStore),
+                networkMonitor = networkMonitor,
+                httpClient = { createPlatformHttpClient() },
+                softwareVersion = localPlayerPorts.softwareVersion,
+            ),
         )
     }
     val mainDataSource by lazy {
         MainDataSource(
             settings = settingsRepository,
             apiClient = serviceClient,
-            mediaPlayerController = mediaPlayerController,
-            localPlayerController = localPlayerController,
+            mediaSessionBridge = mediaSessionBridge,
+            localPlayerController = localPlayerAdapter,
             playerRequestFactory = playerRequestFactory,
             resumePointResolver = resumePointResolver,
             positionTracker = positionTracker,
