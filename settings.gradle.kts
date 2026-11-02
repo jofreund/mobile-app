@@ -18,3 +18,6 @@ dependencyResolutionManagement {
 }
 
 include(":composeApp")
+
+// Upstream's Sendspin player library, built from source (see sendspin-kmp/UPSTREAM).
+include(":sendspin-kmp")
