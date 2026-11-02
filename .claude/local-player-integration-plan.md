@@ -4,6 +4,18 @@
 **Created:** 2026-08-28 · **Implemented:** 2026-08-30
 **Upstream reference:** [music-assistant/mobile-app](https://github.com/music-assistant/mobile-app) @ `ebad772` (2026-08-27)
 
+> **2026-11-02 — Kotlin core replaced by `:sendspin-kmp`.** Upstream extracted its Sendspin
+> client into a standalone module (#1253–#1263) and rebuilt it (spec 1.0 wire, one reconnect
+> policy, a pipeline that outlives the connection, clock fixes #1108/#1122, interruption resume
+> #1244, WebRTC reconnect fix #1248). The fork now builds that module from source
+> (`sendspin-kmp/`, `scripts/sync-sendspin-kmp.sh`) instead of carrying its own copy:
+> `player/sendspin/**`, `LocalPlayerController`, `SendspinClientFactory` and
+> `MediaPlayerController` are gone; `LocalPlayerAdapter` + `LocalPlayerEndpoints` + the iOS
+> `AudioQueueSink` replace them. Phases 1–3 below describe the old port. The Swift audio stack
+> (Phase 4–5), Settings (6) and surfaces (7) still stand, with two setting changes: the buffer
+> is seconds (old MB tiers migrate), and "require encryption" is gone (always encrypted).
+> Phase 8's on-device validation applies again to the new core.
+
 > Implementation notes vs. this plan: the Kotlin core, `LocalPlayerController`,
 > `MainDataSource` wiring, settings (single-store, no secrets split), Swift audio stack
 > (`iosApp/iosApp/LocalPlayer/`), Now Playing channels + coordinator, Live Activity

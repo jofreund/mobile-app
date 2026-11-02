@@ -14,9 +14,22 @@ Update this file when either changes.
 | Ktor client WebRTC (`ktor-client-webrtc`, experimental) | Peer connection and data channels for remote access |
 | multiplatform-settings (no-arg) | `SettingsRepository` over `NSUserDefaults` |
 | Kermit | Logging, bridged to `os_log` in debug |
-| cryptography-kotlin (core + CryptoKit provider) | Noise handshake for the encrypted Sendspin protocol |
+| `:sendspin-kmp` (upstream's module, built from source) | The local player: Sendspin transport, Noise, clock sync, audio scheduling |
+| cryptography-kotlin (core + CryptoKit provider) | Noise handshake, used inside `:sendspin-kmp` |
 
-Test: `kotlin-test`, `kotlinx-coroutines-test`, Turbine, `multiplatform-settings-test`.
+Test: `kotlin-test`, `kotlinx-coroutines-test`, Turbine, `multiplatform-settings-test`,
+`ktor-client-mock` (`:sendspin-kmp`'s suite).
+
+### `:sendspin-kmp`
+
+Upstream (music-assistant/mobile-app) publishes it as `io.github.music-assistant:sendspin-kmp`,
+but only to GitHub Packages, where every download needs a `read:packages` token, and an iOS
+consumer must match its exact Kotlin version. The fork copies the module's `src/commonMain`,
+`src/commonTest`, `src/iosMain`, `api/` and docs instead (`scripts/sync-sendspin-kmp.sh [ref]`,
+pinned commit in `sendspin-kmp/UPSTREAM`) and builds it with its own iOS-only
+`sendspin-kmp/build.gradle.kts` against this catalog. To move to the published artifact later,
+replace `project(":sendspin-kmp")` in `composeApp/build.gradle.kts` with the coordinate and add
+the GitHub Packages repository.
 Lint: detekt with `detekt-formatting`, config in `config/detekt/detekt.yml`.
 
 ## Swift (`iosApp`)

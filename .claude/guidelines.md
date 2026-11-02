@@ -10,9 +10,10 @@
 | A Swift-callable entry point | `KmpHelper.kt` |
 | Platform actuals for the kernel | `iosMain` |
 
-Kotlin under `api/`, `data/`, `webrtc/`, `player/sendspin` tracks upstream. Don't move,
-rename, or reformat those files for tidiness; every change there is a future cherry-pick
-conflict. Pure deletions of dead code are fine.
+Kotlin under `api/`, `data/`, `webrtc/` tracks upstream. Don't move, rename, or reformat those
+files for tidiness; every change there is a future cherry-pick conflict. Pure deletions of dead
+code are fine. `sendspin-kmp/` is upstream's module verbatim: never edit its sources (detekt
+skips it on purpose); update it with `scripts/sync-sendspin-kmp.sh` and review the diff.
 
 ## Swift
 
