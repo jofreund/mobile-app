@@ -4,6 +4,7 @@ import co.touchlab.kermit.Logger
 import io.music_assistant.client.api.APICommands
 import io.music_assistant.client.api.Request
 import io.music_assistant.client.api.ServiceClient
+import io.music_assistant.client.api.fetchAllPages
 import io.music_assistant.client.data.factory.MediaItemFactory
 import io.music_assistant.client.data.model.client.items.AppMediaItem
 import io.music_assistant.client.data.model.client.items.RecommendationFolder
@@ -14,6 +15,7 @@ import io.music_assistant.client.data.model.server.events.MediaItemAddedEvent
 import io.music_assistant.client.data.model.server.events.MediaItemDeletedEvent
 import io.music_assistant.client.data.model.server.events.MediaItemUpdatedEvent
 import io.music_assistant.client.data.model.server.events.ServerFavoriteUpdate
+import io.music_assistant.client.data.model.server.pagesPlaylistTracksAndEpisodes
 import io.music_assistant.client.data.model.server.sendsFavoriteUpdates
 import io.music_assistant.client.utils.HasConnectionData
 import kotlinx.coroutines.CancellationException
@@ -78,6 +80,19 @@ class MediaItemRepository(
             if (error !is CancellationException) {
                 Logger.w(error) { "fetchMediaItems(${request.command}) failed" }
             }
+        }
+
+    /**
+     * Every item of a `playlist_tracks` or `podcast_episodes` [request]. Null when nothing could
+     * be loaded; a page failure after the first page gives the items loaded so far. A server from
+     * 2.11 answers one page, so the pages are walked; an older server streams the whole list on
+     * the plain request ([pagesPlaylistTracksAndEpisodes], upstream #1179).
+     */
+    suspend fun fetchAllMediaItems(request: Request): List<AppMediaItem>? =
+        if (pagesPlaylistTracksAndEpisodes(schemaVersion())) {
+            request.fetchAllPages { fetchMediaItems(it).getOrNull() }
+        } else {
+            fetchMediaItems(request).getOrNull()
         }
 
     suspend fun fetchMediaItems(request: Request, observer: (List<AppMediaItem>) -> Unit) {
