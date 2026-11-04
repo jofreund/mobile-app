@@ -280,14 +280,7 @@ class MainDataSource(
      */
     val nowPlayingTransport: StateFlow<NowPlayingTransport?> =
         localPlayerPresentation
-            .map {
-                buildNowPlayingTransport(
-                    playerData = it.value,
-                    positionTracker = positionTracker,
-                    currentChapter = it.chapter,
-                )
-            }
-            .distinctUntilChanged(NowPlayingChannelChangeDetection::sameTransport)
+            .withNowPlayingTransport(positionTracker)
             .stateIn(this, SharingStarted.Eagerly, null)
 
     /** Queue modes and their shared availability gate for system-media controls. */
