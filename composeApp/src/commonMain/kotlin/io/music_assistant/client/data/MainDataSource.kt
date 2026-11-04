@@ -43,6 +43,7 @@ import io.music_assistant.client.data.model.server.events.QueueAddedEvent
 import io.music_assistant.client.data.model.server.events.QueueItemsUpdatedEvent
 import io.music_assistant.client.data.model.server.events.QueueTimeUpdatedEvent
 import io.music_assistant.client.data.model.server.events.QueueUpdatedEvent
+import io.music_assistant.client.data.play.PlayDispatcher
 import io.music_assistant.client.player.MediaSessionBridge
 import io.music_assistant.client.settings.SettingsRepository
 import io.music_assistant.client.ui.compose.common.DataState
@@ -118,6 +119,7 @@ class MainDataSource(
     private val queueFactory: QueueFactory,
     /** Server-synced user preferences, refreshed from `auth/me` and shared by all surfaces. */
     val userPreferences: UserPreferences,
+    playDispatcher: PlayDispatcher,
 ) : CoroutineScope {
     private val log = Logger.withTag("MainDataSource")
 
@@ -143,8 +145,9 @@ class MainDataSource(
      * A play request (library, queue item, play-from-here) is about to go to [queueOrPlayerId].
      * When that is the local player, its hold — a local pause the server may not have seen
      * yet — is lifted first, or the stream the request starts would be silenced on arrival.
+     * Every `play_media` reaches here through [PlayDispatcher.accepted].
      */
-    fun onPlaybackRequested(queueOrPlayerId: String) {
+    private fun onPlaybackRequested(queueOrPlayerId: String) {
         val local = queueOrPlayerId == settings.sendspinEffectivePlayerId.value ||
             queueOrPlayerId == localPlayerController.localPlayerData.value?.queueId
         if (local) localPlayerController.onPlaybackRequested()
@@ -484,6 +487,8 @@ class MainDataSource(
                 }
             }
         }
+
+        launch { playDispatcher.accepted.collect(::onPlaybackRequested) }
 
         // Arms `hasActivePlayback` so backgrounding doesn't tear down the session while the
         // local player plays, or while a local pause still waits for the server to confirm it

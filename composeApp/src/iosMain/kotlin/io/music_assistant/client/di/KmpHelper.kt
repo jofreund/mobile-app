@@ -57,6 +57,8 @@ import io.music_assistant.client.data.model.server.ServerProviderInstance
 import io.music_assistant.client.data.model.server.ServerUser
 import io.music_assistant.client.data.model.server.events.PlaylogUpdatedEvent
 import io.music_assistant.client.data.model.server.supportsSleepTimer
+import io.music_assistant.client.data.play.PlayDispatcher
+import io.music_assistant.client.data.play.PlayRequest
 import io.music_assistant.client.data.repository.MediaItemChange
 import io.music_assistant.client.data.repository.MediaItemRepository
 import io.music_assistant.client.data.repository.SearchResultData
@@ -185,6 +187,7 @@ object KmpHelper {
     val serviceClient: ServiceClient get() = graph.serviceClient
     val authManager: AuthenticationManager get() = graph.authManager
     private val mediaItemRepository: MediaItemRepository get() = graph.mediaItemRepository
+    private val playDispatcher: PlayDispatcher get() = graph.playDispatcher
     private val settingsRepository: SettingsRepository get() = graph.settingsRepository
     private val errorBus: ErrorMessageBus get() = graph.errorBus
     private val logSharer: LogSharer get() = graph.logSharer
@@ -1240,17 +1243,14 @@ object KmpHelper {
     fun playOnSelectedPlayer(item: AppMediaItem, option: QueueOption, endlessMix: Boolean): Boolean {
         val mediaUri = item.mediaUri ?: return false
         val queueId = mainDataSource.selectedPlayer?.queueOrPlayerId ?: return false
-        mainDataSource.onPlaybackRequested(queueId)
-        mainScope.launch {
-            serviceClient.sendRequest(
-                Request.Library.play(
-                    media = listOf(mediaUri),
-                    queueOrPlayerId = queueId,
-                    option = option,
-                    endlessMixMode = endlessMix && item !is Genre,
-                ),
-            )
-        }
+        playDispatcher.play(
+            PlayRequest(
+                media = listOf(mediaUri),
+                queueOrPlayerId = queueId,
+                option = option,
+                endlessMixMode = endlessMix && item !is Genre,
+            ),
+        )
         return true
     }
 
@@ -1261,18 +1261,15 @@ object KmpHelper {
     fun playChapterOnSelectedPlayer(item: AppMediaItem, chapterPosition: Int): Boolean {
         val uri = item.referenceUri
         val queueId = mainDataSource.selectedPlayer?.queueOrPlayerId ?: return false
-        mainDataSource.onPlaybackRequested(queueId)
-        mainScope.launch {
-            serviceClient.sendRequest(
-                Request.Library.play(
-                    media = listOf(uri),
-                    queueOrPlayerId = queueId,
-                    option = QueueOption.REPLACE,
-                    endlessMixMode = false,
-                    startItem = chapterPosition.toString(),
-                ),
-            )
-        }
+        playDispatcher.play(
+            PlayRequest(
+                media = listOf(uri),
+                queueOrPlayerId = queueId,
+                option = QueueOption.REPLACE,
+                endlessMixMode = false,
+                startItem = chapterPosition.toString(),
+            ),
+        )
         return true
     }
 
@@ -1361,18 +1358,15 @@ object KmpHelper {
     fun playFromHere(parent: AppMediaItem, startItem: AppMediaItem): Boolean {
         val mediaUri = parent.mediaUri ?: return false
         val queueId = mainDataSource.selectedPlayer?.queueOrPlayerId ?: return false
-        mainDataSource.onPlaybackRequested(queueId)
-        mainScope.launch {
-            serviceClient.sendRequest(
-                Request.Library.play(
-                    media = listOf(mediaUri),
-                    queueOrPlayerId = queueId,
-                    option = QueueOption.REPLACE,
-                    endlessMixMode = false,
-                    startItem = startItem.itemId,
-                ),
-            )
-        }
+        playDispatcher.play(
+            PlayRequest(
+                media = listOf(mediaUri),
+                queueOrPlayerId = queueId,
+                option = QueueOption.REPLACE,
+                endlessMixMode = false,
+                startItem = startItem.itemId,
+            ),
+        )
         return true
     }
 
