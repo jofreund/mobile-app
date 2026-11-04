@@ -26,6 +26,7 @@ import io.music_assistant.client.data.announcement.AnnouncementRepository
 import io.music_assistant.client.data.factory.MediaItemFactory
 import io.music_assistant.client.data.factory.PlayerFactory
 import io.music_assistant.client.data.factory.QueueFactory
+import io.music_assistant.client.data.play.PlayDispatcher
 import io.music_assistant.client.data.repository.MediaItemRepository
 import io.music_assistant.client.logging.InMemoryLogWriter
 import io.music_assistant.client.logging.LogSharer
@@ -147,6 +148,15 @@ class AppGraph(
             ),
         )
     }
+
+    /**
+     * The single sender of `play_media`, in its own app-lifetime scope: the server answers only
+     * once playback started, and a burst of taps must coalesce per queue rather than queue up.
+     */
+    val playDispatcher by lazy {
+        PlayDispatcher(apiClient = serviceClient, scope = CoroutineScope(SupervisorJob() + Dispatchers.Default))
+    }
+
     val mainDataSource by lazy {
         MainDataSource(
             settings = settingsRepository,
@@ -160,6 +170,7 @@ class AppGraph(
             playerFactory = playerFactory,
             queueFactory = queueFactory,
             userPreferences = userPreferences,
+            playDispatcher = playDispatcher,
         )
     }
 

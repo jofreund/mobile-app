@@ -292,6 +292,11 @@ class PlayerPositionTracker(
         }
     }
 
+    /** Anchor changes only, without interpolation ticks; null also reports removal/reset. */
+    internal fun observeAnchor(queueId: String): Flow<Anchor?> = anchors
+        .map { it[queueId] }
+        .distinctUntilChanged()
+
     /** O(1) read of latest interpolated position. */
     fun effectiveSec(queueId: String): Double? = anchors.value[queueId]?.effectiveNow()
 

@@ -55,7 +55,10 @@ import io.music_assistant.client.data.model.client.items.Track
 import io.music_assistant.client.data.model.server.AuthProvider
 import io.music_assistant.client.data.model.server.ServerProviderInstance
 import io.music_assistant.client.data.model.server.ServerUser
+import io.music_assistant.client.data.model.server.events.PlaylogUpdatedEvent
 import io.music_assistant.client.data.model.server.supportsSleepTimer
+import io.music_assistant.client.data.play.PlayDispatcher
+import io.music_assistant.client.data.play.PlayRequest
 import io.music_assistant.client.data.repository.MediaItemChange
 import io.music_assistant.client.data.repository.MediaItemRepository
 import io.music_assistant.client.data.repository.SearchResultData
@@ -83,12 +86,16 @@ import kotlinx.cinterop.usePinned
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.flow.stateIn
@@ -101,6 +108,7 @@ import kotlinx.serialization.json.put
 import platform.Foundation.NSData
 import platform.Foundation.create
 import platform.posix.memcpy
+import kotlin.time.Duration.Companion.seconds
 
 private val log = Logger.withTag("KmpHelper")
 
@@ -125,6 +133,9 @@ private val log = Logger.withTag("KmpHelper")
  * genuinely lost reply resolves rather than hanging forever.
  */
 private const val FETCH_TIMEOUT_MS = 30_000L
+
+/** How long Home waits for a burst of `playlog_updated` to end before refetching. */
+private val PLAYLOG_REFRESH_DELAY = 1.5.seconds
 
 /**
  * See [KmpHelper.systemTogglePlayPause]. Bounded by the intent-execution budget the system gives
@@ -176,6 +187,7 @@ object KmpHelper {
     val serviceClient: ServiceClient get() = graph.serviceClient
     val authManager: AuthenticationManager get() = graph.authManager
     private val mediaItemRepository: MediaItemRepository get() = graph.mediaItemRepository
+    private val playDispatcher: PlayDispatcher get() = graph.playDispatcher
     private val settingsRepository: SettingsRepository get() = graph.settingsRepository
     private val errorBus: ErrorMessageBus get() = graph.errorBus
     private val logSharer: LogSharer get() = graph.logSharer
@@ -304,6 +316,28 @@ object KmpHelper {
     }
 
     /**
+     * Fires once a burst of `playlog_updated` for the signed-in user has settled, so Home can
+     * refetch its play-history rows (recently played, continue listening), as upstream's home
+     * screen does (#1226). One finished track sends several (the track, then each artist); the
+     * wait joins them. The filter runs off the main thread, so other events never wait for it.
+     */
+    @OptIn(FlowPreview::class)
+    fun observePlaylogUpdates(onUpdate: () -> Unit): Cancellable {
+        val job = mainScope.launch {
+            serviceClient.events
+                .filterIsInstance<PlaylogUpdatedEvent>()
+                .filter { event -> event.data.userId?.let { it == currentUserId() } ?: true }
+                .flowOn(Dispatchers.Default)
+                .debounce(PLAYLOG_REFRESH_DELAY)
+                .collect { onUpdate() }
+        }
+        return Cancellable { job.cancel() }
+    }
+
+    private fun currentUserId(): String? =
+        (serviceClient.sessionState.value as? HasConnectionData)?.user?.userId
+
+    /**
      * Command-readiness right now, for a caller that needs to *judge* a result rather than watch
      * for changes.
      *
@@ -340,7 +374,10 @@ object KmpHelper {
         val startMs = currentTimeMillis()
         log.i { "fetch[$label] start" }
         mainScope.launch {
-            val items: List<T>? = withTimeoutOrNull(FETCH_TIMEOUT_MS) { fetch() }
+            // Decode, mapping and post-processing run off main; [completion] stays on main for Swift.
+            val items: List<T>? = withTimeoutOrNull(FETCH_TIMEOUT_MS) {
+                withContext(Dispatchers.Default) { fetch() }
+            }
             val elapsed = currentTimeMillis() - startMs
             if (items == null) {
                 log.i { "fetch[$label] timeout after ${elapsed}ms" }
@@ -1188,7 +1225,7 @@ object KmpHelper {
     ) {
         val startMs = currentTimeMillis()
         mainScope.launch {
-            val result = withTimeoutOrNull(FETCH_TIMEOUT_MS) { fetch() }
+            val result = withTimeoutOrNull(FETCH_TIMEOUT_MS) { withContext(Dispatchers.Default) { fetch() } }
             log.i { "fetch[$label] ${if (result != null) "loaded" else "failed"} in ${currentTimeMillis() - startMs}ms" }
             completion(result)
         }
@@ -1206,17 +1243,14 @@ object KmpHelper {
     fun playOnSelectedPlayer(item: AppMediaItem, option: QueueOption, endlessMix: Boolean): Boolean {
         val mediaUri = item.mediaUri ?: return false
         val queueId = mainDataSource.selectedPlayer?.queueOrPlayerId ?: return false
-        mainDataSource.onPlaybackRequested(queueId)
-        mainScope.launch {
-            serviceClient.sendRequest(
-                Request.Library.play(
-                    media = listOf(mediaUri),
-                    queueOrPlayerId = queueId,
-                    option = option,
-                    endlessMixMode = endlessMix && item !is Genre,
-                ),
-            )
-        }
+        playDispatcher.play(
+            PlayRequest(
+                media = listOf(mediaUri),
+                queueOrPlayerId = queueId,
+                option = option,
+                endlessMixMode = endlessMix && item !is Genre,
+            ),
+        )
         return true
     }
 
@@ -1227,18 +1261,15 @@ object KmpHelper {
     fun playChapterOnSelectedPlayer(item: AppMediaItem, chapterPosition: Int): Boolean {
         val uri = item.referenceUri
         val queueId = mainDataSource.selectedPlayer?.queueOrPlayerId ?: return false
-        mainDataSource.onPlaybackRequested(queueId)
-        mainScope.launch {
-            serviceClient.sendRequest(
-                Request.Library.play(
-                    media = listOf(uri),
-                    queueOrPlayerId = queueId,
-                    option = QueueOption.REPLACE,
-                    endlessMixMode = false,
-                    startItem = chapterPosition.toString(),
-                ),
-            )
-        }
+        playDispatcher.play(
+            PlayRequest(
+                media = listOf(uri),
+                queueOrPlayerId = queueId,
+                option = QueueOption.REPLACE,
+                endlessMixMode = false,
+                startItem = chapterPosition.toString(),
+            ),
+        )
         return true
     }
 
@@ -1327,18 +1358,15 @@ object KmpHelper {
     fun playFromHere(parent: AppMediaItem, startItem: AppMediaItem): Boolean {
         val mediaUri = parent.mediaUri ?: return false
         val queueId = mainDataSource.selectedPlayer?.queueOrPlayerId ?: return false
-        mainDataSource.onPlaybackRequested(queueId)
-        mainScope.launch {
-            serviceClient.sendRequest(
-                Request.Library.play(
-                    media = listOf(mediaUri),
-                    queueOrPlayerId = queueId,
-                    option = QueueOption.REPLACE,
-                    endlessMixMode = false,
-                    startItem = startItem.itemId,
-                ),
-            )
-        }
+        playDispatcher.play(
+            PlayRequest(
+                media = listOf(mediaUri),
+                queueOrPlayerId = queueId,
+                option = QueueOption.REPLACE,
+                endlessMixMode = false,
+                startItem = startItem.itemId,
+            ),
+        )
         return true
     }
 

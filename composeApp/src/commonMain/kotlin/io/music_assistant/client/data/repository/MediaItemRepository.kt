@@ -13,9 +13,9 @@ import io.music_assistant.client.data.model.server.events.MediaItemDeletedEvent
 import io.music_assistant.client.data.model.server.events.MediaItemUpdatedEvent
 import io.music_assistant.client.utils.HasConnectionData
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.IO
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -41,6 +41,9 @@ import kotlinx.coroutines.withTimeoutOrNull
 class MediaItemRepository(
     private val apiClient: ServiceClient,
     private val factory: MediaItemFactory,
+    // The answer resumes on the caller's dispatcher, usually Main; decode and map off it
+    // (upstream #1228: a library list is up to 100 pages of 500 items).
+    private val workDispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) {
     // Singleton-scoped app-lifetime job; only used to keep [itemChanges]
     // hot. Survives subscriber turnover so quick navigation between screens
@@ -52,12 +55,13 @@ class MediaItemRepository(
      * Failures (RPC error, decode failure, missing payload) surface as a
      * failed [Result] so callers can still log via `result.exceptionOrNull()`.
      */
-    suspend fun fetchMediaItems(request: Request): Result<List<AppMediaItem>> =
+    suspend fun fetchMediaItems(request: Request): Result<List<AppMediaItem>> = withContext(workDispatcher) {
         apiClient.sendRequest(request).mapCatching { answer ->
             answer.resultAs<List<ServerMediaItem>>()
                 ?.let(factory::createList)
                 ?: error("Missing or undecodable media list payload")
-        }.onFailure { error ->
+        }
+    }.onFailure { error ->
             // Most callers reduce this to `getOrNull() ?: emptyList()`, which renders a failed
             // request as an empty section — indistinguishable from a genuinely empty one, in the
             // UI *and* in the log. Logging here rather than at each of those call sites keeps the
@@ -84,10 +88,8 @@ class MediaItemRepository(
      * without embedded items (see [supportsRecommendationRowItems]).
      */
     suspend fun fetchRecommendationRows(): Result<List<RecommendationFolder>> =
-        withContext(Dispatchers.IO) {
-            fetchMediaItems(Request.Library.recommendations())
-                .map { items -> items.filterIsInstance<RecommendationFolder>() }
-        }
+        fetchMediaItems(Request.Library.recommendations())
+            .map { items -> items.filterIsInstance<RecommendationFolder>() }
 
     /**
      * Whether the connected server strips the items from `music/recommendations`
@@ -133,17 +135,15 @@ class MediaItemRepository(
     /** Items of one recommendation row, or null when the fetch failed (logged). */
     suspend fun fetchRecommendationRowItems(
         folder: RecommendationFolder,
-    ): List<AppMediaItem>? = withContext(Dispatchers.IO) {
-        fetchMediaItems(
-            Request.Library.recommendationItems(folder.provider, folder.itemId),
-        ).getOrElse { error ->
-            if (error is CancellationException) throw error
-            Logger.w(
-                "Failed fetching recommendation items for " +
-                        "${folder.provider}/${folder.itemId}: $error",
-            )
-            null
-        }
+    ): List<AppMediaItem>? = fetchMediaItems(
+        Request.Library.recommendationItems(folder.provider, folder.itemId),
+    ).getOrElse { error ->
+        if (error is CancellationException) throw error
+        Logger.w(
+            "Failed fetching recommendation items for " +
+                    "${folder.provider}/${folder.itemId}: $error",
+        )
+        null
     }
 
     /**
@@ -151,18 +151,20 @@ class MediaItemRepository(
      * Returns `Result.success(null)` for an absent payload so a 404-style
      * "not found" stays distinguishable from a transport failure.
      */
-    suspend fun fetchMediaItem(request: Request): Result<AppMediaItem?> =
+    suspend fun fetchMediaItem(request: Request): Result<AppMediaItem?> = withContext(workDispatcher) {
         apiClient.sendRequest(request).map { answer ->
             answer.resultAs<ServerMediaItem>()?.let(factory::create)
         }
+    }
 
     /** Issue [request] and decode its payload as a typed [SearchResultData]. */
-    suspend fun search(request: Request): Result<SearchResultData> =
+    suspend fun search(request: Request): Result<SearchResultData> = withContext(workDispatcher) {
         apiClient.sendRequest(request).mapCatching { answer ->
             answer.resultAs<SearchResult>()
                 ?.let(factory::createSearchResult)
                 ?: error("Missing or undecodable search payload")
         }
+    }
 
     // Client-originated changes for mutations the server doesn't echo back as an
     // event (e.g. mark played/unplayed only writes the playlog server-side). Merged

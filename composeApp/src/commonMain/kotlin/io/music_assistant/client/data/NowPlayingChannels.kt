@@ -11,6 +11,12 @@ import io.music_assistant.client.data.model.client.items.image
 import io.music_assistant.client.data.model.client.items.isLongFormSpokenContent
 import io.music_assistant.client.data.model.client.navigationChapters
 import io.music_assistant.client.utils.monotonicMs
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlin.math.abs
 
 /**
@@ -166,6 +172,23 @@ internal fun buildNowPlayingTransport(
         },
     )
 }
+
+// Audio-start confirmation can unfreeze position without changing PlayerData (upstream #1175).
+// Observe anchor changes, not ticks; the system interpolates between anchors.
+@OptIn(ExperimentalCoroutinesApi::class)
+internal fun Flow<ChapterPresentation<PlayerData?>>.withNowPlayingTransport(
+    positionTracker: PlayerPositionTracker,
+): Flow<NowPlayingTransport?> = flatMapLatest { presentation ->
+    presentation.value?.queueInfo?.id?.let { queueId ->
+        positionTracker.observeAnchor(queueId).map {
+            buildNowPlayingTransport(
+                playerData = presentation.value,
+                positionTracker = positionTracker,
+                currentChapter = presentation.chapter,
+            )
+        }
+    } ?: flowOf(null)
+}.distinctUntilChanged(NowPlayingChannelChangeDetection::sameTransport)
 
 /** Maps queue modes and the shared availability gates to the modes channel. */
 internal fun buildNowPlayingModes(playerData: PlayerData?): NowPlayingModes? {
