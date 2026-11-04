@@ -1,6 +1,7 @@
 package io.music_assistant.client.auth
 
 import co.touchlab.kermit.Logger
+import io.music_assistant.client.api.ConnectionLostException
 import io.music_assistant.client.api.Request
 import io.music_assistant.client.api.ServiceClient
 import io.music_assistant.client.data.model.server.AuthProvider
@@ -189,7 +190,11 @@ class AuthenticationManager(
             _authState.value = AuthState.Loading
             val response = serviceClient.sendRequest(Request.Auth.providers())
 
-            if (response.isFailure) {
+            response.exceptionOrNull()?.let { cause ->
+                // The transport dropped the request (the server closes the socket on
+                // `auth/logout`), so a reconnect follows and the providers load again on the
+                // new socket. An error here would sit on the login screen until then.
+                if (cause is ConnectionLostException) return Result.failure(cause)
                 val error = "Failed to fetch auth providers"
                 _authState.value = AuthState.Error(error)
                 return Result.failure(Exception(error))
