@@ -24,6 +24,7 @@ import io.music_assistant.client.data.model.client.items.AppMediaItem
 import io.music_assistant.client.data.model.client.items.LongFormSeekDefaults
 import io.music_assistant.client.data.model.client.items.Track
 import io.music_assistant.client.data.model.client.items.image
+import io.music_assistant.client.data.model.client.nextMovesQueue
 import io.music_assistant.client.data.model.server.DspConfig
 import io.music_assistant.client.data.model.server.DspConfigPreset
 import io.music_assistant.client.data.model.server.ServerPlayer
@@ -1377,7 +1378,12 @@ class MainDataSource(
             // The same hold as a seek, for the same reason: the track that follows starts at
             // 0 (and a `previous` that restarts the current one does too), but the positions
             // arriving while the server rebuilds the stream still describe the old one.
-            PlayerAction.Next, PlayerAction.Previous ->
+            // A `next` on the last item (repeat not ALL) is ignored by the server, so it gets no
+            // hold: the playhead would sit at 0 until the settle window ran out.
+            PlayerAction.Next -> data.queueInfo?.takeIf { it.nextMovesQueue }
+                ?.let { positionTracker.setSeekTarget(it.id, targetSec = 0.0) }
+
+            PlayerAction.Previous ->
                 data.queueInfo?.id?.let { positionTracker.setSeekTarget(it, targetSec = 0.0) }
 
             is PlayerAction.SeekTo -> {

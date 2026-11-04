@@ -30,9 +30,22 @@ data class QueueInfo(
     /** Server-derived: the active source is a dynamic/smart playlist (rule-generated). */
     val isDynamicPlaylist: Boolean = false,
     val playbackSpeed: Double? = null,
+    /** Number of items in the queue, or null when the server did not send it. */
+    val itemCount: Int? = null,
 ) {
     val isRadioOn: Boolean = radioSource.isNotEmpty()
 }
+
+/**
+ * Whether a plain `next` moves the queue. The server ignores it without a current item, and on
+ * the last item unless repeat is ALL (`player_queues/next`). An unknown count counts as a move.
+ */
+val QueueInfo.nextMovesQueue: Boolean
+    get() {
+        val index = currentIndex ?: return false
+        val count = itemCount ?: return true
+        return index < count - 1 || repeatMode == RepeatMode.ALL
+    }
 
 /** Strict-older-than on [QueueInfo.elapsedTimeLastUpdated]. Callers match ids first. */
 fun QueueInfo.isBefore(other: QueueInfo): Boolean {

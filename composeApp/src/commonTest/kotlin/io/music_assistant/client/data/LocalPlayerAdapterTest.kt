@@ -7,6 +7,8 @@ import io.music_assistant.client.api.ErrorMessageBus
 import io.music_assistant.client.api.Request
 import io.music_assistant.client.data.factory.MediaItemFactory
 import io.music_assistant.client.data.model.client.Player
+import io.music_assistant.client.data.model.client.QueueInfo
+import io.music_assistant.client.data.model.client.RepeatMode
 import io.music_assistant.client.data.model.server.StubServiceClient
 import io.music_assistant.client.settings.SettingsRepository
 import io.music_assistant.client.ui.compose.common.action.PlayerAction
@@ -188,6 +190,49 @@ class LocalPlayerAdapterTest {
         assertTrue(player.held.value)
     }
 
+    @Test
+    fun aNextOnTheLastItemKeepsThePosition() = runBlocking<Unit> {
+        playingAt(currentIndex = 0, itemCount = 1)
+
+        adapter.handleLocalCommand(requireNotNull(adapter.localPlayerData.value), PlayerAction.Next)
+
+        assertEquals(NEXT, client.nextSent().command)
+        assertFalse(tracker.isFrozenUntilConfirmed(QUEUE_ID))
+        assertEquals(EPISODE_POSITION_SEC, tracker.effectiveSec(QUEUE_ID))
+    }
+
+    @Test
+    fun aNextWithAnItemAfterItFreezesAtTheStart() = runBlocking<Unit> {
+        playingAt(currentIndex = 0, itemCount = 2)
+
+        adapter.handleLocalCommand(requireNotNull(adapter.localPlayerData.value), PlayerAction.Next)
+
+        assertEquals(NEXT, client.nextSent().command)
+        assertTrue(tracker.isFrozenUntilConfirmed(QUEUE_ID))
+        assertEquals(0.0, tracker.effectiveSec(QUEUE_ID))
+    }
+
+    /** The local player plays item [currentIndex] of [itemCount], paused in the tracker at a known position. */
+    private suspend fun playingAt(currentIndex: Int, itemCount: Int) {
+        playing()
+        adapter.onServerQueueUpdate(
+            QueueInfo(
+                id = QUEUE_ID,
+                available = true,
+                currentIndex = currentIndex,
+                shuffleEnabled = false,
+                repeatMode = RepeatMode.OFF,
+                autoPlayEnabled = false,
+                elapsedTime = EPISODE_POSITION_SEC,
+                elapsedTimeLastUpdated = null,
+                currentItem = null,
+                radioSource = emptyList(),
+                itemCount = itemCount,
+            ),
+        )
+        tracker.setAnchor(QUEUE_ID, elapsedSec = EPISODE_POSITION_SEC, isPlaying = false)
+    }
+
     /** Injects the synthetic local player and lets the server report it as playing. */
     private suspend fun playing(): Player {
         adapter.onInitialPlayersReceived(hasLocalPlayer = false)
@@ -246,6 +291,9 @@ class LocalPlayerAdapterTest {
     private companion object {
         val PAUSE = APICommands.playersCmd("pause")
         val PLAY = APICommands.playersCmd("play")
+        val NEXT = APICommands.playersCmd("next")
+        const val QUEUE_ID = "queue"
+        const val EPISODE_POSITION_SEC = 1800.0
         const val TIMEOUT_MS = 5_000L
         const val POLL_MS = 10L
         const val SETTLE_MS = 300L

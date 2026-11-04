@@ -12,8 +12,10 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.coroutines.isActive
 import kotlin.math.abs
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * Single source of truth for "what elapsed-time is each queue at, right now".
@@ -53,8 +55,8 @@ class PlayerPositionTracker(
          * interpolated delta to match, or the slider drifts then snaps each anchor.
          */
         val speed: Double = 1.0,
-        /** Hold the optimistic position until Sendspin confirms audio is flowing. */
-        val freezeReason: FreezeReason? = null,
+        /** Hold the optimistic position until Sendspin confirms audio is flowing (or a settle releases it). */
+        val freeze: Freeze? = null,
         /**
          * Position a user seek asked for, while it is still settling: server anchors
          * that do not reflect it yet are held off (see [setSeekTarget]). Null unless a
@@ -78,10 +80,28 @@ class PlayerPositionTracker(
 
         /** Position right now: anchor + speed-scaled wall-time since anchor (capped at duration). */
         fun effectiveNow(): Double {
-            if (!isPlaying || freezeReason != null) return elapsedSec
+            if (!isPlaying || freeze != null) return elapsedSec
             val advanced = elapsedSec + (currentTimeMillis() - wallMs) / 1000.0 * speed
             return durationSec?.let { advanced.coerceAtMost(it) } ?: advanced
         }
+
+        /** Snapshots the position at a play/pause transition, also for the server position beneath a freeze. */
+        fun withPlaying(isPlaying: Boolean): Anchor {
+            val self = if (this.isPlaying == isPlaying) {
+                this
+            } else {
+                copy(elapsedSec = effectiveNow(), wallMs = currentTimeMillis(), isPlaying = isPlaying)
+            }
+            return freeze?.let { self.copy(freeze = it.copy(server = it.server?.withPlaying(isPlaying))) } ?: self
+        }
+
+        /** Keeps [server] beneath a freeze and notes when it reports the frozen position; else [server] wins. */
+        fun withServer(server: Anchor): Anchor = freeze
+            ?.let {
+                val agreed = it.serverAgreed || abs(server.elapsedSec - elapsedSec) <= AGREEMENT_TOLERANCE_SEC
+                copy(freeze = it.copy(server = server, serverAgreed = agreed))
+            }
+            ?: server
     }
 
     /**
@@ -90,7 +110,20 @@ class PlayerPositionTracker(
      */
     enum class FreezeReason { SEEK, TRACK_CHANGE }
 
+    /**
+     * An optimistic position that waits for audio. [server] is the latest server position beneath
+     * it. [serverAgreed] is true once the server reported the frozen position, so the server acted
+     * on the command. [id] identifies the freeze for [releaseUnconfirmed].
+     */
+    data class Freeze(
+        val reason: FreezeReason,
+        val id: Long,
+        val server: Anchor?,
+        val serverAgreed: Boolean = false,
+    )
+
     private val anchors = MutableStateFlow<Map<String, Anchor>>(emptyMap())
+    private val lastFreezeId = MutableStateFlow(0L)
 
     /**
      * Server-anchored update. Pass `isPlaying`/`durationSec` when known;
@@ -106,44 +139,33 @@ class PlayerPositionTracker(
     ) {
         anchors.update { existing ->
             val current = existing[queueId]
-            // Server anchors are noisy during handoff; Sendspin sync is the confirmation.
-            if (current?.freezeReason != null && !current.releasedBy(elapsedSec)) {
-                return@update existing
-            }
-            existing + (
-                queueId to Anchor(
-                    elapsedSec = elapsedSec,
-                    wallMs = currentTimeMillis(),
-                    isPlaying = isPlaying ?: current?.isPlaying ?: false,
-                    durationSec = durationSec ?: current?.durationSec,
-                    speed = speed ?: current?.speed ?: 1.0,
-                    freezeReason = null,
-                )
+            val base = current?.freeze?.server ?: current
+            val server = Anchor(
+                elapsedSec = elapsedSec,
+                wallMs = currentTimeMillis(),
+                isPlaying = isPlaying ?: base?.isPlaying ?: false,
+                durationSec = durationSec ?: base?.durationSec,
+                speed = speed ?: base?.speed ?: 1.0,
             )
+            // Server anchors are noisy during handoff; Sendspin sync is the confirmation, or for a
+            // settling seek a server position that reflects it. A frozen anchor keeps the server
+            // position beneath it for [releaseUnconfirmed].
+            val next = if (current?.freeze != null && !current.releasedBy(elapsedSec)) {
+                current.withServer(server)
+            } else {
+                server
+            }
+            existing + (queueId to next)
         }
     }
 
-    /** User-dropped seek anchor; server echoes do not release the freeze. */
+    /** User-dropped seek anchor; server echoes do not release the freeze. Returns the freeze id. */
     fun setOptimisticSeek(
         queueId: String,
         elapsedSec: Double,
         durationSec: Double? = null,
         speed: Double? = null,
-    ) {
-        anchors.update { existing ->
-            val current = existing[queueId]
-            existing + (
-                queueId to Anchor(
-                    elapsedSec = elapsedSec,
-                    wallMs = currentTimeMillis(),
-                    isPlaying = current?.isPlaying ?: false,
-                    durationSec = durationSec ?: current?.durationSec,
-                    speed = speed ?: current?.speed ?: 1.0,
-                    freezeReason = FreezeReason.SEEK,
-                )
-            )
-        }
-    }
+    ): Long = setFrozen(queueId, elapsedSec, durationSec, speed, FreezeReason.SEEK)
 
     /**
      * User seek on a server-driven player: hold the playhead at [targetSec] until the
@@ -166,42 +188,75 @@ class PlayerPositionTracker(
         durationSec: Double? = null,
         speed: Double? = null,
     ) {
-        anchors.update { existing ->
-            val current = existing[queueId]
-            existing + (
-                queueId to Anchor(
-                    elapsedSec = targetSec,
-                    wallMs = currentTimeMillis(),
-                    isPlaying = current?.isPlaying ?: false,
-                    durationSec = durationSec ?: current?.durationSec,
-                    speed = speed ?: current?.speed ?: 1.0,
-                    freezeReason = FreezeReason.SEEK,
-                    settleTargetSec = targetSec,
-                    settleDeadlineMs = currentTimeMillis() + seekSettleWindowMs,
-                )
-            )
-        }
+        setFrozen(
+            queueId = queueId,
+            elapsedSec = targetSec,
+            durationSec = durationSec,
+            speed = speed,
+            reason = FreezeReason.SEEK,
+            settleUntilMs = currentTimeMillis() + seekSettleWindowMs,
+        )
     }
 
-    /** Next/Previous boundary; wait for new-stream sync before ticking again. */
+    /** Next/Previous boundary; wait for new-stream sync before ticking again. Returns the freeze id. */
     fun setOptimisticTrackChange(
         queueId: String,
         elapsedSec: Double,
         durationSec: Double? = null,
         speed: Double? = null,
-    ) {
+    ): Long = setFrozen(queueId, elapsedSec, durationSec, speed, FreezeReason.TRACK_CHANGE)
+
+    /**
+     * Freezes the position at [elapsedSec], with the server position beneath it. [settleUntilMs]
+     * makes it a settling seek ([setSeekTarget]): a server position that reflects it, or the
+     * deadline, ends it.
+     */
+    @Suppress("LongParameterList")
+    private fun setFrozen(
+        queueId: String,
+        elapsedSec: Double,
+        durationSec: Double?,
+        speed: Double?,
+        reason: FreezeReason,
+        settleUntilMs: Long? = null,
+    ): Long {
+        val id = lastFreezeId.updateAndGet { it + 1 }
+        val now = currentTimeMillis()
         anchors.update { existing ->
             val current = existing[queueId]
             existing + (
                 queueId to Anchor(
                     elapsedSec = elapsedSec,
-                    wallMs = currentTimeMillis(),
+                    wallMs = now,
                     isPlaying = current?.isPlaying ?: false,
                     durationSec = durationSec ?: current?.durationSec,
                     speed = speed ?: current?.speed ?: 1.0,
-                    freezeReason = FreezeReason.TRACK_CHANGE,
+                    freeze = Freeze(
+                        reason = reason,
+                        id = id,
+                        server = current?.let { it.freeze?.server ?: it },
+                    ),
+                    settleTargetSec = elapsedSec.takeIf { settleUntilMs != null },
+                    settleDeadlineMs = settleUntilMs,
                 )
             )
+        }
+        return id
+    }
+
+    /**
+     * Ends freeze [freezeId] if the server never reported its position: the server ignored the
+     * command (a `next` on the last item) or rejected it. The position falls back to the server
+     * position beneath the freeze. Call it [SERVER_CONFIRM_WINDOW] after the freeze; a later
+     * freeze or an audio confirmation makes it a no-op.
+     */
+    fun releaseUnconfirmed(queueId: String, freezeId: Long) {
+        anchors.update { existing ->
+            val current = existing[queueId] ?: return@update existing
+            val freeze = current.freeze
+                ?.takeIf { it.id == freezeId && !it.serverAgreed }
+                ?: return@update existing
+            existing + (queueId to (freeze.server ?: current.copy(freeze = null)))
         }
     }
 
@@ -209,13 +264,13 @@ class PlayerPositionTracker(
     fun confirmPlaying(queueId: String) {
         anchors.update { existing ->
             val current = existing[queueId] ?: return@update existing
-            if (current.freezeReason == null) return@update existing
+            if (current.freeze == null) return@update existing
             existing + (
                 queueId to current.copy(
                     elapsedSec = current.effectiveNow(),
                     wallMs = currentTimeMillis(),
                     isPlaying = true,
-                    freezeReason = null,
+                    freeze = null,
                     settleTargetSec = null,
                     settleDeadlineMs = null,
                 )
@@ -232,14 +287,8 @@ class PlayerPositionTracker(
     fun setPlaying(queueId: String, isPlaying: Boolean) {
         anchors.update { existing ->
             val current = existing[queueId] ?: return@update existing
-            if (current.isPlaying == isPlaying) return@update existing
-            existing + (
-                queueId to current.copy(
-                    elapsedSec = current.effectiveNow(),
-                    wallMs = currentTimeMillis(),
-                    isPlaying = isPlaying,
-                )
-            )
+            val updated = current.withPlaying(isPlaying)
+            if (updated == current) existing else existing + (queueId to updated)
         }
     }
 
@@ -248,7 +297,7 @@ class PlayerPositionTracker(
 
     /** True while an optimistic seek or track-change is waiting for confirmation. */
     fun isFrozenUntilConfirmed(queueId: String): Boolean =
-        anchors.value[queueId]?.freezeReason != null
+        anchors.value[queueId]?.freeze != null
 
     /**
      * Cold flow of interpolated position. Emits immediately on subscription,
@@ -271,7 +320,7 @@ class PlayerPositionTracker(
                 flow {
                     while (currentCoroutineContext().isActive) {
                         emit(anchor.effectiveNow())
-                        if (!anchor.isPlaying || anchor.freezeReason != null) break
+                        if (!anchor.isPlaying || anchor.freeze != null) break
                         delay(TICK_MS)
                     }
                 }
@@ -303,5 +352,11 @@ class PlayerPositionTracker(
          * `MainDataSource.SEEK_SETTLE_TIMEOUT_MS`, which waits for the same thing.
          */
         const val SEEK_SETTLE_WINDOW_MS = 15_000L
+
+        /** A server reports the seek target or the 0:00 of a track change within this time. */
+        val SERVER_CONFIRM_WINDOW = 5.seconds
+
+        /** A server position this close to a frozen position confirms it. */
+        private const val AGREEMENT_TOLERANCE_SEC = 2.0
     }
 }

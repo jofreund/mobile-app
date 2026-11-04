@@ -15,6 +15,7 @@ import io.music_assistant.client.data.model.client.QueueTrack
 import io.music_assistant.client.data.model.client.RepeatMode
 import io.music_assistant.client.data.model.client.items.AppMediaItem
 import io.music_assistant.client.data.model.client.items.image
+import io.music_assistant.client.data.model.client.nextMovesQueue
 import io.music_assistant.client.data.model.client.presentationChapter
 import io.music_assistant.client.data.model.client.toAbsoluteSeekSeconds
 import io.music_assistant.client.settings.SettingsRepository
@@ -440,7 +441,9 @@ class LocalPlayerAdapter(
                 anchorOptimisticSeek(data, action.position)
             }
 
-            PlayerAction.Next, PlayerAction.Previous -> optimisticTrackChange(data)
+            // The server ignores a next on the last item, so nothing would release a 0:00 freeze.
+            PlayerAction.Next -> if (data.queueInfo?.nextMovesQueue != false) optimisticTrackChange(data)
+            PlayerAction.Previous -> optimisticTrackChange(data)
 
             else -> Unit
         }
@@ -450,12 +453,13 @@ class LocalPlayerAdapter(
     private fun anchorOptimisticSeek(data: PlayerData, positionSec: Long) {
         updateOptimisticQueueInfo { it.copy(elapsedTime = positionSec.toDouble()) }
         data.queueInfo?.id?.let { queueId ->
-            positionTracker.setOptimisticSeek(
+            val freezeId = positionTracker.setOptimisticSeek(
                 queueId = queueId,
                 elapsedSec = positionSec.toDouble(),
                 durationSec = data.queueInfo.currentItem?.track?.duration,
                 speed = data.queueInfo.playbackSpeed,
             )
+            releaseIfUnconfirmed(queueId, freezeId)
         }
     }
 
@@ -463,12 +467,21 @@ class LocalPlayerAdapter(
     private fun optimisticTrackChange(data: PlayerData) {
         hold(false) // the server starts the next track
         data.queueInfo?.id?.let { queueId ->
-            positionTracker.setOptimisticTrackChange(
+            val freezeId = positionTracker.setOptimisticTrackChange(
                 queueId = queueId,
                 elapsedSec = 0.0,
                 durationSec = data.queueInfo.currentItem?.track?.duration,
                 speed = data.queueInfo.playbackSpeed,
             )
+            releaseIfUnconfirmed(queueId, freezeId)
+        }
+    }
+
+    /** A server that ignored or rejected the command never reports the frozen position. */
+    private fun releaseIfUnconfirmed(queueId: String, freezeId: Long) {
+        launch {
+            delay(PlayerPositionTracker.SERVER_CONFIRM_WINDOW)
+            positionTracker.releaseUnconfirmed(queueId, freezeId)
         }
     }
 
