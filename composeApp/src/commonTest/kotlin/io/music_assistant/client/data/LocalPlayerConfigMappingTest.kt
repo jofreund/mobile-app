@@ -12,7 +12,7 @@ class LocalPlayerConfigMappingTest {
     private val endpoint = Endpoint.WebSocket("wss://ma/sendspin", WireVersion.LEGACY_9, authToken = "token")
 
     private fun config(staticDelayMs: Int, enabled: Boolean = true, endpoint: Endpoint? = this.endpoint) =
-        localPlayerConfig(enabled, endpoint, "Phone", AudioCodec.FLAC, 15, staticDelayMs)
+        localPlayerConfig(enabled, endpoint, "Phone", AudioCodec.FLAC, 24, 15, staticDelayMs)
 
     @Test
     fun persistedPositiveCompensationPlaysEarlierAndNegativePlaysLater() {
@@ -29,8 +29,8 @@ class LocalPlayerConfigMappingTest {
     }
 
     @Test
-    fun bufferSecondsPassThroughAndTheDepthStaysSixteen() {
+    fun bitDepthAndBufferSecondsPassThrough() {
+        assertEquals(24, config(staticDelayMs = 0)?.bitDepth)
         assertEquals(15, config(staticDelayMs = 0)?.bufferSeconds)
-        assertEquals(16, config(staticDelayMs = 0)?.bitDepth)
     }
 }

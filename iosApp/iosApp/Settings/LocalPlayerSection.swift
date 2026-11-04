@@ -2,7 +2,7 @@ import SwiftUI
 import MusicAssistantKit
 
 /// Local player (Sendspin) configuration: enable/disable, player name, codec preference,
-/// buffer length, optional custom connection. All fields lock while the local player is
+/// 24-bit audio, buffer length, optional custom connection. All fields lock while the local player is
 /// running (each is part of the player's hello, so a change would reconnect it mid-stream).
 /// There is no encryption switch: the `:sendspin-kmp` player is always encrypted.
 ///
@@ -17,6 +17,7 @@ struct LocalPlayerSection: View {
     @State private var enabled = KmpHelper.shared.sendspinEnabled.value?.boolValue ?? false
     @State private var deviceName = (KmpHelper.shared.sendspinDeviceName.value as? String) ?? ""
     @State private var codec = (KmpHelper.shared.sendspinCodecPreference.value as? String) ?? ""
+    @State private var hiRes = KmpHelper.shared.sendspinHiRes.value?.boolValue ?? false
     @State private var bufferSeconds = KmpHelper.shared.sendspinBufferSeconds.value?.intValue
         ?? Int(KmpHelper.shared.sendspinBufferSecondsDefault)
     @State private var useCustomConnection =
@@ -76,6 +77,20 @@ struct LocalPlayerSection: View {
             }
             .pickerStyle(.inline)
             .disabled(running)
+
+            // 24-bit applies to FLAC and PCM only (Opus is always 16-bit), so with Opus the toggle
+            // shows off and says why; the stored choice comes back with a lossless codec.
+            Toggle(isOn: hiResBinding) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(String(localized: "settings_hi_res_audio"))
+                    Text(String(localized: String.LocalizationValue(
+                        hiResAvailable ? "settings_hi_res_audio_hint" : "settings_hi_res_audio_lossless_only"
+                    )))
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .disabled(running || !hiResAvailable)
 
             // Buffer length as named tiers over the kernel's seconds grid (`LocalPlayerOptions.tiers`):
             // the choice is about headroom versus memory, not a number, so the number is the
@@ -174,6 +189,20 @@ struct LocalPlayerSection: View {
             set: { newValue in
                 codec = newValue
                 KmpHelper.shared.setSendspinCodecPreference(codecName: newValue)
+            }
+        )
+    }
+
+    private var hiResAvailable: Bool {
+        KmpHelper.shared.sendspinHiResAvailable(codecName: codec)
+    }
+
+    private var hiResBinding: Binding<Bool> {
+        Binding(
+            get: { hiRes && hiResAvailable },
+            set: { newValue in
+                hiRes = newValue
+                KmpHelper.shared.setSendspinHiRes(enabled: newValue)
             }
         )
     }

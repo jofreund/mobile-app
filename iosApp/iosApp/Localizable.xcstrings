@@ -10134,6 +10134,75 @@
         }
       }
     },
+    "settings_hi_res_audio" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "24-Bit Audio"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "24-bit audio"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "24-bits audio"
+          }
+        }
+      }
+    },
+    "settings_hi_res_audio_hint" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Benötigt 50% mehr Bandbreite als 16-Bit Audio"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uses 50% more bandwidth than 16-bit audio"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gebruikt 50% meer bandbreedte dan 16-bits audio"
+          }
+        }
+      }
+    },
+    "settings_hi_res_audio_lossless_only" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nur mit FLAC oder PCM verfügbar"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Available with FLAC or PCM"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Beschikbaar in FLAC of PCM"
+          }
+        }
+      }
+    },
     "settings_history_direct" : {
       "extractionState" : "stale",
       "localizations" : {

@@ -19,6 +19,7 @@ import io.music_assistant.client.data.model.client.nextMovesQueue
 import io.music_assistant.client.data.model.client.presentationChapter
 import io.music_assistant.client.data.model.client.toAbsoluteSeekSeconds
 import io.music_assistant.client.settings.SettingsRepository
+import io.music_assistant.client.settings.SettingsRepository.Companion.effectiveSendspinBitDepth
 import io.music_assistant.client.ui.compose.common.DataState
 import io.music_assistant.client.ui.compose.common.action.PlayerAction
 import io.music_assistant.sendspin.api.AudioCodec
@@ -44,6 +45,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.dropWhile
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
@@ -79,7 +81,7 @@ import io.music_assistant.sendspin.api.SendspinPlayer as SendspinPlayerApi
  * Ported from upstream's `LocalPlayerAdapter`. Fork differences: a resume of a paused
  * audiobook can come back relocated to the server's resume point ([ResumePointResolver]);
  * playback speed is optimistic like the other queue settings; messages are plain strings
- * (this fork has no Compose resources); and the stream format is codec only (no 24-bit yet).
+ * (this fork has no Compose resources); and settings are separate flows rather than upstream's settings object.
  */
 class LocalPlayerAdapter(
     private val settings: SettingsRepository,
@@ -132,18 +134,23 @@ class LocalPlayerAdapter(
     private val _needsServerRefresh = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val needsServerRefresh: SharedFlow<Unit> = _needsServerRefresh.asSharedFlow()
 
+    /** The codec and the depth the player offers: the stream format the server builds its chain for. */
+    private val streamFormat: Flow<StreamFormat> =
+        combine(settings.sendspinCodecPreference, settings.sendspinBitDepth, ::streamFormat)
+
     private val config: StateFlow<LocalPlayerConfig?> = combine(
         settings.sendspinEnabled,
         endpoints.endpoint,
         settings.sendspinDeviceName,
-        settings.sendspinCodecPreference,
+        streamFormat,
         combine(settings.sendspinBufferSeconds, settings.sendspinStaticDelayMs, ::Pair),
-    ) { enabled, endpoint, deviceName, codec, (bufferSeconds, staticDelayMs) ->
+    ) { enabled, endpoint, deviceName, format, (bufferSeconds, staticDelayMs) ->
         localPlayerConfig(
             enabled = enabled,
             endpoint = endpoint,
             deviceName = deviceName,
-            codec = codec,
+            codec = format.codec,
+            bitDepth = format.bitDepth,
             bufferSeconds = bufferSeconds,
             staticDelayMs = staticDelayMs,
         )
@@ -185,8 +192,8 @@ class LocalPlayerAdapter(
 
     init {
         launch { player.events.collect(::onPlayerEvent) }
-        val codecAtStart = settings.sendspinCodecPreference.value
-        launch { restartStreamOnFormatChange(codecAtStart) }
+        val formatAtStart = streamFormat(settings.sendspinCodecPreference.value, settings.sendspinBitDepth.value)
+        launch { restartStreamOnFormatChange(formatAtStart) }
         launch {
             // The server addresses the local player by the module's identity; keep the
             // persisted mirror in sync so other screens address the right player.
@@ -210,16 +217,17 @@ class LocalPlayerAdapter(
 
     /**
      * The server builds the audio chain, and with it the quality badge, when a stream starts.
-     * A reconnect with a new codec starts no stream, so the chain would show the old format
-     * until the next track. After such a change, a playing player pauses and plays once the
+     * A reconnect with a new codec or bit depth starts no stream, so the chain would show the old
+     * format until the next track. After such a change, a playing player pauses and plays once the
      * new connection is active, which gives a fresh stream (a seek would fail on radio).
      *
-     * [codecAtStart] is read when the adapter starts, not when this collector subscribes:
+     * [formatAtStart] is read when the adapter starts, not when this collector subscribes:
      * a collector that subscribes late would take a change made in between as its baseline.
      */
-    private suspend fun restartStreamOnFormatChange(codecAtStart: AudioCodec) {
-        settings.sendspinCodecPreference
-            .dropWhile { it == codecAtStart }
+    private suspend fun restartStreamOnFormatChange(formatAtStart: StreamFormat) {
+        streamFormat
+            .distinctUntilChanged()
+            .dropWhile { it == formatAtStart }
             .collectLatest {
                 if (localPlayerData.value?.player?.isPlaying != true) return@collectLatest
                 withTimeoutOrNull(FORMAT_RESTART_WAIT_MS) {
@@ -701,11 +709,13 @@ class LocalPlayerAdapter(
          * compensation (positive = play earlier); the module's [LocalPlayerConfig.userDelayMs]
          * is a lag (positive = play later), so the sign flips here and nowhere else.
          */
+        @Suppress("LongParameterList")
         fun localPlayerConfig(
             enabled: Boolean,
             endpoint: Endpoint?,
             deviceName: String,
             codec: AudioCodec,
+            bitDepth: Int,
             bufferSeconds: Int,
             staticDelayMs: Int,
         ): LocalPlayerConfig? {
@@ -714,6 +724,7 @@ class LocalPlayerAdapter(
                 endpoint = endpoint,
                 deviceName = deviceName,
                 codecPreference = listOf(codec),
+                bitDepth = bitDepth,
                 bufferSeconds = bufferSeconds,
                 userDelayMs = -staticDelayMs,
             )
@@ -768,3 +779,9 @@ internal fun remoteCommandToPlayerAction(command: String, queueInfo: QueueInfo?)
         command.removePrefix("seek_by:").toLongOrNull()?.let { PlayerAction.SeekBy(it) }
     else -> null
 }
+
+/** The codec the player asks for and the depth it offers for it. */
+internal data class StreamFormat(val codec: AudioCodec, val bitDepth: Int)
+
+private fun streamFormat(codec: AudioCodec, storedBitDepth: Int) =
+    StreamFormat(codec, effectiveSendspinBitDepth(codec, storedBitDepth))

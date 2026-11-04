@@ -642,6 +642,33 @@ object KmpHelper {
     }
 
     /**
+     * The stored Hi-Res (24-bit) choice. It applies only with a lossless codec
+     * ([sendspinHiResAvailable]); with Opus the player offers 16-bit and the choice waits.
+     */
+    private val sendspinHiResFlow: StateFlow<Boolean> by lazy {
+        settingsRepository.sendspinBitDepth
+            .map { it == SettingsRepository.BIT_DEPTH_HI_RES }
+            .stateIn(
+                mainScope,
+                SharingStarted.Eagerly,
+                settingsRepository.sendspinBitDepth.value == SettingsRepository.BIT_DEPTH_HI_RES,
+            )
+    }
+
+    val sendspinHiRes: NativeStateFlow<Boolean>
+        get() = NativeStateFlow(sendspinHiResFlow, mainScope)
+
+    fun setSendspinHiRes(enabled: Boolean) {
+        settingsRepository.setSendspinBitDepth(
+            if (enabled) SettingsRepository.BIT_DEPTH_HI_RES else SettingsRepository.BIT_DEPTH_DEFAULT,
+        )
+    }
+
+    /** Whether 24-bit can apply with [codecName] ("OPUS" cannot). */
+    fun sendspinHiResAvailable(codecName: String): Boolean =
+        AudioCodec.entries.firstOrNull { it.name == codecName }?.let(SettingsRepository::hiResAvailable) ?: false
+
+    /**
      * Coarse local-player status for the Settings section: "stopped" while the player is
      * off, else a lifecycle label. Kept as a plain string (not the sealed `PlayerState`)
      * so Swift renders text without pattern-matching exported Kotlin subclasses.

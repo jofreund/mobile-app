@@ -185,6 +185,19 @@ class SettingsRepository(
         _sendspinCodecPreference.update { codec }
     }
 
+    // 16 or 24: the depth the player offers for FLAC and PCM. Stored as chosen; Opus is always
+    // 16-bit, so [effectiveSendspinBitDepth] is what reaches the player. Same key as upstream.
+    private val _sendspinBitDepth = MutableStateFlow(
+        settings.getInt("sendspin_bit_depth", BIT_DEPTH_DEFAULT).takeIf { it == BIT_DEPTH_HI_RES } ?: BIT_DEPTH_DEFAULT,
+    )
+    val sendspinBitDepth = _sendspinBitDepth.asStateFlow()
+
+    fun setSendspinBitDepth(bitDepth: Int) {
+        val value = bitDepth.takeIf { it == BIT_DEPTH_HI_RES } ?: BIT_DEPTH_DEFAULT
+        settings.putInt("sendspin_bit_depth", value)
+        _sendspinBitDepth.update { value }
+    }
+
     // Seconds of audio the player buffers; the module sizes the advertised `buffer_capacity`
     // from it. Replaces the megabyte setting the fork's own Sendspin advertised directly.
     private val _sendspinBufferSeconds = MutableStateFlow(
@@ -441,6 +454,19 @@ class SettingsRepository(
         const val BUFFER_SECONDS_MAX: Int = 30
         const val BUFFER_SECONDS_STEP: Int = 5
         const val BUFFER_SECONDS_DEFAULT: Int = 10
+
+        const val BIT_DEPTH_DEFAULT: Int = 16
+        const val BIT_DEPTH_HI_RES: Int = 24
+
+        /** Whether a stored 24-bit choice can apply: Opus is always 16-bit. */
+        fun hiResAvailable(codec: AudioCodec): Boolean = codec != AudioCodec.OPUS
+
+        /**
+         * The depth the player offers: the stored choice for a lossless codec, else 16. The
+         * native player widens 24-bit FLAC and PCM to 32-bit for the AudioQueue.
+         */
+        fun effectiveSendspinBitDepth(codec: AudioCodec, storedBitDepth: Int): Int =
+            storedBitDepth.takeIf { it == BIT_DEPTH_HI_RES && hiResAvailable(codec) } ?: BIT_DEPTH_DEFAULT
 
         /** [seconds] on the grid the setting accepts. */
         fun snapBufferSeconds(seconds: Int): Int {

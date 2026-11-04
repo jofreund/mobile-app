@@ -48,6 +48,25 @@ class SendspinSettingsMigrationTest {
     }
 
     @Test
+    fun hiResAppliesToLosslessCodecsOnly() {
+        assertEquals(24, SettingsRepository.effectiveSendspinBitDepth(AudioCodec.FLAC, storedBitDepth = 24))
+        assertEquals(24, SettingsRepository.effectiveSendspinBitDepth(AudioCodec.PCM, storedBitDepth = 24))
+        assertEquals(16, SettingsRepository.effectiveSendspinBitDepth(AudioCodec.OPUS, storedBitDepth = 24))
+        assertEquals(16, SettingsRepository.effectiveSendspinBitDepth(AudioCodec.FLAC, storedBitDepth = 16))
+    }
+
+    @Test
+    fun onlySixteenAndTwentyFourAreStored() {
+        val repository = SettingsRepository(MapSettings().apply { putInt("sendspin_bit_depth", 32) })
+        assertEquals(16, repository.sendspinBitDepth.value)
+
+        repository.setSendspinBitDepth(24)
+        assertEquals(24, repository.sendspinBitDepth.value)
+        repository.setSendspinBitDepth(20)
+        assertEquals(16, repository.sendspinBitDepth.value)
+    }
+
+    @Test
     fun bufferSecondsSnapToTheGrid() {
         val repository = SettingsRepository(MapSettings())
 
