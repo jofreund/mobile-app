@@ -19,6 +19,8 @@ data class Playlist(
     val isEditable: Boolean,
     val isDynamic: Boolean,
 ) : AppMediaItem() {
+    override fun withFavorite(favorite: Boolean?) = copy(favorite = favorite)
+
     override val mediaType: MediaType = MediaType.PLAYLIST
     override val canStartEndlessMix: Boolean get() = !isDynamic
 }

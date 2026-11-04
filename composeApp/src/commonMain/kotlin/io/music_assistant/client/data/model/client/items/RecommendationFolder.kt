@@ -20,6 +20,9 @@ data class RecommendationFolder(
     // `ServerMediaItem.translationKey`.
     val translationKey: String? = null,
 ) : AppMediaItem() {
+    /** A folder has no favorite. */
+    override fun withFavorite(favorite: Boolean?) = this
+
     override val providerMappings: List<ProviderMapping>? = null
     override val metadata: Metadata? = null
     override val favorite: Boolean? = null

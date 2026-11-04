@@ -44,7 +44,13 @@ private struct LibraryChangeObserver: ViewModifier {
 
         switch change {
         case let updated as MediaItemChange.Updated:
-            reconciled = LibraryListReconciler.applying(MediaItem(updated.item), to: current)
+            // Server 2.11 sends no favorite with an item change (it comes in `FavoriteUpdated`),
+            // so the row keeps the heart it shows.
+            let id = "\(updated.item.provider):\(updated.item.itemId)"
+            let kept = updated.carriesFavorite ? nil : current.first { $0.id == id }?.isFavorite
+            reconciled = LibraryListReconciler.applying(MediaItem(updated.item, favorite: kept), to: current)
+        case let favorite as MediaItemChange.FavoriteUpdated:
+            reconciled = LibraryListReconciler.applying(MediaItem(favorite.item), to: current)
         case let deleted as MediaItemChange.Deleted:
             let id = "\(deleted.item.provider):\(deleted.item.itemId)"
             reconciled = LibraryListReconciler.removing(id, from: current)

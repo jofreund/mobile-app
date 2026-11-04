@@ -104,14 +104,16 @@ struct MediaItem: Identifiable, Hashable {
     let isFavorite: Bool
     let kotlin: AppMediaItem
 
-    init(_ item: AppMediaItem) {
+    /// `favorite` overrides the item's own flag: a change from server 2.11 carries no favorite of
+    /// the user, and the row on screen keeps the one it had.
+    init(_ item: AppMediaItem, favorite: Bool? = nil) {
         // itemId is only unique within a provider; the library and a streaming
         // provider can both hold id "1234".
         self.id = "\(item.provider):\(item.itemId)"
         self.title = item.displayName
         self.subtitle = item.subtitle
         self.artworkURL = item.image(type: ImageType.thumb)?.url.flatMap(URL.init(string:))
-        self.isFavorite = item.favorite?.boolValue ?? false
+        self.isFavorite = favorite ?? item.favorite?.boolValue ?? false
         self.kotlin = item
 
         self.kind = switch item {

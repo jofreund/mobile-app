@@ -167,6 +167,7 @@ class AppGraph(
             resumePointResolver = resumePointResolver,
             positionTracker = positionTracker,
             mediaItemFactory = mediaItemFactory,
+            mediaItemRepository = mediaItemRepository,
             playerFactory = playerFactory,
             queueFactory = queueFactory,
             userPreferences = userPreferences,
