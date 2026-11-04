@@ -26,6 +26,7 @@ struct HomeView: View {
     @State private var loadFailed = false
     @State private var reloadTrigger = UUID()
     @State private var sessionSubscription: Cancellable?
+    @State private var playlogSubscription: Cancellable?
     @State private var wasReady = false
     @State private var isLoading = false
     @State private var readyDuringLoad = false
@@ -86,6 +87,13 @@ struct HomeView: View {
                         readyDuringLoad = true
                         return
                     }
+                    reloadTrigger = UUID()
+                }
+                // Playing, finishing or marking an item changes the play-history rows. Kotlin
+                // debounces the burst; a refresh keeps the rows on screen until it lands, and a
+                // load already running covers it.
+                playlogSubscription = KmpHelper.shared.observePlaylogUpdates {
+                    guard !isLoading, recommendations != nil else { return }
                     reloadTrigger = UUID()
                 }
             }
