@@ -977,6 +977,7 @@ class KtorServiceClient(
     private val authHandshakeCommands = setOf(
         APICommands.AUTH_PROVIDERS,
         APICommands.AUTH_AUTHORIZATION_URL,
+        APICommands.AUTH_EXCHANGE,
         APICommands.AUTH_LOGIN,
         APICommands.AUTH_LOGOUT,
         APICommands.AUTH,

@@ -53,8 +53,11 @@ enum OAuthCallbackDispatch {
     /// True when `url` was an OAuth callback and has been dealt with.
     static func handle(_ url: URL) -> Bool {
         switch OAuthCallbackParser.parse(url) {
-        case .code(let token):
+        case .token(let token):
             KmpHelper.shared.authManager.handleOAuthCallback(token: token)
+            return true
+        case .authorizationCode(let code, let state):
+            KmpHelper.shared.authManager.handleAuthorizationCode(code: code, state: state)
             return true
         case .failed(let reason):
             KmpHelper.shared.authManager.cancelOAuthFlow(reason: reason)

@@ -104,12 +104,21 @@ final class DeepLinksTests: XCTestCase {
         XCTAssertEqual(OAuthCallbackParser.scheme, "musicassistant")
     }
 
-    func testACallbackCarryingACodeYieldsTheCode() {
-        XCTAssertEqual(OAuthCallbackParser.parse("musicassistant://auth/callback?code=abc123"), .code("abc123"))
+    func testACallbackCarryingACodeYieldsTheToken() {
+        XCTAssertEqual(OAuthCallbackParser.parse("musicassistant://auth/callback?code=abc123"), .token("abc123"))
     }
 
-    func testExtraQueryParametersDoNotHideTheCode() {
-        XCTAssertEqual(OAuthCallbackParser.parse("musicassistant://auth/callback?state=xyz&code=abc123"), .code("abc123"))
+    func testACodeWithAStateIsAnAuthorizationCodeToExchange() {
+        // Server 2.11 over Remote Access: the app.music-assistant.io callback page adds `state`,
+        // and `code` is a provider code for `auth/exchange`, not an access token.
+        XCTAssertEqual(
+            OAuthCallbackParser.parse("musicassistant://auth/callback?state=xyz&code=abc123"),
+            .authorizationCode(code: "abc123", state: "xyz")
+        )
+    }
+
+    func testAnEmptyStateLeavesTheCodeAToken() {
+        XCTAssertEqual(OAuthCallbackParser.parse("musicassistant://auth/callback?state=&code=abc123"), .token("abc123"))
     }
 
     func testAProviderErrorIsReportedInsteadOfDropped() {
@@ -140,7 +149,7 @@ final class DeepLinksTests: XCTestCase {
     }
 
     func testATrailingSlashStillMatchesTheCallbackPath() {
-        XCTAssertEqual(OAuthCallbackParser.parse("musicassistant://auth/callback/?code=abc123"), .code("abc123"))
+        XCTAssertEqual(OAuthCallbackParser.parse("musicassistant://auth/callback/?code=abc123"), .token("abc123"))
     }
 
     func testAPageDeepLinkIsNotAnOAuthCallback() {

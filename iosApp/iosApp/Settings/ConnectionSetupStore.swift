@@ -195,7 +195,7 @@ final class ConnectionSetupStore {
             )
         } else {
             _ = KmpHelper.shared.getOAuthUrl(
-                providerId: provider.id,
+                provider: provider,
                 returnUrl: OAuthCallbackParser.returnURL,
                 completion: { url in
                     guard let url else {

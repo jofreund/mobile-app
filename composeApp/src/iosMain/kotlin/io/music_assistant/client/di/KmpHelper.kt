@@ -475,12 +475,12 @@ object KmpHelper {
      * redirects to; Swift owns it (`OAuthCallbackParser.returnURL`) because Swift is what parses
      * the callback. On success, Swift calls `authManager.startOAuthFlow(oauthUrl:)` directly. */
     fun getOAuthUrl(
-        providerId: String,
+        provider: AuthProvider,
         returnUrl: String,
         completion: (String?) -> Unit,
         onError: (Throwable) -> Unit,
     ): Cancellable =
-        NativeSuspend(mainScope) { authManager.getOAuthUrl(providerId, returnUrl).getOrThrow() }
+        NativeSuspend(mainScope) { authManager.getOAuthUrl(provider, returnUrl).getOrThrow() }
             .invoke(completion, onError)
 
     /** Wraps `AuthenticationManager.logout()` — the `AuthCoordinator` path that sets
