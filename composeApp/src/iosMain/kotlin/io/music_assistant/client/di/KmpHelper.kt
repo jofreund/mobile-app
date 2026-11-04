@@ -340,7 +340,10 @@ object KmpHelper {
         val startMs = currentTimeMillis()
         log.i { "fetch[$label] start" }
         mainScope.launch {
-            val items: List<T>? = withTimeoutOrNull(FETCH_TIMEOUT_MS) { fetch() }
+            // Decode, mapping and post-processing run off main; [completion] stays on main for Swift.
+            val items: List<T>? = withTimeoutOrNull(FETCH_TIMEOUT_MS) {
+                withContext(Dispatchers.Default) { fetch() }
+            }
             val elapsed = currentTimeMillis() - startMs
             if (items == null) {
                 log.i { "fetch[$label] timeout after ${elapsed}ms" }
@@ -1188,7 +1191,7 @@ object KmpHelper {
     ) {
         val startMs = currentTimeMillis()
         mainScope.launch {
-            val result = withTimeoutOrNull(FETCH_TIMEOUT_MS) { fetch() }
+            val result = withTimeoutOrNull(FETCH_TIMEOUT_MS) { withContext(Dispatchers.Default) { fetch() } }
             log.i { "fetch[$label] ${if (result != null) "loaded" else "failed"} in ${currentTimeMillis() - startMs}ms" }
             completion(result)
         }
