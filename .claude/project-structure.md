@@ -1,13 +1,15 @@
 # Project Structure
 
-One Gradle module and one Xcode project.
+Two Gradle modules and one Xcode project.
 
 ```
 composeApp/src/commonMain/   Kotlin kernel (shared with upstream; keep cherry-pickable)
+sendspin-kmp/                Upstream's Sendspin player library, verbatim (scripts/sync-sendspin-kmp.sh;
+                             pinned commit in UPSTREAM). Only build.gradle.kts is the fork's.
 composeApp/src/commonTest/   Kotlin tests (run on the iOS simulator target)
 composeApp/src/iosMain/      Swift-facing bridge + iOS actuals
 iosApp/                      The SwiftUI app, widget extension, and Swift tests
-scripts/                     Framework build, WebRTC fetch, icon sync
+scripts/                     Framework build, WebRTC fetch, icon sync, sendspin-kmp sync
 docs/                        Human docs: setup, build, contributing, using the app
 .claude/                     Agent-facing docs (this directory)
 ```
@@ -22,7 +24,8 @@ framework it produces is `MusicAssistantKit`.
 api/            ServiceClient, KtorServiceClient, RpcEngine, Request/Answer, Event, transports
 auth/           AuthenticationManager, OAuthCallback, AuthState
 connection/     ConnectionManager (auto-connect on launch and foreground)
-data/           MainDataSource, PlayerBarState, PlayerPositionTracker, LocalPlayerController
+data/           MainDataSource, PlayerBarState, PlayerPositionTracker, LocalPlayerAdapter (+ Endpoints,
+                Factory, LocalCommandQueue) — the app side of the local player
   announcement/   AnnouncementRepository, the live-announcement protocol, RecordedAnnouncement
   model/server/   DTOs as the server sends them (+ events/)
   model/client/   Domain models: PlayerData, QueueInfo, AppMediaItem and items/
@@ -31,7 +34,7 @@ data/           MainDataSource, PlayerBarState, PlayerPositionTracker, LocalPlay
 di/             AppGraph — the hand-wired object graph
 logging/        Kermit writers, in-memory log, LogSharer
 platform/       PlatformContext
-player/         MediaPlayerController (expect), sendspin/ protocol client
+player/         MediaSessionBridge (expect), MediaPlayerListener
 settings/       SettingsRepository and preference types
 ui/             Value types that outlived Compose: ThemeSetting, DataState, ItemAction,
                 PlayerAction/QueueAction, LibraryCategory. No UI here despite the name.
@@ -46,8 +49,8 @@ MainViewController.kt        bootstrapKmp(): Koin init, crash handler
 di/KmpHelper.kt              Everything Swift calls. Flat members, completion callbacks.
 bridge/                      NativeFlow, NativeStateFlow, NativeSuspend, Cancellable
 logging/                     os_log bridge, log sharing
-player/                      PlatformAudioPlayer (Swift sink interface), MediaPlayerController actual
-player/sendspin/audio/       FLAC/Opus decoder actuals (delegate to Swift)
+player/                      PlatformAudioPlayer (Swift sink interface), MediaSessionBridge actual
+player/local/                AudioQueueSink + pass-through decoders: :sendspin-kmp's iOS ports
 utils/                       Darwin HttpClient, dispatchers, time, NetworkMonitor actuals
 ```
 

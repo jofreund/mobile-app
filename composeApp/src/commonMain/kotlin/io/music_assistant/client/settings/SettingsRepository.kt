@@ -9,10 +9,8 @@ import io.music_assistant.client.data.model.client.SortConfig
 import io.music_assistant.client.data.model.client.SortField
 import io.music_assistant.client.data.model.client.SortOption
 import io.music_assistant.client.data.model.client.SubItemContext
-import io.music_assistant.client.player.sendspin.SendspinConfig
-import io.music_assistant.client.player.sendspin.audio.Codec
-import io.music_assistant.client.player.sendspin.audio.Codecs
 import io.music_assistant.client.utils.myJson
+import io.music_assistant.sendspin.api.AudioCodec
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -114,23 +112,12 @@ class SettingsRepository(
         _sendspinEnabled.update { enabled }
     }
 
-    // Require the Noise-encrypted Sendspin protocol: when the connected
-    // server is too old to support it, the local player stays unavailable
-    // instead of falling back to the legacy cleartext protocol.
-    private val _sendspinRequireEncryption = MutableStateFlow(
-        settings.getBoolean("sendspin_require_encryption", false),
-    )
-    val sendspinRequireEncryption = _sendspinRequireEncryption.asStateFlow()
+    // The `:sendspin-kmp` player is always encrypted, so the old "require encryption" switch
+    // (`sendspin_require_encryption`) is gone: a server too old for it gets no local player.
 
-    fun setSendspinRequireEncryption(enabled: Boolean) {
-        settings.putBoolean("sendspin_require_encryption", enabled)
-        _sendspinRequireEncryption.update { enabled }
-    }
-
-    // Legacy-protocol player identity only. On encrypted Sendspin connections
-    // the client_id is the device's X25519 public key (see
-    // player/sendspin/identity/SendspinIdentity), so this UUID is vestigial
-    // there; it remains in use for legacy connections to older servers.
+    // Vestigial: the encrypted player's id is the device's X25519 public key, which the
+    // module reports once connected. This UUID only seeds the effective id below on an
+    // install that never connected, so the synthetic local player has some id until then.
     @OptIn(ExperimentalUuidApi::class)
     private val _sendspinClientId = MutableStateFlow(
         settings.getStringOrNull("sendspin_client_id") ?: Uuid.random().toString().also {
@@ -139,14 +126,11 @@ class SettingsRepository(
     )
     val sendspinClientId = _sendspinClientId.asStateFlow()
 
-    // The player id the app addresses the local player by. On legacy
-    // connections it is the UUID above; on encrypted connections the server
-    // registers the player under the device's X25519 public key, so the
-    // Sendspin client factory switches this to that identity when it resolves
-    // the connection mode. Persisted so consumers address the right player
-    // from process start, before the factory has re-resolved the mode —
-    // otherwise the synthetic local player is briefly injected under an id
-    // the server doesn't have.
+    // The player id the app addresses the local player by: the server registers the player
+    // under the device's X25519 public key, and `LocalPlayerAdapter` writes it here once the
+    // player connects. Persisted so consumers address the right player from process start,
+    // before the player has connected again — otherwise the synthetic local player is briefly
+    // injected under an id the server doesn't have.
     private val _sendspinEffectivePlayerId = MutableStateFlow(
         settings.getStringOrNull("sendspin_effective_player_id") ?: _sendspinClientId.value,
     )
@@ -187,30 +171,38 @@ class SettingsRepository(
         _sendspinPath.update { path }
     }
 
+    // Same key and names as before the move to `:sendspin-kmp`; an unknown stored name falls
+    // back to the default instead of crashing at launch.
     private val _sendspinCodecPreference = MutableStateFlow(
-        Codec.valueOf(
-            settings.getString(
-                "sendspin_codec_preference",
-                (Codecs.list.getOrNull(0) ?: Codecs.default).name,
-            ).uppercase(),
-        ),
+        settings.getStringOrNull("sendspin_codec_preference")
+            ?.let { stored -> AudioCodec.entries.firstOrNull { it.name.equals(stored, ignoreCase = true) } }
+            ?: DEFAULT_CODEC,
     )
     val sendspinCodecPreference = _sendspinCodecPreference.asStateFlow()
 
-    fun setSendspinCodecPreference(codec: Codec) {
+    fun setSendspinCodecPreference(codec: AudioCodec) {
         settings.putString("sendspin_codec_preference", codec.name)
         _sendspinCodecPreference.update { codec }
     }
 
-    // Advertised buffer_capacity, stored in MB (converted to bytes when building the client hello).
-    private val _sendspinBufferCapacityMb = MutableStateFlow(
-        settings.getInt("sendspin_buffer_capacity_mb", SendspinConfig.BUFFER_MB_DEFAULT),
+    // Seconds of audio the player buffers; the module sizes the advertised `buffer_capacity`
+    // from it. Replaces the megabyte setting the fork's own Sendspin advertised directly.
+    private val _sendspinBufferSeconds = MutableStateFlow(
+        settings.getIntOrNull("sendspin_buffer_seconds")
+            ?.let(::snapBufferSeconds)
+            ?: settings.getIntOrNull("sendspin_buffer_capacity_mb")?.let(::bufferSecondsForMegabytes)
+                ?.also {
+                    settings.putInt("sendspin_buffer_seconds", it)
+                    settings.remove("sendspin_buffer_capacity_mb")
+                }
+            ?: BUFFER_SECONDS_DEFAULT,
     )
-    val sendspinBufferCapacityMb = _sendspinBufferCapacityMb.asStateFlow()
+    val sendspinBufferSeconds = _sendspinBufferSeconds.asStateFlow()
 
-    fun setSendspinBufferCapacityMb(mb: Int) {
-        settings.putInt("sendspin_buffer_capacity_mb", mb)
-        _sendspinBufferCapacityMb.update { mb }
+    fun setSendspinBufferSeconds(seconds: Int) {
+        val snapped = snapBufferSeconds(seconds)
+        settings.putInt("sendspin_buffer_seconds", snapped)
+        _sendspinBufferSeconds.update { snapped }
     }
 
     // Whether the local player's now-playing slider draws the buffered-ahead segment.
@@ -439,5 +431,35 @@ class SettingsRepository(
         val field = runCatching { SortField.valueOf(parts[0]) }.getOrNull() ?: return null
         val desc = parts[1].toBooleanStrictOrNull() ?: return null
         return SortOption(field, desc)
+    }
+
+    companion object {
+        /** The codec a fresh install asks for: the lightest on the network, as before the module. */
+        val DEFAULT_CODEC: AudioCodec = AudioCodec.OPUS
+
+        const val BUFFER_SECONDS_MIN: Int = 5
+        const val BUFFER_SECONDS_MAX: Int = 30
+        const val BUFFER_SECONDS_STEP: Int = 5
+        const val BUFFER_SECONDS_DEFAULT: Int = 10
+
+        /** [seconds] on the grid the setting accepts. */
+        fun snapBufferSeconds(seconds: Int): Int {
+            val clamped = seconds.coerceIn(BUFFER_SECONDS_MIN, BUFFER_SECONDS_MAX)
+            val steps = (clamped - BUFFER_SECONDS_MIN + BUFFER_SECONDS_STEP / 2) / BUFFER_SECONDS_STEP
+            return BUFFER_SECONDS_MIN + steps * BUFFER_SECONDS_STEP
+        }
+
+        /**
+         * The old megabyte buffer tier as seconds, so an existing choice keeps its meaning:
+         * Small (5 MB) stays smallest, the 15 MB default becomes the 10 s default, Large
+         * (30 MB) the 20 s tier and Maximum (50 MB) the largest.
+         */
+        @Suppress("MagicNumber") // The old tier boundaries, named in the KDoc.
+        fun bufferSecondsForMegabytes(mb: Int): Int = when {
+            mb <= 5 -> 5
+            mb <= 15 -> 10
+            mb <= 30 -> 20
+            else -> 30
+        }
     }
 }

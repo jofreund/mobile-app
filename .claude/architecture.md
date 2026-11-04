@@ -21,7 +21,9 @@ Kotlin kernel                      composeApp/src/commonMain/…
   MediaItemRepository, *Factory                    server DTO → client model
   SettingsRepository                               multiplatform-settings over NSUserDefaults
   webrtc/                                          signaling + HTTP-over-data-channel proxy (remote access)
-  player/sendspin                                  on-device player protocol (optional, off by default)
+  LocalPlayerAdapter                               on-device player (optional, off by default) over…
+  ▼
+sendspin-kmp (vendored upstream module)  the Sendspin player@v1 client: transport, Noise, clock, audio
   ▼
 Music Assistant server             direct WebSocket, or a WebRTC data channel
 ```
@@ -35,7 +37,9 @@ parsing (`DeepLinks.swift`), the local player's audio sink and Now Playing integ
 
 **Kotlin owns:** the wire protocol and its state machine (`SessionState`), authentication, the
 projection of server events into `PlayerBarState`, optimistic feedback for player actions, the
-WebRTC transport, the Sendspin client, and persistence of settings.
+WebRTC transport, the local player's app side (`LocalPlayerAdapter`), and persistence of settings.
+The Sendspin protocol itself is upstream's `:sendspin-kmp` module, which this fork builds from
+source and does not edit (see "Local player").
 
 The rule for new code: UI logic goes in Swift. Kotlin gains code only when the server, the
 session, or the player state model needs it — and then in the style of the surrounding upstream
@@ -168,27 +172,45 @@ session the local player had live. The grid is `PlayerBarStore.players` minus th
 
 ## Local player (Sendspin)
 
-Off by default. When `sendspinEnabled` is on, `LocalPlayerActivation` (Swift) builds
-`NativeAudioController` and `NowPlayingCoordinator` and registers the controller as
-`PlatformPlayerProvider.player`; Kotlin's `SendspinClient` decodes and buffers audio and writes
-PCM into it through `MediaPlayerController`. iOS grants lock screen and Control Center only to
-the app producing audio, so those surfaces exist only while the local player plays; otherwise
-the Live Activity (`PlayerActivityController`) is the lock-screen presence.
+Off by default. The protocol is upstream's `:sendspin-kmp` module, copied verbatim into
+`sendspin-kmp/` by `scripts/sync-sendspin-kmp.sh` (pinned commit in `sendspin-kmp/UPSTREAM`,
+module docs in `sendspin-kmp/README.md`). Upstream publishes it only to GitHub Packages, which
+needs a token for every download, so the fork builds it as a Gradle subproject instead; its
+`build.gradle.kts` (iOS targets only) is the one file the fork owns there. Never edit the module's
+sources: fix upstream, then sync. `checkKotlinAbi` flags a sync that changes its public API.
+
+The module has no start or stop. `LocalPlayerAdapter` hands it a `StateFlow<LocalPlayerConfig?>`:
+`sendspinEnabled` plus an endpoint from `LocalPlayerEndpoints`, which follows the MA session (the
+proxied `/sendspin` WebSocket on a direct session, a data channel on WebRTC, nothing after a
+logout or a terminal auth failure, the last endpoint through transient states). Null stops the
+player. The adapter also owns the MA side: the local `PlayerData`, optimistic updates, the
+offline command queue (`LocalCommandQueue`: Play, Next, Previous and seeks are sent at once or
+dropped, never replayed later), and the hold — a local pause silences the output at once and
+masks the server's "playing" until the server confirms it.
+
+On iOS the module's ports are `AudioQueueSink` and pass-through `IosDecoderFactory`
+(`iosMain/player/local/`): the Swift `NativeAudioController` decodes FLAC/Opus and plays through
+an AudioQueue. `LocalPlayerActivation` (Swift) registers it as `PlatformPlayerProvider.player`
+once the setting is on. iOS sync is open loop; the sink reports the queue's 300 ms standing lead
+as its latency so the scheduler releases chunks that much earlier. iOS grants lock screen and
+Control Center only to the app producing audio, so those surfaces exist only while the local
+player plays; otherwise the Live Activity (`PlayerActivityController`) is the lock-screen presence.
 
 ## The object graph
 
 `AppGraph` (`di/AppGraph.kt`) wires every singleton by hand, in dependency order, with the two
 that must observe from launch (`ConnectionManager`, `AuthenticationManager`) eager and the heavy
-ones (`MainDataSource`, `LocalPlayerController`, `SendspinClientFactory`) lazy. Platform inputs
-(the settings store, `PlatformContext`, the WebRTC engine) come in through its constructor from
+ones (`MainDataSource`, `LocalPlayerAdapter`) lazy. Platform inputs (the settings store,
+`PlatformContext`, the WebRTC engine, the local player's `LocalPlayerPorts`) come in through its
+constructor from
 `bootstrapKmp()`. There is no container: a missing dependency is a compile error. Swift reaches
 the graph only through `KmpHelper`.
 
 ## Threading
 
 Bridge callbacks run on the main thread (`KmpHelper.mainScope`). `MainDataSource` and the
-service client work on IO; Sendspin decoding on `Dispatchers.Default` and its playback loop on
-`audioDispatcher` (a high-priority GCD queue). Swift stores are `@MainActor`.
+service client work on IO; the Sendspin module's audio pipeline runs on `audioDispatcher` (a
+high-priority GCD queue). Swift stores are `@MainActor`.
 
 ## Errors and messages
 

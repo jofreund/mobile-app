@@ -1,5 +1,10 @@
 # Sendspin over WebRTC - Implementation Status
 
+> **Superseded (2026-11-02).** This describes the fork's former in-app Sendspin client
+> (`composeApp/.../player/sendspin/`), which was replaced by upstream's `:sendspin-kmp` module
+> (`sendspin-kmp/`, see its `README.md` and the "Local player" section of `architecture.md`).
+> Kept for history; class names and behaviour below no longer match the code.
+
 **Last Updated:** 2026-04-28
 
 ## Status: ✅ PRODUCTION (Android + iOS)

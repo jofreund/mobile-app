@@ -23,7 +23,7 @@ kernel. Human-facing setup and build docs are in `../docs/`.
 | [settings-screen.md](settings-screen.md) | Settings, connection setup, login/OAuth, local player section |
 | [player-overflow-menu-plan.md](player-overflow-menu-plan.md) | Expanded player's ⋯ menu: autoplay, crossfade, playback speed, transfer queue |
 | [volume-control.md](volume-control.md) | Volume slider behaviour and the attempt that must not be repeated |
-| [local-player-integration-plan.md](local-player-integration-plan.md) | How the on-device Sendspin player was ported back and gated behind a toggle |
+| [local-player-integration-plan.md](local-player-integration-plan.md) | How the on-device Sendspin player was ported back and gated behind a toggle (its Kotlin core is now `:sendspin-kmp`) |
 | [kids-favorites-mode.md](kids-favorites-mode.md) | Kids mode: a favorites Cover Flow with basic transport that replaces the shell on a child's device |
 | [intercom-tab-plan.md](intercom-tab-plan.md) | Intercom tab: upstream's spoken announcements as a push-to-talk tab in home-intercom's design |
 | [siri-integration-overview.md](siri-integration-overview.md) | How upstream's Siri integration works; what a port back would need (not built) |
@@ -31,11 +31,11 @@ kernel. Human-facing setup and build docs are in `../docs/`.
 
 ## Kernel and protocol notes (historical, still accurate for the Kotlin they describe)
 
-These were written when the app was Kotlin Multiplatform with a Compose UI. The Kotlin they
-describe — the Sendspin client and the WebRTC transport — is still what ships; the Android
-and Compose parts they mention are gone.
+These were written when the app was Kotlin Multiplatform with a Compose UI. The WebRTC
+transport they describe is still what ships; the Android and Compose parts they mention are
+gone.
 
-- [sendspin-status.md](sendspin-status.md), [sendspin-transport-architecture.md](sendspin-transport-architecture.md), [sendspin-resilient-architecture.md](sendspin-resilient-architecture.md), [sendspin-webrtc-status.md](sendspin-webrtc-status.md)
+- Superseded (2026-11): [sendspin-status.md](sendspin-status.md), [sendspin-transport-architecture.md](sendspin-transport-architecture.md), [sendspin-resilient-architecture.md](sendspin-resilient-architecture.md), [sendspin-webrtc-status.md](sendspin-webrtc-status.md) describe the fork's former in-app Sendspin client (`player/sendspin/`). It was replaced by upstream's `:sendspin-kmp` module; read `sendspin-kmp/README.md` and the "Local player" section of [architecture.md](architecture.md) instead
 - [ios_audio_pipeline.md](ios_audio_pipeline.md) — predates the AudioQueue-based `NativeAudioController`; the codec facts hold, the MPV pipeline does not
 - [webrtc-completion-summary.md](webrtc-completion-summary.md), [webrtc-refactoring-summary.md](webrtc-refactoring-summary.md), [webrtc-implementation-plan-ARCHIVED.md](webrtc-implementation-plan-ARCHIVED.md)
 

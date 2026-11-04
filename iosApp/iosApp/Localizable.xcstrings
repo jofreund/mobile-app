@@ -9178,19 +9178,19 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Wie viel des laufenden Streams vorausgepuffert werden darf, um Netzwerkaussetzer zu überbrücken. Die enthaltene Spielzeit hängt vom Codec ab. Kein Offline-Cache: der nächste Titel der Warteschlange wird nicht vorgeladen."
+            "value" : "Wie viele Sekunden des laufenden Streams vorausgepuffert werden dürfen, um Netzwerkaussetzer zu überbrücken. Kein Offline-Cache: der nächste Titel der Warteschlange wird nicht vorgeladen."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "How much of the current stream may be kept ahead of playback to ride out network dropouts. The playing time a size holds depends on the codec. Not an offline cache: the next queue item is not preloaded."
+            "value" : "How many seconds of the current stream may be kept ahead of playback to ride out network dropouts. Not an offline cache: the next queue item is not preloaded."
           }
         },
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Hoeveel van de huidige stream vooruit gebufferd mag worden om netwerkonderbrekingen op te vangen. Hoeveel speeltijd dat is hangt af van de codec. Geen offline cache: het volgende item in de wachtrij wordt niet vooraf geladen."
+            "value" : "Hoeveel seconden van de huidige stream vooruit gebufferd mogen worden om netwerkonderbrekingen op te vangen. Geen offline cache: het volgende item in de wachtrij wordt niet vooraf geladen."
           }
         }
       }
@@ -10637,29 +10637,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Scan QR-code"
-          }
-        }
-      }
-    },
-    "settings_sendspin_require_encryption" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Verschlüsselte Verbindung erforderlich"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Require encrypted connection"
-          }
-        },
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Versleutelde verbinding vereisen"
           }
         }
       }

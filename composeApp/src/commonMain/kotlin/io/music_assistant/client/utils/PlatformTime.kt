@@ -9,6 +9,9 @@ expect fun currentTimeMillis(): Long
  */
 expect fun monotonicMs(): Long
 
+/** [monotonicMs] at microsecond resolution: the Sendspin player's time base. */
+expect fun monotonicMicros(): Long
+
 expect fun formatIsoDate(isoDate: String): String
 
 /** Current device locale in a form accepted by the Music Assistant API. */

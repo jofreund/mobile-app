@@ -2,13 +2,12 @@ import SwiftUI
 import MusicAssistantKit
 
 /// Local player (Sendspin) configuration: enable/disable, player name, codec preference,
-/// buffer size, optional custom connection, encryption requirement. All fields lock while
-/// the local player is running (config is connect-time; changes take effect on the next
-/// connect), matching upstream's Compose section.
+/// buffer length, optional custom connection. All fields lock while the local player is
+/// running (each is part of the player's hello, so a change would reconnect it mid-stream).
+/// There is no encryption switch: the `:sendspin-kmp` player is always encrypted.
 ///
-/// The enable toggle only writes the setting — `MainDataSource` watches
-/// `sendspinEnabled` and starts/stops the player itself, so flipping it here acts
-/// immediately with no reconnect.
+/// The enable toggle only writes the setting — the player follows `LocalPlayerAdapter`'s
+/// config, so flipping it here starts or stops it right away.
 struct LocalPlayerSection: View {
 
     // Settings are single-writer (this view), so they're read once and written
@@ -18,10 +17,8 @@ struct LocalPlayerSection: View {
     @State private var enabled = KmpHelper.shared.sendspinEnabled.value?.boolValue ?? false
     @State private var deviceName = (KmpHelper.shared.sendspinDeviceName.value as? String) ?? ""
     @State private var codec = (KmpHelper.shared.sendspinCodecPreference.value as? String) ?? ""
-    @State private var bufferMb = KmpHelper.shared.sendspinBufferCapacityMb.value?.intValue
-        ?? Int(KmpHelper.shared.sendspinBufferCapacityDefaultMb)
-    @State private var requireEncryption =
-        KmpHelper.shared.sendspinRequireEncryption.value?.boolValue ?? false
+    @State private var bufferSeconds = KmpHelper.shared.sendspinBufferSeconds.value?.intValue
+        ?? Int(KmpHelper.shared.sendspinBufferSecondsDefault)
     @State private var useCustomConnection =
         KmpHelper.shared.sendspinUseCustomConnection.value?.boolValue ?? false
     @State private var host = (KmpHelper.shared.sendspinHost.value as? String) ?? ""
@@ -29,11 +26,11 @@ struct LocalPlayerSection: View {
     @State private var path = (KmpHelper.shared.sendspinPath.value as? String) ?? "/sendspin"
     @State private var useTls = KmpHelper.shared.sendspinUseTls.value?.boolValue ?? false
 
-    // What the two pickers may offer is fixed by the kernel (`Codecs.list`, `SendspinConfig`'s
+    // What the two pickers may offer is fixed by the kernel (the codec list, `SettingsRepository`'s
     // buffer limits), so it is read once; only the labels are Swift's (`LocalPlayerOptions`).
     private let codecOptions: [String] = KmpHelper.shared.sendspinCodecOptions
-    private let bufferOptions: [Int] = KmpHelper.shared.sendspinBufferCapacityOptionsMb.map { $0.intValue }
-    private let defaultBufferMb = Int(KmpHelper.shared.sendspinBufferCapacityDefaultMb)
+    private let bufferOptions: [Int] = KmpHelper.shared.sendspinBufferSecondsOptions.map { $0.intValue }
+    private let defaultBufferSeconds = Int(KmpHelper.shared.sendspinBufferSecondsDefault)
 
     @State private var running = KmpHelper.shared.sendspinRunning.value?.boolValue ?? false
     @State private var status = (KmpHelper.shared.sendspinStatus.value as? String) ?? "stopped"
@@ -69,7 +66,7 @@ struct LocalPlayerSection: View {
                 KmpHelper.shared.setSendspinDeviceName(name: newValue)
             }
 
-            // Codec and buffer size are advertised in the client hello, so like the name they
+            // Codec and buffer length are advertised in the client hello, so like the name they
             // lock while running and apply on the next connect. Inline rows for the codec: three
             // options whose labels are the explanation, and a menu would truncate them.
             Picker(String(localized: "settings_codec_preference"), selection: codecBinding) {
@@ -80,18 +77,18 @@ struct LocalPlayerSection: View {
             .pickerStyle(.inline)
             .disabled(running)
 
-            // Buffer size as named tiers over the kernel's MB grid (`LocalPlayerOptions.tiers`):
+            // Buffer length as named tiers over the kernel's seconds grid (`LocalPlayerOptions.tiers`):
             // the choice is about headroom versus memory, not a number, so the number is the
             // secondary line. Inline too, so the explanations are readable without opening a menu.
             Picker(selection: bufferBinding) {
-                ForEach(LocalPlayerOptions.bufferSizeRows(kernelOptions: bufferOptions, current: bufferMb)) { row in
+                ForEach(LocalPlayerOptions.bufferSizeRows(kernelOptions: bufferOptions, current: bufferSeconds)) { row in
                     VStack(alignment: .leading, spacing: 2) {
                         Text(bufferTitle(for: row))
                         Text(bufferDetail(for: row))
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     }
-                    .tag(row.mb)
+                    .tag(row.seconds)
                 }
             } label: {
                 VStack(alignment: .leading, spacing: 2) {
@@ -102,18 +99,6 @@ struct LocalPlayerSection: View {
                 }
             }
             .pickerStyle(.inline)
-            .disabled(running)
-
-            Toggle(
-                String(localized: "settings_sendspin_require_encryption"),
-                isOn: Binding(
-                    get: { requireEncryption },
-                    set: { newValue in
-                        requireEncryption = newValue
-                        KmpHelper.shared.setSendspinRequireEncryption(enabled: newValue)
-                    }
-                )
-            )
             .disabled(running)
 
             Toggle(
@@ -195,10 +180,10 @@ struct LocalPlayerSection: View {
 
     private var bufferBinding: Binding<Int> {
         Binding(
-            get: { bufferMb },
+            get: { bufferSeconds },
             set: { newValue in
-                bufferMb = newValue
-                KmpHelper.shared.setSendspinBufferCapacityMb(mb: Int32(newValue))
+                bufferSeconds = newValue
+                KmpHelper.shared.setSendspinBufferSeconds(seconds: Int32(newValue))
             }
         )
     }
@@ -211,19 +196,19 @@ struct LocalPlayerSection: View {
     }
 
     /// "Medium (default)" for a tier — the marker follows the kernel's default, not a Swift
-    /// constant — or "20 MB" for a stored size that matches no tier.
+    /// constant — or "15 s" for a stored length that matches no tier.
     private func bufferTitle(for row: LocalPlayerOptions.BufferSizeRow) -> String {
-        guard let key = row.tierKey else { return LocalPlayerOptions.bufferSizeLabel(mb: row.mb) }
+        guard let key = row.tierKey else { return LocalPlayerOptions.bufferSizeLabel(seconds: row.seconds) }
         let name = String(localized: String.LocalizationValue(key))
-        guard row.mb == defaultBufferMb else { return name }
+        guard row.seconds == defaultBufferSeconds else { return name }
         return String(format: String(localized: "settings_buffer_size_default"), name)
     }
 
-    /// "Balanced for most Wi-Fi · 15 MB": the explanation, then the size the server is told.
-    /// An untitled row already has its size as the title, so it shows the explanation alone.
+    /// "Balanced for most Wi-Fi · 10 s": the explanation, then the length buffered.
+    /// An untitled row already has its length as the title, so it shows the explanation alone.
     private func bufferDetail(for row: LocalPlayerOptions.BufferSizeRow) -> String {
         let description = String(localized: String.LocalizationValue(row.descriptionKey))
         guard row.tierKey != nil else { return description }
-        return "\(description) · \(LocalPlayerOptions.bufferSizeLabel(mb: row.mb))"
+        return "\(description) · \(LocalPlayerOptions.bufferSizeLabel(seconds: row.seconds))"
     }
 }

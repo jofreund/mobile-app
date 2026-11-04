@@ -9,11 +9,15 @@ package io.music_assistant.client
 
 import io.ktor.client.webrtc.IosWebRtc
 import io.ktor.client.webrtc.WebRtcClient
+import io.music_assistant.client.data.LocalPlayerPorts
 import io.music_assistant.client.di.AppGraph
 import io.music_assistant.client.logging.InMemoryLogWriter
 import io.music_assistant.client.platform.PlatformContext
+import io.music_assistant.client.player.local.AudioQueueSink
+import io.music_assistant.client.player.local.IosDecoderFactory
 import io.music_assistant.client.settings.provideSettings
 import kotlinx.cinterop.staticCFunction
+import platform.Foundation.NSBundle
 import platform.Foundation.NSException
 import platform.Foundation.NSFileManager
 import platform.Foundation.NSString
@@ -40,6 +44,13 @@ private val kmpBootstrap: Unit by lazy {
                 platformContext = PlatformContext(),
                 // The Ktor WebRTC engine loads the WebRTC framework; only a remote connection needs it.
                 webRtcClient = lazy { WebRtcClient(IosWebRtc) {} },
+                // The native player (`NativeAudioController`) registers with
+                // PlatformPlayerProvider; the sink resolves it on every stream open.
+                localPlayerPorts = LocalPlayerPorts(
+                    sink = { onRemoteCommand -> AudioQueueSink(onRemoteCommand) },
+                    decoders = IosDecoderFactory(),
+                    softwareVersion = appVersion(),
+                ),
             )
         },
         verboseLogging = Platform.isDebugBinary,
@@ -47,6 +58,10 @@ private val kmpBootstrap: Unit by lazy {
     cleanupStaleLogFile()
     installCrashHandler()
 }
+
+/** The marketing version ("1.4.2") reported to the Sendspin server in the player's hello. */
+private fun appVersion(): String =
+    NSBundle.mainBundle.objectForInfoDictionaryKey("CFBundleShortVersionString") as? String ?: "unknown"
 
 private fun cleanupStaleLogFile() {
     NSFileManager.defaultManager.removeItemAtPath(

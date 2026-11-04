@@ -68,9 +68,11 @@ jobs:
       # The Xcode app scheme has no test target, so `xcodebuild build` only proves
       # the app compiles. Run the KMP iOS test executable explicitly to catch
       # commonTest/iosTest failures, including Kotlin/Native-only test-name errors.
+      # The vendored :sendspin-kmp module brings upstream's own suite, and its ABI check
+      # flags an upstream sync that changed the module's public API.
       - name: Run iOS Kotlin/Native tests
         if: ${{ !startsWith(github.head_ref, 'chore/bump-ios-build-') }}
-        run: ./gradlew :composeApp:iosSimulatorArm64Test
+        run: ./gradlew :composeApp:iosSimulatorArm64Test :sendspin-kmp:iosSimulatorArm64Test :sendspin-kmp:checkKotlinAbi
 
       # The Kotlin framework is built here and dropped under iosApp/Frameworks/Kotlin/,
       # where the project's FRAMEWORK_SEARCH_PATHS resolve it per configuration and

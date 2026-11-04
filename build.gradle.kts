@@ -16,7 +16,11 @@ val detektFormatting = libs.detekt.formatting
 // rewrite the runner's workspace). Locally, autoCorrect stays on for convenience.
 val isCi = (System.getenv("CI") ?: "").equals("true", ignoreCase = true)
 
-subprojects {
+// The vendored :sendspin-kmp module is upstream's code, copied verbatim and linted upstream
+// against upstream's rules; rewriting it to this config would make every sync a merge.
+val lintedProjects = subprojects.filter { it.path != ":sendspin-kmp" }
+
+configure(lintedProjects) {
     apply(plugin = "io.gitlab.arturbosch.detekt")
 
     extensions.configure<io.gitlab.arturbosch.detekt.extensions.DetektExtension> {
@@ -139,5 +143,5 @@ tasks.register("detektAll") {
     group = "verification"
     description = "Runs detekt on every subproject and project-specific lint checks."
     dependsOn(checkTestNames)
-    dependsOn(subprojects.map { it.tasks.named("detekt") })
+    dependsOn(lintedProjects.map { it.tasks.named("detekt") })
 }

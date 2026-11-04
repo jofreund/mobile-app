@@ -9,12 +9,12 @@ import MusicAssistantKit
 /// subscriptions for a feature that is off by default, and it put the app on the audio session
 /// before it had any audio to play. Now the stack comes up when `sendspinEnabled` is already
 /// true at launch, or the moment it flips to true, and then stays up for the rest of the
-/// process: the Kotlin side stops the Sendspin client when the toggle goes off, and an idle sink
+/// process: the Kotlin side stops the Sendspin player when the toggle goes off, and an idle sink
 /// costs nothing.
 ///
-/// Ordering with Kotlin: `MediaPlayerController.prepareStream` resolves the sink through
-/// `PlatformPlayerProvider` and reports an error rather than dropping audio silently if nothing
-/// is registered. Registration here runs on the main thread — synchronously in `start()` when
+/// Ordering with Kotlin: `AudioQueueSink.open` resolves the native player through
+/// `PlatformPlayerProvider` on every stream and fails the stream (the module reports the sink
+/// dead) rather than dropping audio silently if nothing is registered. Registration here runs on the main thread — synchronously in `start()` when
 /// the setting is already on, otherwise from the setting's own emission — and a Sendspin
 /// handshake takes far longer than either before its first stream can arrive.
 @MainActor

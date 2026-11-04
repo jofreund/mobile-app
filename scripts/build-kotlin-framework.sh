@@ -50,8 +50,10 @@ cd "$REPO"
 # framework is built also rebuilds it.
 source_hash() {
   {
-    find composeApp/src -type f -print0 | LC_ALL=C sort -z | xargs -0 shasum
-    for f in build.gradle.kts composeApp/build.gradle.kts gradle.properties settings.gradle.kts \
+    # sendspin-kmp is the vendored upstream module the framework links in.
+    find composeApp/src sendspin-kmp/src -type f -print0 | LC_ALL=C sort -z | xargs -0 shasum
+    for f in build.gradle.kts composeApp/build.gradle.kts sendspin-kmp/build.gradle.kts \
+             gradle.properties settings.gradle.kts \
              gradle/libs.versions.toml gradle/gradle-daemon-jvm.properties \
              gradle/wrapper/gradle-wrapper.properties scripts/build-kotlin-framework.sh; do
       if [ -f "$f" ]; then shasum "$f"; fi
