@@ -48,7 +48,7 @@ private struct LibraryChangeObserver: ViewModifier {
             // so the row keeps the heart it shows.
             let id = "\(updated.item.provider):\(updated.item.itemId)"
             let kept = updated.carriesFavorite ? nil : current.first { $0.id == id }?.isFavorite
-            reconciled = LibraryListReconciler.applying(MediaItem(updated.item, favorite: kept), to: current)
+            reconciled = LibraryListReconciler.applying(MediaItem(updated.item, keepingFavorite: kept), to: current)
         case let favorite as MediaItemChange.FavoriteUpdated:
             reconciled = LibraryListReconciler.applying(MediaItem(favorite.item), to: current)
         case let deleted as MediaItemChange.Deleted:
