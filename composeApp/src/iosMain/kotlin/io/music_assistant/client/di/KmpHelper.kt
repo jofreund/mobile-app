@@ -475,12 +475,12 @@ object KmpHelper {
      * redirects to; Swift owns it (`OAuthCallbackParser.returnURL`) because Swift is what parses
      * the callback. On success, Swift calls `authManager.startOAuthFlow(oauthUrl:)` directly. */
     fun getOAuthUrl(
-        providerId: String,
+        provider: AuthProvider,
         returnUrl: String,
         completion: (String?) -> Unit,
         onError: (Throwable) -> Unit,
     ): Cancellable =
-        NativeSuspend(mainScope) { authManager.getOAuthUrl(providerId, returnUrl).getOrThrow() }
+        NativeSuspend(mainScope) { authManager.getOAuthUrl(provider, returnUrl).getOrThrow() }
             .invoke(completion, onError)
 
     /** Wraps `AuthenticationManager.logout()` — the `AuthCoordinator` path that sets
@@ -1108,13 +1108,13 @@ object KmpHelper {
         completion: (List<AppMediaItem>?) -> Unit,
     ) {
         launchFetch("tracksByPlaylist:${playlist.itemId}", completion) {
-            mediaItemRepository.fetchMediaItems(
+            mediaItemRepository.fetchAllMediaItems(
                 Request.Playlist.getTracks(
                     itemId = playlist.itemId,
                     providerInstanceIdOrDomain = playlist.provider,
                     forceRefresh = null,
                 ),
-            ).getOrNull()
+            )
                 ?.filterIsInstance<Track>()
                 ?: emptyList()
         }
@@ -1125,12 +1125,12 @@ object KmpHelper {
         completion: (List<AppMediaItem>?) -> Unit,
     ) {
         launchFetch("episodesByPodcast:${podcast.itemId}", completion) {
-            mediaItemRepository.fetchMediaItems(
+            mediaItemRepository.fetchAllMediaItems(
                 Request.Podcast.getEpisodes(
                     itemId = podcast.itemId,
                     providerInstanceIdOrDomain = podcast.provider,
                 ),
-            ).getOrNull()
+            )
                 ?.filterIsInstance<PodcastEpisode>()
                 ?.clientSorted(
                     SortConfig.defaultFor(SubItemContext.PODCAST_EPISODES),

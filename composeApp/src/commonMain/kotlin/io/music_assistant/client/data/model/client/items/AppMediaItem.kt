@@ -63,6 +63,13 @@ sealed class AppMediaItem {
     abstract val providerMappings: List<ProviderMapping>?
     abstract val metadata: Metadata?
     abstract val favorite: Boolean?
+
+    /**
+     * A copy with [favorite] set. Server 2.11 sends the user's favorite in its own event
+     * (`favorite_updated`), so a change can carry the item without its favorite, or the
+     * favorite without the item's other fields.
+     */
+    abstract fun withFavorite(favorite: Boolean?): AppMediaItem
     abstract val mediaType: MediaType
     abstract val sortName: String?
     abstract val uri: String?

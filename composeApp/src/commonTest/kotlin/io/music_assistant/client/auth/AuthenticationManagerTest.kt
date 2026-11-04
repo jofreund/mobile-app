@@ -5,6 +5,7 @@ import io.music_assistant.client.api.Answer
 import io.music_assistant.client.api.ConnectionInfo
 import io.music_assistant.client.api.Request
 import io.music_assistant.client.api.ServiceClient
+import io.music_assistant.client.data.model.server.AuthProvider
 import io.music_assistant.client.data.model.server.events.Event
 import io.music_assistant.client.settings.SettingsRepository
 import io.music_assistant.client.utils.SessionState
@@ -113,7 +114,8 @@ class AuthenticationManagerTest {
             // return value: a propagated cancellation yields no Result at all, while a
             // swallowed one is absorbed into Result.failure and assigned here.
             var result: Result<String>? = null
-            val job = launch { result = manager.getOAuthUrl("spotify", "musicassistant://auth/callback") }
+            val provider = AuthProvider(id = "spotify", type = "oauth", requiresRedirect = true)
+            val job = launch { result = manager.getOAuthUrl(provider, "musicassistant://auth/callback") }
             runCurrent() // suspends inside serviceClient.sendRequest
 
             job.cancel()

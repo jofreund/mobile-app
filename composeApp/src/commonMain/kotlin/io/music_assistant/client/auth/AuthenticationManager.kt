@@ -5,8 +5,10 @@ import io.music_assistant.client.api.ConnectionLostException
 import io.music_assistant.client.api.Request
 import io.music_assistant.client.api.ServiceClient
 import io.music_assistant.client.data.model.server.AuthProvider
+import io.music_assistant.client.data.model.server.LoginResponse
 import io.music_assistant.client.data.model.server.OauthUrl
 import io.music_assistant.client.data.model.server.User
+import io.music_assistant.client.data.model.server.supportsAppSignIn
 import io.music_assistant.client.settings.ConnectionType
 import io.music_assistant.client.settings.SettingsRepository
 import io.music_assistant.client.settings.getServerIdentifier
@@ -50,6 +52,12 @@ class AuthenticationManager(
 
     // True while an OAuth browser is open and we're awaiting its deep-link callback.
     private var awaitingOAuthCallback = false
+
+    /**
+     * The sign-in that returns to the app (server 2.11, Remote Access), waiting for its
+     * authorization code. Only this app run holds the PKCE verifier.
+     */
+    private var pendingAppSignIn: AppSignIn? = null
 
     // Flag to prevent auto-login during intentional logout - using StateFlow for proper synchronization
     private val _isLoggingOut = MutableStateFlow(false)
@@ -200,7 +208,7 @@ class AuthenticationManager(
                 return Result.failure(Exception(error))
             }
 
-            response.resultAs<List<AuthProvider>>()?.let { providers ->
+            response.resultAs<List<AuthProvider>>()?.filter(::canSignIn)?.let { providers ->
                 _authState.value = AuthState.ProvidersLoaded(providers)
                 Result.success(providers)
             } ?: run {
@@ -241,24 +249,63 @@ class AuthenticationManager(
         }
     }
 
-    override suspend fun getOAuthUrl(providerId: String, returnUrl: String): Result<String> {
+    /** A failure shows on the login screen, because the sign-in never reaches the browser. */
+    override suspend fun getOAuthUrl(provider: AuthProvider, returnUrl: String): Result<String> =
+        requestOAuthUrl(provider, returnUrl).onFailure {
+            log.w(it) { "OAuth URL not received" }
+            _authState.value = AuthState.Error(it.message ?: "Failed to get OAuth URL")
+        }
+
+    private suspend fun requestOAuthUrl(provider: AuthProvider, returnUrl: String): Result<String> {
         return try {
+            val pkce = if (returnsToApp(provider)) Pkce.create() else null
             val response = serviceClient.sendRequest(
-                Request.Auth.authorizationUrl(providerId, returnUrl),
+                Request.Auth.authorizationUrl(provider.id, returnUrl, pkce?.challenge),
             )
 
             if (response.isFailure) {
                 return Result.failure(Exception("Failed to get OAuth URL"))
             }
 
-            response.resultAs<OauthUrl>()?.let { oauthUrl ->
-                Result.success(oauthUrl.url)
-            } ?: Result.failure(Exception("Failed to parse OAuth URL"))
+            val oauthUrl = response.resultAs<OauthUrl>()
+                ?: return Result.failure(Exception("Failed to parse OAuth URL"))
+            val url = oauthUrl.url
+                ?: return Result.failure(Exception(oauthUrl.error ?: "Failed to get OAuth URL"))
+            pendingAppSignIn = pkce?.let {
+                val state = oauthUrl.state
+                    ?: return Result.failure(Exception("No sign-in state received"))
+                AppSignIn(state, it.verifier)
+            }
+            Result.success(url)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             Result.failure(e)
         }
+    }
+
+    /**
+     * The browser returns to the app only over Remote Access, from server 2.11, and only
+     * when the provider is reachable from outside the home network. Otherwise the server's
+     * own callback page completes the sign-in, as on server 2.10. Ported from upstream #1225.
+     */
+    private fun returnsToApp(provider: AuthProvider): Boolean {
+        if (!provider.supportsRemoteApp) return false
+        val session = serviceClient.sessionState.value as? SessionState.Connected.WebRTC ?: return false
+        return supportsAppSignIn(session.serverInfo?.schemaVersion)
+    }
+
+    /**
+     * Over Remote Access, a redirect provider works only when the browser can come back: to the
+     * app, or to the server's External URL. Otherwise the server sends the browser to its internal
+     * address. The web frontend hides the provider in the same case.
+     */
+    private fun canSignIn(provider: AuthProvider): Boolean {
+        val serverInfo = (serviceClient.sessionState.value as? SessionState.Connected.WebRTC)
+            ?.serverInfo ?: return true
+        return !provider.requiresRedirect ||
+            returnsToApp(provider) ||
+            !serverInfo.externalUrl.isNullOrBlank()
     }
 
     override fun startOAuthFlow(oauthUrl: String): Result<Unit> {
@@ -304,7 +351,46 @@ class AuthenticationManager(
     // Reading a callback URL is Swift's job now (`OAuthCallbackParser` in `DeepLinks.swift`);
     // both delivery paths there end in [handleOAuthCallback] or [cancelOAuthFlow].
 
-    fun handleOAuthCallback(token: String) {
+    /** The server's own callback page finished the sign-in and returned an access token. */
+    fun handleOAuthCallback(token: String) = completeOAuthSignIn { token }
+
+    /**
+     * The sign-in returned to the app with an authorization code (server 2.11, Remote Access).
+     * Only this app run can complete it, because only it holds the PKCE verifier; a code for
+     * another sign-in, for example one started before the app was restarted, can only fail.
+     */
+    fun handleAuthorizationCode(code: String, state: String) {
+        val signIn = pendingAppSignIn?.takeIf { it.state == state } ?: run {
+            log.w { "OAuth: authorization code for an unknown sign-in" }
+            cancelOAuthFlow("This sign-in has expired. Please try again.")
+            return
+        }
+        pendingAppSignIn = null
+        completeOAuthSignIn { exchangeAuthorizationCode(code, state, signIn.codeVerifier) }
+    }
+
+    /**
+     * Sends `auth/exchange` for the access token, or returns null after showing why not. The
+     * server accepts a code once, so a failure here ends the sign-in.
+     */
+    private suspend fun exchangeAuthorizationCode(code: String, state: String, verifier: String): String? {
+        val answer = serviceClient.sendRequest(
+            Request.Auth.exchange(state, code, verifier, settings.deviceName.value),
+        ).getOrElse {
+            log.w(it) { "OAuth: code exchange not answered" }
+            _authState.value = AuthState.Error("Sign-in failed. Please try again.")
+            return null
+        }
+        val response = answer.resultAs<LoginResponse>()
+        return response?.token?.takeIf { response.success && it.isNotBlank() } ?: run {
+            log.w { "OAuth: code exchange refused: ${response?.error}" }
+            _authState.value = AuthState.Error(response?.error ?: "Sign-in failed")
+            null
+        }
+    }
+
+    /** Waits for a session that can authorize, then signs in with the token [token] yields. */
+    private fun completeOAuthSignIn(token: suspend () -> String?) {
         Logger.d("OAuth callback received")
         // Clear synchronously (before the launch) so the foreground collector,
         // which fires after this on the success path, sees no pending flow.
@@ -327,7 +413,8 @@ class AuthenticationManager(
                 return@launch
             }
             try {
-                serviceClient.authorize(token, isAutoLogin = false)
+                val accessToken = token() ?: return@launch
+                serviceClient.authorize(accessToken, isAutoLogin = false)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -348,6 +435,7 @@ class AuthenticationManager(
     }
 
     override suspend fun logout(): Result<Unit> {
+        pendingAppSignIn = null
         return try {
             // Set flag FIRST, before any async operations
             _isLoggingOut.value = true
@@ -370,6 +458,8 @@ class AuthenticationManager(
     fun close() {
         scope.cancel()
     }
+
+    private data class AppSignIn(val state: String, val codeVerifier: String)
 
     private companion object {
         const val CONNECT_WAIT_MS = 10_000L

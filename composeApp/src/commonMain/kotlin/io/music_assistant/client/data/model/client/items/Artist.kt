@@ -17,6 +17,8 @@ data class Artist(
     override val uri: String?,
     override val images: Map<ImageType, ImageInfo>,
 ) : AppMediaItem() {
+    override fun withFavorite(favorite: Boolean?) = copy(favorite = favorite)
+
     override val mediaType: MediaType = MediaType.ARTIST
     override val canStartEndlessMix: Boolean = true
 }

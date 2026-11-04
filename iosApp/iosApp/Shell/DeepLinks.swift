@@ -114,8 +114,12 @@ enum OAuthCallbackParser {
 
     /// Outcome of reading an incoming URL as an OAuth callback.
     enum Result: Equatable {
-        /// The provider returned an authorization code.
-        case code(String)
+        /// The server's own callback page finished the sign-in and returned an access token as
+        /// `code`.
+        case token(String)
+        /// The sign-in returned to the app (server 2.11, Remote Access): `code` is a provider
+        /// code that Kotlin exchanges with its PKCE verifier. Only that callback page adds `state`.
+        case authorizationCode(code: String, state: String)
         /// The callback shape matched but carried a failure, or no code at all.
         case failed(reason: String)
         /// Not an OAuth callback — some other deep link, or not a URL at all.
@@ -143,7 +147,12 @@ enum OAuthCallbackParser {
         else { return .notOAuth }
 
         let query = queryItems(of: url)
-        if let code = query["code"], !code.isEmpty { return .code(code) }
+        if let code = query["code"], !code.isEmpty {
+            if let state = query["state"], !state.isEmpty {
+                return .authorizationCode(code: code, state: state)
+            }
+            return .token(code)
+        }
 
         let error = [query["error_description"], query["error"]]
             .compactMap { $0 }
