@@ -24,7 +24,14 @@ final class ThemeStore {
 
     private let preferences: AppPreferences
 
-    init(preferences: AppPreferences = .shared) {
+    /// Takes the shared preferences. A default argument would not do: it is evaluated in a
+    /// nonisolated context, and reaching the main-actor `AppPreferences.shared` from there is
+    /// an error in the Swift 6 language mode.
+    convenience init() {
+        self.init(preferences: .shared)
+    }
+
+    init(preferences: AppPreferences) {
         self.preferences = preferences
         // Seeded synchronously so the first frame is already correct rather than rendering light
         // and correcting itself.

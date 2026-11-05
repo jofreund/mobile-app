@@ -18,6 +18,12 @@ final class OAuthWebSession: NSObject, OAuthHandler, ASWebAuthenticationPresenta
     /// The session cancels itself when deallocated, so it must be held for its lifetime.
     private var session: ASWebAuthenticationSession?
 
+    /// The anchor `present()` resolved, retained for the flow. `presentationAnchor(for:)`
+    /// cannot express failure, and holding the window keeps it a valid anchor even if it
+    /// detaches mid-flow — which is what the old `UIWindow()` fallback stood in for, an
+    /// initializer iOS 26 deprecates.
+    private var presentationWindow: UIWindow?
+
     /// The session reports dismissal through its completion handler, so the app must not
     /// also infer abandonment from foreground events (see `AuthenticationManager`'s
     /// `foregroundEvents` collector).
@@ -42,10 +48,11 @@ final class OAuthWebSession: NSObject, OAuthHandler, ASWebAuthenticationPresenta
         }
         // Resolve the anchor before starting: `presentationAnchor(for:)` cannot express
         // failure, and handing back an empty UIWindow makes the session fail opaquely.
-        guard anchor() != nil else {
+        guard let window = anchor() else {
             fail("No window available to present the login page")
             return
         }
+        presentationWindow = window
 
         // A fresh session per attempt — a second start() on the same instance returns false.
         let session = ASWebAuthenticationSession(
@@ -53,6 +60,7 @@ final class OAuthWebSession: NSObject, OAuthHandler, ASWebAuthenticationPresenta
             callback: .customScheme(OAuthCallbackParser.scheme)
         ) { [weak self] callbackURL, error in
             self?.session = nil
+            self?.presentationWindow = nil
             self?.finish(callbackURL: callbackURL, error: error)
         }
         session.presentationContextProvider = self
@@ -66,6 +74,7 @@ final class OAuthWebSession: NSObject, OAuthHandler, ASWebAuthenticationPresenta
         // false leaves the user on a spinner that nothing can clear.
         guard session.start() else {
             self.session = nil
+            presentationWindow = nil
             fail("Could not present the login page")
             return
         }
@@ -110,8 +119,16 @@ final class OAuthWebSession: NSObject, OAuthHandler, ASWebAuthenticationPresenta
     }
 
     func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
-        // Non-optional by contract. present() already refused to start without a window,
-        // so reaching the fallback means the window went away mid-presentation.
-        anchor() ?? ASPresentationAnchor()
+        // Non-optional by contract, and always set: present() refuses to start without a
+        // window and retains it right before start() asks for the anchor, synchronously on
+        // the main thread. The remaining branches are for the type, not for a reachable
+        // state — a scene-less app has nowhere to show the page anyway.
+        if let presentationWindow {
+            return presentationWindow
+        }
+        if let scene = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).first {
+            return UIWindow(windowScene: scene)
+        }
+        preconditionFailure("OAuth anchor requested with no window scene connected")
     }
 }

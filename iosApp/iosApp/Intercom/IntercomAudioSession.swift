@@ -162,7 +162,7 @@ final class IntercomAudioSession: @unchecked Sendable {
     private func applyCategory(mixing: Bool) throws {
         let options: AVAudioSession.CategoryOptions = mixing
             ? [.defaultToSpeaker, .allowBluetoothA2DP, .mixWithOthers]
-            : [.defaultToSpeaker, .allowBluetooth]
+            : [.defaultToSpeaker, .allowBluetoothHFP]
         guard session.category != .playAndRecord || session.mode != .default || session.categoryOptions != options else {
             return
         }
