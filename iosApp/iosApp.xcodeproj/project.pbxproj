@@ -43,11 +43,6 @@
 		C8HV00052F61000000000005 /* RecommendationRowTitle.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8HV00142F61000000000014 /* RecommendationRowTitle.swift */; };
 		C8IC00022F80000000000002 /* Taktgeber.icon in Resources */ = {isa = PBXBuildFile; fileRef = C8IC00012F80000000000001 /* Taktgeber.icon */; };
 		C8ID00032F5A000000000003 /* ItemDetailsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8ID00132F5A000000000013 /* ItemDetailsView.swift */; };
-		C8KD00012FA5000000000001 /* KidsFavoritesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8KD00112FA5000000000011 /* KidsFavoritesView.swift */; };
-		C8KD00022FA5000000000002 /* KidsFavoritesCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8KD00122FA5000000000012 /* KidsFavoritesCatalog.swift */; };
-		C8KD00032FA5000000000003 /* KidsFavoritesCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8KD00122FA5000000000012 /* KidsFavoritesCatalog.swift */; };
-		C8KD00042FA5000000000004 /* KidsFavoritesCatalogTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8KD00132FA5000000000013 /* KidsFavoritesCatalogTests.swift */; };
-		C8KD00052FA5000000000005 /* KidsModeSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8KD00142FA5000000000014 /* KidsModeSection.swift */; };
 		C8LC00012F4F000000000001 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = C8LC00112F4F000000000011 /* Localizable.xcstrings */; };
 		C8LL00032F5D000000000003 /* LibraryListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8LL00132F5D000000000013 /* LibraryListView.swift */; };
 		C8LP00012FB0000000000001 /* LocalPlayerOptions.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8LP00112FB0000000000011 /* LocalPlayerOptions.swift */; };
@@ -234,10 +229,6 @@
 		C8HV00142F61000000000014 /* RecommendationRowTitle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecommendationRowTitle.swift; sourceTree = "<group>"; };
 		C8IC00012F80000000000001 /* Taktgeber.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = Taktgeber.icon; sourceTree = "<group>"; };
 		C8ID00132F5A000000000013 /* ItemDetailsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ItemDetailsView.swift; sourceTree = "<group>"; };
-		C8KD00112FA5000000000011 /* KidsFavoritesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KidsFavoritesView.swift; sourceTree = "<group>"; };
-		C8KD00122FA5000000000012 /* KidsFavoritesCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KidsFavoritesCatalog.swift; sourceTree = "<group>"; };
-		C8KD00132FA5000000000013 /* KidsFavoritesCatalogTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KidsFavoritesCatalogTests.swift; sourceTree = "<group>"; };
-		C8KD00142FA5000000000014 /* KidsModeSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KidsModeSection.swift; sourceTree = "<group>"; };
 		C8LC00112F4F000000000011 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		C8LL00132F5D000000000013 /* LibraryListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryListView.swift; sourceTree = "<group>"; };
 		C8LP00112FB0000000000011 /* LocalPlayerOptions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalPlayerOptions.swift; sourceTree = "<group>"; };
@@ -397,7 +388,6 @@
 				C8DL00132FF2000000000013 /* DeepLinksTests.swift */,
 				C8PS00132FE0000000000013 /* PlaybackSpeedOptionsTests.swift */,
 				C8MQ00122FC0000000000012 /* MarqueeCycleTests.swift */,
-				C8KD00132FA5000000000013 /* KidsFavoritesCatalogTests.swift */,
 				C8LP00132FB0000000000013 /* LocalPlayerOptionsTests.swift */,
 				C8IN10192F90000000001019 /* AnnouncementErrorTests.swift */,
 				C8IN10202F90000000001020 /* IntercomViewModelTests.swift */,
@@ -446,7 +436,6 @@
 				C8AU00062FB0000000000006 /* LocalPlayer */,
 				C8HV00062F61000000000006 /* Home */,
 				C8ST00062F63000000000006 /* Settings */,
-				C8KD00062FA5000000000006 /* Kids */,
 				C8IN40012F90000000004001 /* Intercom */,
 				C8WD00062FA0000000000006 /* LiveActivity */,
 				C8PR00012F2D000000000001 /* PrivacyInfo.xcprivacy */,
@@ -500,15 +489,6 @@
 				C8GD00132F5C000000000013 /* GenreDetailsView.swift */,
 			);
 			path = ItemDetails;
-			sourceTree = "<group>";
-		};
-		C8KD00062FA5000000000006 /* Kids */ = {
-			isa = PBXGroup;
-			children = (
-				C8KD00112FA5000000000011 /* KidsFavoritesView.swift */,
-				C8KD00122FA5000000000012 /* KidsFavoritesCatalog.swift */,
-			);
-			path = Kids;
 			sourceTree = "<group>";
 		};
 		C8LL00062F5D000000000006 /* Library */ = {
@@ -590,7 +570,6 @@
 				C8ST00132F63000000000013 /* SettingsView.swift */,
 				C8ST001A2F6300000000001A /* LocalPlayerSection.swift */,
 				C8LP00112FB0000000000011 /* LocalPlayerOptions.swift */,
-				C8KD00142FA5000000000014 /* KidsModeSection.swift */,
 				C8ST00142F63000000000014 /* ConnectionSetupStore.swift */,
 				C8ST00152F63000000000015 /* ConnectionSetupView.swift */,
 				C8ST00172F63000000000017 /* QrScanView.swift */,
@@ -861,8 +840,6 @@
 				C8PS00042FE0000000000004 /* PlaybackSpeedOptionsTests.swift in Sources */,
 				C8MQ00212FC0000000000021 /* MarqueeCycle.swift in Sources */,
 				C8MQ00232FC0000000000023 /* MarqueeCycleTests.swift in Sources */,
-				C8KD00032FA5000000000003 /* KidsFavoritesCatalog.swift in Sources */,
-				C8KD00042FA5000000000004 /* KidsFavoritesCatalogTests.swift in Sources */,
 				C8LP00022FB0000000000002 /* LocalPlayerOptions.swift in Sources */,
 				C8LP00032FB0000000000003 /* LocalPlayerOptionsTests.swift in Sources */,
 			);
@@ -952,9 +929,6 @@
 				C8ST00032F63000000000003 /* SettingsView.swift in Sources */,
 				C8ST00042F6300000000001A /* LocalPlayerSection.swift in Sources */,
 				C8LP00012FB0000000000001 /* LocalPlayerOptions.swift in Sources */,
-				C8KD00012FA5000000000001 /* KidsFavoritesView.swift in Sources */,
-				C8KD00022FA5000000000002 /* KidsFavoritesCatalog.swift in Sources */,
-				C8KD00052FA5000000000005 /* KidsModeSection.swift in Sources */,
 				C8ST00042F63000000000004 /* ConnectionSetupStore.swift in Sources */,
 				C8ST00052F63000000000005 /* ConnectionSetupView.swift in Sources */,
 				C8ST00072F63000000000007 /* QrScanView.swift in Sources */,
