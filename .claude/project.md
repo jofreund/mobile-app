@@ -56,7 +56,6 @@ script. See `docs/IOS-BUILD-INSTRUCTIONS.md`.
 - **Local player**: `.claude/local-player-integration-plan.md` — how Sendspin was ported back and gated;
   its protocol core is upstream's `:sendspin-kmp`, vendored in `sendspin-kmp/` (never edit it; sync with
   `scripts/sync-sendspin-kmp.sh`)
-- **Kids mode**: `.claude/kids-favorites-mode.md` — the favorites carousel that replaces the shell on a child's device, and why "favorites of the signed-in account" is the source
 - **Intercom tab**: `.claude/intercom-tab-plan.md` — upstream's announcements (#1101) as a push-to-talk tab built from `ios-home-intercom`, and why clips are sent on release
 - **CarPlay & Siri**: removed from this fork. `.claude/carplay.md` and `.claude/siri-integration-overview.md` describe upstream's versions for a possible port back
 - **Performance and simplification**: `.claude/perf-and-simplification-plan.md` — the numbered plan; tick items there
