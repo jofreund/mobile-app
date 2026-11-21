@@ -275,6 +275,7 @@ struct PlayerBarItemView: Identifiable {
     let queueId: String?
     let queueItems: [QueueBarItemView]
     let currentQueueItemId: String?
+    let queueEnded: Bool
     /// Non-empty only when the current queue item is an audiobook — mirrors
     /// `QueueDisplayRows.kt`'s chapter-nesting rule.
     let currentItemChapters: [Chapter]
@@ -330,6 +331,7 @@ struct PlayerBarItemView: Identifiable {
         self.queueId = item.queueId
         self.queueItems = queueItems
         self.currentQueueItemId = item.currentQueueItemId
+        self.queueEnded = item.queueEnded
         self.currentItemChapters = item.currentItemChapters
         self.isSpokenWord = item.isSpokenWord
         self.isGroup = item.isGroup

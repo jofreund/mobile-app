@@ -97,6 +97,11 @@ data class PlayerBarItem(
      */
     val queueItems: List<QueueBarItem>,
     val currentQueueItemId: String?,
+    /**
+     * The queue played to its end (upstream #1377). [currentQueueItemId] still names the last
+     * item, but the queue list shows every row as played and nothing as current.
+     */
+    val queueEnded: Boolean = false,
     /** Only ever non-empty for the *currently playing* item, and only when it's an [Audiobook] —
      * mirrors `QueueDisplayRows.kt`'s chapter-nesting rule exactly. Selected player only, like
      * [queueItems]: chapters are rows in the same queue list. */
@@ -357,6 +362,7 @@ internal fun buildPlayerBarState(
                 queueId = data.queueOrPlayerId,
                 queueItems = if (isSelected) queueCache.project(data.playerId, data.queueItems) else emptyList(),
                 currentQueueItemId = queue?.currentItem?.id,
+                queueEnded = queue?.ended ?: false,
                 currentItemChapters = if (isSelected) {
                     (queue?.currentItem?.track as? Audiobook)?.chapters.orEmpty()
                 } else {

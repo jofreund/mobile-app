@@ -67,6 +67,25 @@ class ServerQueueSerializationTest {
     }
 
     @Test
+    fun readsTheEndedFlagAndKeepsTheLastItem() {
+        val json = """{"queue_id":"q1","current_index":1,"ended":true,""" +
+            """"current_item":{"queue_item_id":"i2","name":"Last","duration":10}}"""
+
+        val info = queueFactory.create(myJson.decodeFromString<ServerQueue>(json))
+
+        // The server parks the queue on its last item when it plays to its end; only the flag
+        // tells that apart from a queue stopped on its last item.
+        assertEquals(true, info.ended)
+        assertEquals("i2", info.currentItem?.id)
+    }
+
+    @Test
+    fun aServerWithoutTheEndedFlagIsNotEnded() {
+        val info = queueFactory.create(myJson.decodeFromString<ServerQueue>("""{"queue_id": "q1"}"""))
+        assertEquals(false, info.ended)
+    }
+
+    @Test
     fun mapsUnknownRepeatModeToOff() {
         val json = """{"queue_id": "q1", "repeat_mode": "random_future_mode"}"""
 

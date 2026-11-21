@@ -8010,6 +8010,29 @@
         }
       }
     },
+    "queue_finished" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wiedergabe beendet"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Playback finished"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Afspelen voltooid"
+          }
+        }
+      }
+    },
     "queue_label" : {
       "extractionState" : "stale",
       "localizations" : {

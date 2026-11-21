@@ -35,6 +35,11 @@ data class ServerQueue(
     @SerialName("crossfade_enabled") val crossfadeEnabled: Boolean? = null,
     @SerialName("is_dynamic") val isDynamic: Boolean = false,
     @SerialName("current_index") val currentIndex: Int? = null,
+    /**
+     * The queue played to its end. The server keeps [currentIndex] and [currentItem] on the
+     * last item, so only this flag tells a finished queue from one stopped on its last item.
+     */
+    @SerialName("ended") val ended: Boolean = false,
     // @SerialName("index_in_buffer") val indexInBuffer: Int? = null,
     @SerialName("elapsed_time") val elapsedTime: Double? = null,
     /**

@@ -579,11 +579,19 @@ private struct ExpandedPlayerRow: View {
         return ordered.count == player.queueItems.count ? ordered : player.queueItems
     }
 
+    /// The queue item playing now. Nil after the queue played to its end: the server keeps the
+    /// last item as `currentQueueItemId` then, but nothing is current and every row is played.
+    private var activeQueueItemId: String? {
+        player.queueEnded ? nil : player.currentQueueItemId
+    }
+
     private var currentQueueIndex: Int? {
-        orderedQueueItems.firstIndex { $0.id == player.currentQueueItemId }
+        guard let activeQueueItemId else { return nil }
+        return orderedQueueItems.firstIndex { $0.id == activeQueueItemId }
     }
 
     private var queueLabel: String {
+        if player.queueEnded { return String(localized: "queue_finished") }
         guard let index = currentQueueIndex else { return String(localized: "queue_label") }
         return String(format: String(localized: "queue_label_with_position"), index + 1, orderedQueueItems.count)
     }
@@ -594,7 +602,7 @@ private struct ExpandedPlayerRow: View {
         // right above already shows exactly this item, so repeating it as the queue's first row
         // too just duplicates it; matches the Apple Music reference, whose queue lists only what
         // comes *next*, not what's already playing.
-        let rows = QueueDisplayRow.build(items: orderedQueueItems, currentId: player.currentQueueItemId, chapters: player.currentItemChapters)
+        let rows = QueueDisplayRow.build(items: orderedQueueItems, currentId: activeQueueItemId, chapters: player.currentItemChapters)
         if rows.isEmpty {
             emptyQueueState
         } else {
@@ -638,8 +646,8 @@ private struct ExpandedPlayerRow: View {
     }
 
     private func queueTrackRow(_ item: QueueBarItemView, queueIndex: Int) -> some View {
-        let isCurrent = item.id == player.currentQueueItemId
-        let isPlayed = currentQueueIndex.map { queueIndex < $0 } ?? false
+        let isCurrent = item.id == activeQueueItemId
+        let isPlayed = player.queueEnded || (currentQueueIndex.map { queueIndex < $0 } ?? false)
         // Mirrors Compose's exact long-press/reorder gating: only upcoming, playable,
         // non-current rows get either affordance.
         let canInteract = item.isPlayable && !isCurrent && !isPlayed
