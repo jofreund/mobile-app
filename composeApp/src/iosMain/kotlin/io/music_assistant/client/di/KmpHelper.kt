@@ -1092,12 +1092,12 @@ object KmpHelper {
         completion: (List<AppMediaItem>?) -> Unit,
     ) {
         launchFetch("tracksByAlbum:${album.itemId}", completion) {
-            mediaItemRepository.fetchMediaItems(
+            mediaItemRepository.fetchAllMediaItems(
                 Request.Album.getTracks(
                     itemId = album.itemId,
                     providerInstanceIdOrDomain = album.provider,
                 ),
-            ).getOrNull()
+            )
                 ?.filterIsInstance<Track>()
                 ?: emptyList()
         }

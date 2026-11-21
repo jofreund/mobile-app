@@ -15,7 +15,7 @@ import io.music_assistant.client.data.model.server.events.MediaItemAddedEvent
 import io.music_assistant.client.data.model.server.events.MediaItemDeletedEvent
 import io.music_assistant.client.data.model.server.events.MediaItemUpdatedEvent
 import io.music_assistant.client.data.model.server.events.ServerFavoriteUpdate
-import io.music_assistant.client.data.model.server.pagesPlaylistTracksAndEpisodes
+import io.music_assistant.client.data.model.server.pagesSubItemLists
 import io.music_assistant.client.data.model.server.sendsFavoriteUpdates
 import io.music_assistant.client.utils.HasConnectionData
 import kotlinx.coroutines.CancellationException
@@ -83,13 +83,13 @@ class MediaItemRepository(
         }
 
     /**
-     * Every item of a `playlist_tracks` or `podcast_episodes` [request]. Null when nothing could
-     * be loaded; a page failure after the first page gives the items loaded so far. A server from
-     * 2.11 answers one page, so the pages are walked; an older server streams the whole list on
-     * the plain request ([pagesPlaylistTracksAndEpisodes], upstream #1179).
+     * Every item of an `album_tracks`, `playlist_tracks` or `podcast_episodes` [request]. Null
+     * when nothing could be loaded; a page failure after the first page gives the items loaded so
+     * far. A server from 2.11 answers one page, so the pages are walked; an older server answers
+     * the whole list on the plain request ([pagesSubItemLists], upstream #1179, #1386).
      */
     suspend fun fetchAllMediaItems(request: Request): List<AppMediaItem>? =
-        if (pagesPlaylistTracksAndEpisodes(schemaVersion())) {
+        if (pagesSubItemLists(schemaVersion())) {
             request.fetchAllPages { fetchMediaItems(it).getOrNull() }
         } else {
             fetchMediaItems(request).getOrNull()

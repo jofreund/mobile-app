@@ -74,8 +74,10 @@ not-ready → ready edge, seeded from the current value.
 **List payloads.** `library_items` and `player_queues/items` answer in one message, and the
 server caps a message at about 9 MB, so never send a huge `limit`: list builders default to
 `SERVER_PAGE_SIZE` (500). A caller that needs the whole list pages with `Request.fetchAllPages`
-(`api/Paging.kt`). `playlist_tracks` is different: the server streams it in `partial` batches
-that `RpcEngine` reassembles.
+(`api/Paging.kt`). `album_tracks`, `playlist_tracks` and `podcast_episodes` depend on the
+server: from 2.11 they answer one 500-item page as well, an older server streams the whole list
+in `partial` batches that `RpcEngine` reassembles. `MediaItemRepository.fetchAllMediaItems`
+picks the method from the schema (`pagesSubItemLists`).
 
 **Interop gotchas.**
 - `NativeStateFlow<T>`/`NativeSuspend<T>` lose Swift's automatic bridging when `T` is `String`
