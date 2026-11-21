@@ -1,4 +1,5 @@
 import SwiftUI
+import MusicAssistantKit
 
 /// Picking a server-side sleep timer for the current player.
 ///
@@ -128,12 +129,10 @@ struct SleepTimerSheet: View {
 /// (upstream `sleepTimerEndLabel`).
 func sleepTimerEndLabel(mode: SleepTimerMode, item: AppMediaItem?) -> String {
     if mode == SleepTimerMode.endOfChapter { return String(localized: "sleep_timer_end_of_chapter") }
-    switch item {
-    case is Track: return String(localized: "sleep_timer_end_of_track")
-    case is PodcastEpisode: return String(localized: "sleep_timer_end_of_episode")
-    case is Audiobook: return String(localized: "sleep_timer_end_of_audiobook")
-    default: return String(localized: "sleep_timer_end_of_item")
-    }
+    if item is Track { return String(localized: "sleep_timer_end_of_track") }
+    if item is PodcastEpisode { return String(localized: "sleep_timer_end_of_episode") }
+    if item is Audiobook { return String(localized: "sleep_timer_end_of_audiobook") }
+    return String(localized: "sleep_timer_end_of_item")
 }
 
 /// "15 minutes" / "1 hour" / "2 hours" — port of upstream `SleepTimerDialog`'s `optionLabel`.

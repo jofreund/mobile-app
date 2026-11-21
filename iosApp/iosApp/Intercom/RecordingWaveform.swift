@@ -116,8 +116,13 @@ struct RecordingWaveform: View {
 
 #Preview {
     /// A plausible frozen frame of speech.
-    let speech = (0..<IntercomRecorder.levelHistoryCount).map { index in
-        0.15 + 0.55 * abs(sin(Double(index) / 3.2)) * Double(index) / Double(IntercomRecorder.levelHistoryCount)
+    // Spelled out step by step: as one expression, the type checker ran out of time on it.
+    let count = Double(IntercomRecorder.levelHistoryCount)
+    let speech: [Double] = (0..<IntercomRecorder.levelHistoryCount).map { index in
+        let position = Double(index)
+        let envelope: Double = abs(sin(position / 3.2))
+        let ramp: Double = position / count
+        return 0.15 + 0.55 * envelope * ramp
     }
     return VStack(spacing: 32) {
         RecordingWaveform(recorder: nil, isRecording: false, isCancelling: false, isExpanded: true)
