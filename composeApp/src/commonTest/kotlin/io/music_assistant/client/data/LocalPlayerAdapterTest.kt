@@ -239,6 +239,10 @@ class LocalPlayerAdapterTest {
                 itemCount = itemCount,
             ),
         )
+        // localPlayerData follows the adapter's state asynchronously (map + stateIn), and the
+        // caller hands its value straight to handleLocalCommand: without the queue in it, the
+        // command has no queue to freeze.
+        await { adapter.localPlayerData.value?.queueInfo?.takeIf { it.itemCount == itemCount } }
         tracker.setAnchor(QUEUE_ID, elapsedSec = EPISODE_POSITION_SEC, isPlaying = false)
     }
 
