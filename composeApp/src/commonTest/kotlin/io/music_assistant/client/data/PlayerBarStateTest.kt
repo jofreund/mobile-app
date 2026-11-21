@@ -7,6 +7,7 @@ import io.music_assistant.client.data.model.client.PlayerMedia
 import io.music_assistant.client.data.model.client.PlayerType
 import io.music_assistant.client.data.model.client.Queue
 import io.music_assistant.client.data.model.client.QueueTrack
+import io.music_assistant.client.data.model.client.RepeatMode
 import io.music_assistant.client.data.model.client.items.PlayableItem
 import io.music_assistant.client.data.model.client.testAudiobook
 import io.music_assistant.client.data.model.client.testPodcastEpisode
@@ -140,11 +141,27 @@ class PlayerBarStateTest {
         assertEquals(1.5, stateOf(queueSettingsPlayer(playbackSpeed = 1.5)).players.single().playbackSpeed)
     }
 
+    @Test
+    fun `repeat locks autoplay only on a server that masks it`() {
+        // Server 2.11 reports autoplay off and rejects it while repeat is ONE or ALL (upstream
+        // #1337); an older server keeps the two independent.
+        for (mode in listOf(RepeatMode.ONE, RepeatMode.ALL)) {
+            val player = queueSettingsPlayer(autoPlayEnabled = true, repeatMode = mode)
+            val locked = buildPlayerBarState(DataState.Data(listOf(player)), 0, repeatLocksAutoplay = true)
+            assertTrue((locked as PlayerBarState.Data).players.single().autoplayLockedByRepeat, "$mode")
+            assertFalse(stateOf(player).players.single().autoplayLockedByRepeat, "$mode, older server")
+        }
+        val off = queueSettingsPlayer(autoPlayEnabled = true, repeatMode = RepeatMode.OFF)
+        val state = buildPlayerBarState(DataState.Data(listOf(off)), 0, repeatLocksAutoplay = true)
+        assertFalse((state as PlayerBarState.Data).players.single().autoplayLockedByRepeat)
+    }
+
     /** A player whose queue carries the overflow-menu settings at the given values. */
     private fun queueSettingsPlayer(
         autoPlayEnabled: Boolean? = false,
         crossfadeEnabled: Boolean? = null,
         playbackSpeed: Double? = null,
+        repeatMode: RepeatMode? = RepeatMode.OFF,
     ): PlayerData {
         val base = PlayerDataFixtures.playerData()
         val info = base.queueInfo ?: error("fixture has no queue")
@@ -155,6 +172,7 @@ class PlayerBarStateTest {
                         autoPlayEnabled = autoPlayEnabled,
                         crossfadeEnabled = crossfadeEnabled,
                         playbackSpeed = playbackSpeed,
+                        repeatMode = repeatMode,
                     ),
                     items = DataState.NoData(),
                 ),

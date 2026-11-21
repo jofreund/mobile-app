@@ -86,6 +86,7 @@ kotlin {
             implementation(libs.kotlinx.coroutines.test)
             implementation(libs.turbine)
             implementation(libs.settings.multiplatform.test)
+            implementation(libs.ktor.client.mock)
         }
 
         iosMain.dependencies {

@@ -34,7 +34,6 @@ import io.music_assistant.sendspin.wire.PairAbortPayload
 import io.music_assistant.sendspin.wire.ServerActivatePayload
 import io.music_assistant.sendspin.wire.ServerMessage
 import io.music_assistant.sendspin.wire.UnpairedAccess
-import io.music_assistant.sendspin.wire.VersionedRole
 import io.music_assistant.sendspin.wire.WireCodec
 import io.music_assistant.sendspin.wire.pairMethods
 import io.music_assistant.sendspin.wire.truncateUtf8
@@ -65,7 +64,7 @@ internal class NoiseSession(
     private val crypto: NoiseCrypto,
     private val trustStore: SendspinTrustStore,
 ) {
-    private val logger = Logger.withTag("NoiseSession")
+    private val logger = Logger.withTag("Sendspin.NoiseSession")
 
     private enum class Gate { CLOSED, OPEN, FAILED }
 
@@ -80,6 +79,13 @@ internal class NoiseSession(
     }
 
     val wire: WireVersion get() = config.wire
+
+    /**
+     * Spec 1.0.0-rc1: every client offers the Pairing PSK method, so the flag that a 9.x
+     * `management/set-pairing-config` stored applies to the 9.x wire only.
+     */
+    private val pairingPskOffered: Boolean
+        get() = config.wire == WireVersion.SPEC_1_0 || trustStore.pairingPskEnabled
 
     private val gate = MutableStateFlow(Gate.CLOSED)
 
@@ -101,15 +107,19 @@ internal class NoiseSession(
      * Application send. Suspends until the session is activated; quiesces
      * through pairing and re-handshakes. Throws once the session is over.
      */
-    suspend fun send(json: String) {
-        val payload = json.encodeToByteArray()
+    suspend fun send(json: String) = sendGated(NoiseFraming.TYPE_JSON, json.encodeToByteArray())
+
+    /** Application send of a binary message of [type], gated like [send]. */
+    suspend fun sendBinary(type: Int, payload: ByteArray) = sendGated(type, payload)
+
+    private suspend fun sendGated(type: Int, payload: ByteArray) {
         while (true) {
             gate.first { it != Gate.CLOSED }
             // Re-check under the mutex: the reader closes the gate and swaps keys
             // while holding it, so a woken sender cannot encrypt under stale keys.
             sendMutex.withLock {
                 when (gate.value) {
-                    Gate.OPEN -> return sendFrameLocked(NoiseFraming.TYPE_JSON, payload)
+                    Gate.OPEN -> return sendFrameLocked(type, payload)
                     Gate.FAILED -> error("session closed")
                     Gate.CLOSED -> Unit // Raced a gate transition; wait again.
                 }
@@ -135,7 +145,7 @@ internal class NoiseSession(
             val initial = SendspinHandshake(
                 crypto = crypto,
                 clientStatic = trustStore.identity.keyPair,
-                pskCandidates = { trustStore.pskCandidates() },
+                pskCandidates = { trustStore.pskCandidates(pairingPskOffered) },
                 wire = config.wire,
                 messageTimeoutMillis = config.stepTimeoutMillis,
             )
@@ -314,16 +324,17 @@ internal class NoiseSession(
         name = config.deviceName.truncateUtf8(MAX_HELLO_TEXT_BYTES),
         deviceInfo = config.deviceInfo?.capped(),
         trustLevel = trustLevel.wire.takeIf { config.wire == WireVersion.LEGACY_9 },
-        supportedRoles = listOf(VersionedRole.PLAYER_V1),
+        supportedRoles = config.roles,
         playerV1Support = config.playerSupport?.let { support ->
             when (config.wire) {
                 WireVersion.LEGACY_9 -> support
                 WireVersion.SPEC_1_0 -> support.copy(supportedCommands = null)
             }
         },
+        sourceV1Support = config.sourceSupport,
         supportedPairMethods = pairMethods(
             config.wire,
-            listOfNotNull(ActivationPolicy.PAIR_METHOD_PSK.takeIf { trustStore.pairingPskEnabled }),
+            listOfNotNull(ActivationPolicy.PAIR_METHOD_PSK.takeIf { pairingPskOffered }),
         ),
         unpairedAccess = UnpairedAccess(enabled = trustStore.unpairedAccessEnabled),
     )
@@ -381,7 +392,7 @@ internal class NoiseSession(
                 persistedRoles = persistedRoles,
                 pairingMethod = payload.pairing?.method,
                 unpairedAccessEnabled = trustStore.unpairedAccessEnabled,
-                pairingPskEnabled = trustStore.pairingPskEnabled,
+                pairingPskEnabled = pairingPskOffered,
             ),
         )
         when (decision) {

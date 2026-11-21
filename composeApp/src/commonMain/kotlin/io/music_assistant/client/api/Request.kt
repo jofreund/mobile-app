@@ -7,6 +7,7 @@ import io.music_assistant.client.data.model.client.QueueOption
 import io.music_assistant.client.data.model.client.RepeatMode
 import io.music_assistant.client.data.model.client.items.MarkableItem
 import io.music_assistant.client.data.model.server.DspConfig
+import io.music_assistant.client.data.model.server.SleepTimerMode
 import io.music_assistant.client.utils.myJson
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -72,6 +73,18 @@ data class Request @OptIn(ExperimentalUuidApi::class) constructor(
             args = buildJsonObject {
                 put("player_id", JsonPrimitive(playerId))
                 put("seconds", JsonPrimitive(seconds))
+            },
+        )
+
+        /** Stops [playerId] at the end of the item or chapter that its queue plays (schema 105). */
+        fun setSleepTimer(
+            playerId: String,
+            mode: SleepTimerMode,
+        ) = Request(
+            command = APICommands.PLAYERS_SLEEP_TIMER_SET,
+            args = buildJsonObject {
+                put("player_id", JsonPrimitive(playerId))
+                put("mode", myJson.encodeToJsonElement(SleepTimerMode.serializer(), mode))
             },
         )
 

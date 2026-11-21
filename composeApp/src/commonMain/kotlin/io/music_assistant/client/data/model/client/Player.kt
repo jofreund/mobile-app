@@ -1,5 +1,7 @@
 package io.music_assistant.client.data.model.client
 
+import io.music_assistant.client.data.model.server.SleepTimerMode
+
 data class Player(
     val id: String,
     val name: String,
@@ -28,6 +30,11 @@ data class Player(
     val currentMedia: PlayerMedia?,
     /** Unix (UTC) timestamp in seconds at which the sleep timer stops playback. */
     val sleepTimerExpiresAt: Double? = null,
+    /**
+     * The point at which the sleep timer stops playback, null without a timer. For an
+     * end-of-content mode, [sleepTimerExpiresAt] is an estimate, and null while paused.
+     */
+    val sleepTimerMode: SleepTimerMode? = null,
     /**
      * The player's own position in [currentMedia], as its provider last reported it. Read only
      * through [externalElapsedSec]: for Music Assistant playback the queue is the position.

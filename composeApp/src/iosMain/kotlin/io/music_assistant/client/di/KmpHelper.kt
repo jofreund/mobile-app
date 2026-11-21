@@ -55,8 +55,10 @@ import io.music_assistant.client.data.model.client.items.Track
 import io.music_assistant.client.data.model.server.AuthProvider
 import io.music_assistant.client.data.model.server.ServerProviderInstance
 import io.music_assistant.client.data.model.server.ServerUser
+import io.music_assistant.client.data.model.server.SleepTimerMode
 import io.music_assistant.client.data.model.server.events.PlaylogUpdatedEvent
 import io.music_assistant.client.data.model.server.supportsSleepTimer
+import io.music_assistant.client.data.model.server.supportsSleepTimerModes
 import io.music_assistant.client.data.play.PlayDispatcher
 import io.music_assistant.client.data.play.PlayRequest
 import io.music_assistant.client.data.repository.MediaItemChange
@@ -1092,12 +1094,12 @@ object KmpHelper {
         completion: (List<AppMediaItem>?) -> Unit,
     ) {
         launchFetch("tracksByAlbum:${album.itemId}", completion) {
-            mediaItemRepository.fetchMediaItems(
+            mediaItemRepository.fetchAllMediaItems(
                 Request.Album.getTracks(
                     itemId = album.itemId,
                     providerInstanceIdOrDomain = album.provider,
                 ),
-            ).getOrNull()
+            )
                 ?.filterIsInstance<Track>()
                 ?: emptyList()
         }
@@ -1588,7 +1590,20 @@ object KmpHelper {
     fun setPlayerSleepTimer(playerId: String, seconds: Int) =
         mainDataSource.setSleepTimer(playerId, seconds)
 
+    /** Stops [playerId] at the end of the item or chapter; see [isSleepTimerModesSupported]. */
+    fun setPlayerSleepTimerMode(playerId: String, mode: SleepTimerMode) =
+        mainDataSource.setSleepTimer(playerId, mode)
+
     fun clearPlayerSleepTimer(playerId: String) = mainDataSource.clearSleepTimer(playerId)
+
+    /** Whether the server takes end-of-item/chapter sleep timers (schema 105). Non-reactive like [isSleepTimerSupported]. */
+    fun isSleepTimerModesSupported(): Boolean =
+        supportsSleepTimerModes(
+            (serviceClient.sessionState.value as? HasConnectionData)
+                ?.connectionData
+                ?.serverInfo
+                ?.schemaVersion,
+        )
 
     /**
      * Whether the connected server's schema has the `players/sleep_timer` commands

@@ -110,6 +110,10 @@ final class PlayerBarStore {
         KmpHelper.shared.setPlayerSleepTimer(playerId: id, seconds: Int32(seconds))
     }
 
+    func setSleepTimer(id: String, mode: SleepTimerMode) {
+        KmpHelper.shared.setPlayerSleepTimerMode(playerId: id, mode: mode)
+    }
+
     func clearSleepTimer(id: String) {
         KmpHelper.shared.clearPlayerSleepTimer(playerId: id)
     }
@@ -247,11 +251,14 @@ struct PlayerBarItemView: Identifiable {
     let duration: Double?
     let elapsedTime: Double?
     let shuffleEnabled: Bool
+    let smartShuffleActive: Bool
     let repeatMode: RepeatMode?
     let isDynamicPlaylist: Bool
     /// "Autoplay" — what the server used to call "don't stop the music". Drives the overflow
     /// menu's first toggle.
     let autoplayEnabled: Bool
+    /// Repeat ONE or ALL masks autoplay on server 2.11: shown off and not tappable.
+    let autoplayLockedByRepeat: Bool
     /// Only meaningful while `crossfadeSupported`; false otherwise.
     let crossfadeEnabled: Bool
     /// The server reported `crossfade_enabled` for this queue. Older servers don't, and the
@@ -266,6 +273,11 @@ struct PlayerBarItemView: Identifiable {
     /// Unix (UTC) seconds at which the server's sleep timer stops playback, nil when no timer
     /// runs. A static expiry — the ticking countdown is derived at render time (`TimelineView`).
     let sleepTimerExpiresAt: Double?
+    /// The item or chapter end the timer waits for (schema 105); nil for a duration timer or
+    /// none. `sleepTimerExpiresAt` is then the server's estimate, and nil while paused.
+    let sleepTimerEndMode: SleepTimerMode?
+    /// The end-of-content timers the server accepts right now.
+    let sleepTimerEndModes: [SleepTimerMode]
     /// The current queue track — kept as the real Kotlin type (not flattened further) so
     /// `ExpandedPlayerView` can read `.favorite`/`.uri` directly and pass it whole to
     /// `KmpHelper.toggleFavoriteOptimistic` instead of adding favorite-specific fields here.
@@ -275,6 +287,7 @@ struct PlayerBarItemView: Identifiable {
     let queueId: String?
     let queueItems: [QueueBarItemView]
     let currentQueueItemId: String?
+    let queueEnded: Bool
     /// Non-empty only when the current queue item is an audiobook — mirrors
     /// `QueueDisplayRows.kt`'s chapter-nesting rule.
     let currentItemChapters: [Chapter]
@@ -316,9 +329,11 @@ struct PlayerBarItemView: Identifiable {
         self.duration = item.duration?.doubleValue
         self.elapsedTime = item.elapsedTime?.doubleValue
         self.shuffleEnabled = item.shuffleEnabled
+        self.smartShuffleActive = item.smartShuffleActive
         self.repeatMode = item.repeatMode
         self.isDynamicPlaylist = item.isDynamicPlaylist
         self.autoplayEnabled = item.autoplayEnabled
+        self.autoplayLockedByRepeat = item.autoplayLockedByRepeat
         self.crossfadeEnabled = item.crossfadeEnabled
         self.crossfadeSupported = item.crossfadeSupported
         self.playbackSpeed = item.playbackSpeed?.doubleValue
@@ -326,10 +341,13 @@ struct PlayerBarItemView: Identifiable {
         self.isMuted = item.isMuted
         self.canMute = item.canMute
         self.sleepTimerExpiresAt = item.sleepTimerExpiresAt?.doubleValue
+        self.sleepTimerEndMode = item.sleepTimerEndMode
+        self.sleepTimerEndModes = item.sleepTimerEndModes
         self.trackItem = item.trackItem
         self.queueId = item.queueId
         self.queueItems = queueItems
         self.currentQueueItemId = item.currentQueueItemId
+        self.queueEnded = item.queueEnded
         self.currentItemChapters = item.currentItemChapters
         self.isSpokenWord = item.isSpokenWord
         self.isGroup = item.isGroup

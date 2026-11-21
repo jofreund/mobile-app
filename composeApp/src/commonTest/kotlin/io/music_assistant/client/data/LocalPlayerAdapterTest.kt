@@ -99,6 +99,15 @@ class LocalPlayerAdapterTest {
     }
 
     @Test
+    fun anAppForegroundAsksThePlayerForAConnectionCheck() = runBlocking<Unit> {
+        withTimeoutOrNull(TIMEOUT_MS) { client.foreground.subscriptionCount.first { it > 0 } }
+            ?: fail("the adapter does not collect the foreground events")
+        client.foreground.emit(Unit)
+
+        assertEquals(1, await { player.connectionChecks.takeIf { it > 0 } })
+    }
+
+    @Test
     fun starvationPausesLikeTheUserAndKeepsTheSessionWanted() = runBlocking<Unit> {
         playing()
         player.emit(PlayerEvent.PlaybackStopped(StopCause.Starved))
@@ -230,6 +239,10 @@ class LocalPlayerAdapterTest {
                 itemCount = itemCount,
             ),
         )
+        // localPlayerData follows the adapter's state asynchronously (map + stateIn), and the
+        // caller hands its value straight to handleLocalCommand: without the queue in it, the
+        // command has no queue to freeze.
+        await { adapter.localPlayerData.value?.queueInfo?.takeIf { it.itemCount == itemCount } }
         tracker.setAnchor(QUEUE_ID, elapsedSec = EPISODE_POSITION_SEC, isPlaying = false)
     }
 
@@ -261,6 +274,12 @@ class LocalPlayerAdapterTest {
             this.held.value = held
         }
 
+        var connectionChecks = 0
+
+        override fun checkConnection() {
+            connectionChecks++
+        }
+
         /** Waits for [subscribers] collectors first: the flow has no replay. */
         suspend fun emit(event: PlayerEvent, subscribers: Int = 1) {
             withTimeoutOrNull(TIMEOUT_MS) { _events.subscriptionCount.first { it >= subscribers } }
@@ -274,6 +293,8 @@ class LocalPlayerAdapterTest {
         override val isReadyForCommands = MutableStateFlow(true)
         val sent = Channel<Request>(Channel.UNLIMITED)
         val recoveries = MutableStateFlow(0)
+        val foreground = MutableSharedFlow<Unit>()
+        override val foregroundEvents: Flow<Unit> = foreground
 
         override suspend fun sendRequest(request: Request): Result<Answer> {
             sent.send(request)

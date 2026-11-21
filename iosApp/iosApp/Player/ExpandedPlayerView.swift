@@ -229,9 +229,13 @@ private struct ExpandedPlayerRow: View {
         Menu {
             settingRow(
                 title: String(localized: "queue_autoplay"),
-                isOn: player.autoplayEnabled,
+                isOn: player.autoplayEnabled && !player.autoplayLockedByRepeat,
                 // The queue never runs dry — music keeps coming after the last item.
-                systemImage: "infinity"
+                systemImage: "infinity",
+                // Server 2.11 rejects autoplay while repeat is on (upstream #1337), so the row
+                // says why it is off instead of offering a flip the server would refuse.
+                lockedReason: player.autoplayLockedByRepeat
+                    ? String(localized: "queue_autoplay_repeat_locked") : nil
             ) {
                 store.toggleAutoplay(id: player.id, isEnabledNow: player.autoplayEnabled)
             }
@@ -292,16 +296,19 @@ private struct ExpandedPlayerRow: View {
         title: String,
         isOn: Bool,
         systemImage: String,
+        lockedReason: String? = nil,
         flip: @escaping () -> Void
     ) -> some View {
         // Title, subtitle, icon — as three siblings, not a `Label`: a menu reads a `Label`'s
         // title as one line and drops the second `Text` on the floor, so the state never showed.
-        Button(action: flip) {
+        let state = lockedReason ?? String(localized: isOn ? "common_on" : "common_off")
+        return Button(action: flip) {
             Text(title)
-            Text(String(localized: isOn ? "common_on" : "common_off"))
+            Text(state)
             Image(systemName: systemImage)
         }
-        .accessibilityValue(String(localized: isOn ? "common_on" : "common_off"))
+        .disabled(lockedReason != nil)
+        .accessibilityValue(state)
     }
 
     /// Same contract as the toggles, minus the flip: the picked value goes to Kotlin as chosen
@@ -381,9 +388,17 @@ private struct ExpandedPlayerRow: View {
         .accessibilityAddTraits(isFavorite ? [.isSelected] : [])
     }
 
-    private var sleepTimerActive: Bool {
+    /// A countdown still in the future. An end-of-content timer (schema 105) has one only while
+    /// playing, and then only as the server's estimate.
+    private var sleepTimerCountdownActive: Bool {
         guard let expiresAt = player.sleepTimerExpiresAt else { return false }
         return expiresAt > Date.now.timeIntervalSince1970
+    }
+
+    /// Any timer set — a paused end-of-item or end-of-chapter timer included, which reports no
+    /// expiry but still stops playback once the item resumes and ends.
+    private var sleepTimerActive: Bool {
+        sleepTimerCountdownActive || player.sleepTimerEndMode != nil
     }
 
     private var sleepTimerButton: some View {
@@ -393,7 +408,7 @@ private struct ExpandedPlayerRow: View {
             HStack(spacing: 4) {
                 Image(systemName: "moon.zzz")
                     .font(.title3)
-                if sleepTimerActive, let expiresAt = player.sleepTimerExpiresAt {
+                if sleepTimerCountdownActive, let expiresAt = player.sleepTimerExpiresAt {
                     // Self-updating remaining time, same source as the sheet's countdown.
                     Text(
                         timerInterval: Date.now...Date(timeIntervalSince1970: expiresAt),
@@ -406,6 +421,7 @@ private struct ExpandedPlayerRow: View {
             .foregroundStyle(sleepTimerActive ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
         }
         .accessibilityLabel(String(localized: sleepTimerActive ? "cd_sleep_timer" : "cd_sleep_timer_off"))
+        .accessibilityValue(player.sleepTimerEndMode.map { sleepTimerEndLabel(mode: $0, item: player.trackItem) } ?? "")
         .accessibilityAddTraits(sleepTimerActive ? [.isSelected] : [])
     }
 
@@ -579,11 +595,19 @@ private struct ExpandedPlayerRow: View {
         return ordered.count == player.queueItems.count ? ordered : player.queueItems
     }
 
+    /// The queue item playing now. Nil after the queue played to its end: the server keeps the
+    /// last item as `currentQueueItemId` then, but nothing is current and every row is played.
+    private var activeQueueItemId: String? {
+        player.queueEnded ? nil : player.currentQueueItemId
+    }
+
     private var currentQueueIndex: Int? {
-        orderedQueueItems.firstIndex { $0.id == player.currentQueueItemId }
+        guard let activeQueueItemId else { return nil }
+        return orderedQueueItems.firstIndex { $0.id == activeQueueItemId }
     }
 
     private var queueLabel: String {
+        if player.queueEnded { return String(localized: "queue_finished") }
         guard let index = currentQueueIndex else { return String(localized: "queue_label") }
         return String(format: String(localized: "queue_label_with_position"), index + 1, orderedQueueItems.count)
     }
@@ -594,7 +618,7 @@ private struct ExpandedPlayerRow: View {
         // right above already shows exactly this item, so repeating it as the queue's first row
         // too just duplicates it; matches the Apple Music reference, whose queue lists only what
         // comes *next*, not what's already playing.
-        let rows = QueueDisplayRow.build(items: orderedQueueItems, currentId: player.currentQueueItemId, chapters: player.currentItemChapters)
+        let rows = QueueDisplayRow.build(items: orderedQueueItems, currentId: activeQueueItemId, chapters: player.currentItemChapters)
         if rows.isEmpty {
             emptyQueueState
         } else {
@@ -638,8 +662,8 @@ private struct ExpandedPlayerRow: View {
     }
 
     private func queueTrackRow(_ item: QueueBarItemView, queueIndex: Int) -> some View {
-        let isCurrent = item.id == player.currentQueueItemId
-        let isPlayed = currentQueueIndex.map { queueIndex < $0 } ?? false
+        let isCurrent = item.id == activeQueueItemId
+        let isPlayed = player.queueEnded || (currentQueueIndex.map { queueIndex < $0 } ?? false)
         // Mirrors Compose's exact long-press/reorder gating: only upcoming, playable,
         // non-current rows get either affordance.
         let canInteract = item.isPlayable && !isCurrent && !isPlayed
@@ -956,6 +980,12 @@ private struct ExpandedPlayerRow: View {
     /// reach for — and five buttons is already the width this row can hold at the default text
     /// size. Play/pause and the track skips stay put across the swap, so the transport doesn't
     /// reshuffle itself under the user's thumb when a book follows an album in the queue.
+    /// VoiceOver's value for the shuffle button: the sparkle alone would not be read out.
+    private var shuffleStateText: String {
+        if player.smartShuffleActive { return String(localized: "shuffle_smart") }
+        return String(localized: player.shuffleEnabled ? "common_on" : "common_off")
+    }
+
     private var transportRow: some View {
         HStack(spacing: 28) {
             if player.isSpokenWord {
@@ -968,7 +998,18 @@ private struct ExpandedPlayerRow: View {
                     Image(systemName: "shuffle")
                         .font(.title3)
                         .foregroundStyle(player.shuffleEnabled ? .primary : .secondary)
+                        // Server 2.11 reports smart shuffle; a sparkle marks it, like the web
+                        // frontend (upstream #1337). An older server never sets it.
+                        .overlay(alignment: .topTrailing) {
+                            if player.smartShuffleActive {
+                                Image(systemName: "sparkle")
+                                    .font(.caption2.weight(.bold))
+                                    .foregroundStyle(.tint)
+                                    .offset(x: 7, y: -6)
+                            }
+                        }
                 }
+                .accessibilityValue(shuffleStateText)
                 .disabled(player.isDynamicPlaylist)
             }
 

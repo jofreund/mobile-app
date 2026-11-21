@@ -10,6 +10,7 @@ import io.music_assistant.client.webrtc.DataChannelWrapper
 import io.music_assistant.client.webrtc.model.RemoteId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.emptyFlow
 
 open class StubServiceClient : ServiceClient {
     override val sessionState: StateFlow<SessionState>
@@ -54,8 +55,8 @@ open class StubServiceClient : ServiceClient {
     override fun onAppBackground() {
     }
 
-    override val foregroundEvents: Flow<Unit>
-        get() = TODO("Not yet implemented")
+    // Empty rather than TODO: the local player adapter collects it from its init block.
+    override val foregroundEvents: Flow<Unit> = emptyFlow()
 
     override fun disconnectByUser() {
     }

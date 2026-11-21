@@ -192,6 +192,9 @@ class LocalPlayerAdapter(
 
     init {
         launch { player.events.collect(::onPlayerEvent) }
+        // A long background leaves the link in a long backoff or silently dead; check it at once
+        // (upstream #1355).
+        launch { apiClient.foregroundEvents.collect { player.checkConnection() } }
         val formatAtStart = streamFormat(settings.sendspinCodecPreference.value, settings.sendspinBitDepth.value)
         launch { restartStreamOnFormatChange(formatAtStart) }
         launch {
@@ -421,7 +424,14 @@ class LocalPlayerAdapter(
             PlayerAction.Play -> optimisticPlay()
             PlayerAction.Pause -> optimisticPause()
 
-            is PlayerAction.ToggleShuffle -> updateOptimisticQueueInfo { it.copy(shuffleEnabled = !action.current) }
+            // Smart shuffle needs shuffle on, so turning it off clears the indicator at once; turning
+            // it on waits for the server, which alone knows the smart shuffle setting.
+            is PlayerAction.ToggleShuffle -> updateOptimisticQueueInfo {
+                it.copy(
+                    shuffleEnabled = !action.current,
+                    smartShuffleActive = it.smartShuffleActive && !action.current,
+                )
+            }
 
             is PlayerAction.ToggleRepeatMode -> {
                 val nextMode = when (action.current) {

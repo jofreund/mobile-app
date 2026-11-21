@@ -32,6 +32,7 @@ import io.music_assistant.client.data.model.server.ServerPlayer
 import io.music_assistant.client.data.model.server.ServerQueue
 import io.music_assistant.client.data.model.server.ServerQueueItem
 import io.music_assistant.client.data.model.server.ServerUser
+import io.music_assistant.client.data.model.server.SleepTimerMode
 import io.music_assistant.client.data.model.server.events.MediaItemDeletedEvent
 import io.music_assistant.client.data.model.server.events.MediaItemPlayedEvent
 import io.music_assistant.client.data.model.server.events.PlayerAddedEvent
@@ -42,6 +43,7 @@ import io.music_assistant.client.data.model.server.events.QueueAddedEvent
 import io.music_assistant.client.data.model.server.events.QueueItemsUpdatedEvent
 import io.music_assistant.client.data.model.server.events.QueueTimeUpdatedEvent
 import io.music_assistant.client.data.model.server.events.QueueUpdatedEvent
+import io.music_assistant.client.data.model.server.supportsAutoplayRepeatLock
 import io.music_assistant.client.data.play.PlayDispatcher
 import io.music_assistant.client.data.repository.MediaItemChange
 import io.music_assistant.client.data.repository.MediaItemRepository
@@ -54,6 +56,7 @@ import io.music_assistant.client.ui.compose.common.action.PlayerAction
 import io.music_assistant.client.ui.compose.common.action.QueueAction
 import io.music_assistant.client.utils.AuthProcessState
 import io.music_assistant.client.utils.DataConnectionState
+import io.music_assistant.client.utils.HasConnectionData
 import io.music_assistant.client.utils.SessionState
 import io.music_assistant.client.utils.currentTimeMillis
 import io.music_assistant.client.utils.resultAs
@@ -384,6 +387,9 @@ class MainDataSource(
                     playersDataState = data,
                     selectedIndex = index,
                     queueCache = queueProjectionCache,
+                    repeatLocksAutoplay = supportsAutoplayRepeatLock(
+                        (apiClient.sessionState.value as? HasConnectionData)?.serverInfo?.schemaVersion,
+                    ),
                     presentationChapter = presentation.chapter?.let {
                         ChapterBarItem(
                             name = it.displayName,
@@ -1620,6 +1626,17 @@ class MainDataSource(
         launch {
             apiClient.sendRequest(Request.Player.setSleepTimer(playerId, seconds))
                 .onFailure { log.e(it) { "Failed to set sleep timer for $playerId" } }
+        }
+    }
+
+    /**
+     * Stops [playerId] at the end of the item or chapter that plays now (schema 105, upstream
+     * #1384). Same contract as the duration timer above.
+     */
+    fun setSleepTimer(playerId: String, mode: SleepTimerMode) {
+        launch {
+            apiClient.sendRequest(Request.Player.setSleepTimer(playerId, mode))
+                .onFailure { log.e(it) { "Failed to set sleep timer $mode for $playerId" } }
         }
     }
 

@@ -7,6 +7,8 @@ data class QueueInfo(
     val available: Boolean,
     val currentIndex: Int?,
     val shuffleEnabled: Boolean,
+    /** The server orders the queue with smart shuffle. Display only; the shuffle toggle still applies. */
+    val smartShuffleActive: Boolean = false,
     val repeatMode: RepeatMode?,
     val autoPlayEnabled: Boolean?,
     /**
@@ -32,6 +34,11 @@ data class QueueInfo(
     val playbackSpeed: Double? = null,
     /** Number of items in the queue, or null when the server did not send it. */
     val itemCount: Int? = null,
+    /**
+     * The queue played to its end. [currentItem] still names the last item, but nothing is
+     * current: every item counts as played. The server clears it when playback starts again.
+     */
+    val ended: Boolean = false,
 ) {
     val isRadioOn: Boolean = radioSource.isNotEmpty()
 }

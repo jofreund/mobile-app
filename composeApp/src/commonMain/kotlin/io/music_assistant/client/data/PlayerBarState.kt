@@ -8,6 +8,9 @@ import io.music_assistant.client.data.model.client.RepeatMode
 import io.music_assistant.client.data.model.client.items.AppMediaItem
 import io.music_assistant.client.data.model.client.items.Audiobook
 import io.music_assistant.client.data.model.client.items.PodcastEpisode
+import io.music_assistant.client.data.model.client.sleepTimerEndMode
+import io.music_assistant.client.data.model.client.sleepTimerEndModes
+import io.music_assistant.client.data.model.server.SleepTimerMode
 import io.music_assistant.client.ui.compose.common.DataState
 import io.music_assistant.client.utils.currentTimeMillis
 
@@ -45,6 +48,8 @@ data class PlayerBarItem(
     /** Snapshot only — the expanded player's ticking position comes from `observePlayerBarPosition`. */
     val elapsedTime: Double?,
     val shuffleEnabled: Boolean,
+    /** The server orders the queue with smart shuffle (server 2.11); the shuffle button shows it. */
+    val smartShuffleActive: Boolean = false,
     val repeatMode: RepeatMode?,
     /** Disables shuffle/repeat in the expanded view, same as Compose. */
     val isDynamicPlaylist: Boolean,
@@ -54,6 +59,12 @@ data class PlayerBarItem(
      * toggle needs a definite position to draw.
      */
     val autoplayEnabled: Boolean,
+    /**
+     * Repeat ONE or ALL masks autoplay (server 2.11): the server reports it off and rejects
+     * turning it on, so the overflow menu shows it off and not tappable. Always false on an
+     * older server, which keeps the two independent.
+     */
+    val autoplayLockedByRepeat: Boolean = false,
     /** Meaningless unless [crossfadeSupported]; false there so Swift never draws a half-state. */
     val crossfadeEnabled: Boolean,
     /**
@@ -79,6 +90,13 @@ data class PlayerBarItem(
      * A static expiry, not a countdown — the ticking display is Swift's job, so this only
      * changes on set/clear and stays cheap for [playerBarStatesEquivalentIgnoringElapsed]. */
     val sleepTimerExpiresAt: Double?,
+    /**
+     * The item or chapter end the sleep timer waits for, null for a duration timer or none
+     * (schema 105, upstream #1384). [sleepTimerExpiresAt] is then an estimate, null while paused.
+     */
+    val sleepTimerEndMode: SleepTimerMode? = null,
+    /** The end-of-content timers the server accepts right now; see [sleepTimerEndModes]. */
+    val sleepTimerEndModes: List<SleepTimerMode> = emptyList(),
     /** The current queue track, exposed whole so Swift can read `favorite`/`uri` directly and
      * pass it to `toggleFavoriteOptimistic` instead of adding separate favorite fields here. */
     val trackItem: AppMediaItem?,
@@ -97,6 +115,11 @@ data class PlayerBarItem(
      */
     val queueItems: List<QueueBarItem>,
     val currentQueueItemId: String?,
+    /**
+     * The queue played to its end (upstream #1377). [currentQueueItemId] still names the last
+     * item, but the queue list shows every row as played and nothing as current.
+     */
+    val queueEnded: Boolean = false,
     /** Only ever non-empty for the *currently playing* item, and only when it's an [Audiobook] —
      * mirrors `QueueDisplayRows.kt`'s chapter-nesting rule exactly. Selected player only, like
      * [queueItems]: chapters are rows in the same queue list. */
@@ -315,6 +338,8 @@ internal fun buildPlayerBarState(
     queueCache: QueueProjectionCache = QueueProjectionCache(),
     presentationChapter: ChapterBarItem? = null,
     nowEpochSec: Double = currentTimeMillis() / 1000.0,
+    /** [supportsAutoplayRepeatLock] for the connected server. */
+    repeatLocksAutoplay: Boolean = false,
 ): PlayerBarState {
     val players = (playersDataState as? DataState.Data)?.data ?: return PlayerBarState.Loading
     if (players.isEmpty()) return PlayerBarState.Empty
@@ -343,9 +368,12 @@ internal fun buildPlayerBarState(
                 // position is the snapshot (the ticking position comes from the tracker either way).
                 elapsedTime = queue?.elapsedTime ?: player.externalElapsedSec(nowEpochSec),
                 shuffleEnabled = queue?.shuffleEnabled ?: false,
+                smartShuffleActive = queue?.smartShuffleActive ?: false,
                 repeatMode = queue?.repeatMode,
                 isDynamicPlaylist = queue?.isDynamicPlaylist ?: false,
                 autoplayEnabled = queue?.autoPlayEnabled ?: false,
+                autoplayLockedByRepeat = repeatLocksAutoplay &&
+                    (queue?.repeatMode == RepeatMode.ONE || queue?.repeatMode == RepeatMode.ALL),
                 crossfadeEnabled = queue?.crossfadeEnabled ?: false,
                 crossfadeSupported = queue?.crossfadeEnabled != null,
                 playbackSpeed = queue?.playbackSpeed,
@@ -353,10 +381,13 @@ internal fun buildPlayerBarState(
                 isMuted = player.currentMuteState,
                 canMute = player.canMute,
                 sleepTimerExpiresAt = player.sleepTimerExpiresAt,
+                sleepTimerEndMode = player.sleepTimerEndMode,
+                sleepTimerEndModes = data.sleepTimerEndModes(),
                 trackItem = queue?.currentItem?.track as? AppMediaItem,
                 queueId = data.queueOrPlayerId,
                 queueItems = if (isSelected) queueCache.project(data.playerId, data.queueItems) else emptyList(),
                 currentQueueItemId = queue?.currentItem?.id,
+                queueEnded = queue?.ended ?: false,
                 currentItemChapters = if (isSelected) {
                     (queue?.currentItem?.track as? Audiobook)?.chapters.orEmpty()
                 } else {

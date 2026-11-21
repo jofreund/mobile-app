@@ -8,7 +8,12 @@ import kotlin.test.assertTrue
 class Server211GatesTest {
     @Test
     fun theGatesOpenAtTheTwoElevenSchema() {
-        for (gate in listOf(::pagesPlaylistTracksAndEpisodes, ::sendsFavoriteUpdates, ::supportsAppSignIn)) {
+        for (gate in listOf(
+            ::pagesSubItemLists,
+            ::sendsFavoriteUpdates,
+            ::supportsAppSignIn,
+            ::supportsAutoplayRepeatLock,
+        )) {
             assertFalse(gate(null), "unknown schema")
             assertFalse(gate(SERVER_2_11_SCHEMA - 1), "2.10")
             assertTrue(gate(SERVER_2_11_SCHEMA), "2.11")
