@@ -388,9 +388,17 @@ private struct ExpandedPlayerRow: View {
         .accessibilityAddTraits(isFavorite ? [.isSelected] : [])
     }
 
-    private var sleepTimerActive: Bool {
+    /// A countdown still in the future. An end-of-content timer (schema 105) has one only while
+    /// playing, and then only as the server's estimate.
+    private var sleepTimerCountdownActive: Bool {
         guard let expiresAt = player.sleepTimerExpiresAt else { return false }
         return expiresAt > Date.now.timeIntervalSince1970
+    }
+
+    /// Any timer set — a paused end-of-item or end-of-chapter timer included, which reports no
+    /// expiry but still stops playback once the item resumes and ends.
+    private var sleepTimerActive: Bool {
+        sleepTimerCountdownActive || player.sleepTimerEndMode != nil
     }
 
     private var sleepTimerButton: some View {
@@ -400,7 +408,7 @@ private struct ExpandedPlayerRow: View {
             HStack(spacing: 4) {
                 Image(systemName: "moon.zzz")
                     .font(.title3)
-                if sleepTimerActive, let expiresAt = player.sleepTimerExpiresAt {
+                if sleepTimerCountdownActive, let expiresAt = player.sleepTimerExpiresAt {
                     // Self-updating remaining time, same source as the sheet's countdown.
                     Text(
                         timerInterval: Date.now...Date(timeIntervalSince1970: expiresAt),
@@ -413,6 +421,7 @@ private struct ExpandedPlayerRow: View {
             .foregroundStyle(sleepTimerActive ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
         }
         .accessibilityLabel(String(localized: sleepTimerActive ? "cd_sleep_timer" : "cd_sleep_timer_off"))
+        .accessibilityValue(player.sleepTimerEndMode.map { sleepTimerEndLabel(mode: $0, item: player.trackItem) } ?? "")
         .accessibilityAddTraits(sleepTimerActive ? [.isSelected] : [])
     }
 

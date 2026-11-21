@@ -8,6 +8,9 @@ import io.music_assistant.client.data.model.client.RepeatMode
 import io.music_assistant.client.data.model.client.items.AppMediaItem
 import io.music_assistant.client.data.model.client.items.Audiobook
 import io.music_assistant.client.data.model.client.items.PodcastEpisode
+import io.music_assistant.client.data.model.client.sleepTimerEndMode
+import io.music_assistant.client.data.model.client.sleepTimerEndModes
+import io.music_assistant.client.data.model.server.SleepTimerMode
 import io.music_assistant.client.ui.compose.common.DataState
 import io.music_assistant.client.utils.currentTimeMillis
 
@@ -87,6 +90,13 @@ data class PlayerBarItem(
      * A static expiry, not a countdown — the ticking display is Swift's job, so this only
      * changes on set/clear and stays cheap for [playerBarStatesEquivalentIgnoringElapsed]. */
     val sleepTimerExpiresAt: Double?,
+    /**
+     * The item or chapter end the sleep timer waits for, null for a duration timer or none
+     * (schema 105, upstream #1384). [sleepTimerExpiresAt] is then an estimate, null while paused.
+     */
+    val sleepTimerEndMode: SleepTimerMode? = null,
+    /** The end-of-content timers the server accepts right now; see [sleepTimerEndModes]. */
+    val sleepTimerEndModes: List<SleepTimerMode> = emptyList(),
     /** The current queue track, exposed whole so Swift can read `favorite`/`uri` directly and
      * pass it to `toggleFavoriteOptimistic` instead of adding separate favorite fields here. */
     val trackItem: AppMediaItem?,
@@ -371,6 +381,8 @@ internal fun buildPlayerBarState(
                 isMuted = player.currentMuteState,
                 canMute = player.canMute,
                 sleepTimerExpiresAt = player.sleepTimerExpiresAt,
+                sleepTimerEndMode = player.sleepTimerEndMode,
+                sleepTimerEndModes = data.sleepTimerEndModes(),
                 trackItem = queue?.currentItem?.track as? AppMediaItem,
                 queueId = data.queueOrPlayerId,
                 queueItems = if (isSelected) queueCache.project(data.playerId, data.queueItems) else emptyList(),

@@ -8,6 +8,12 @@ import SwiftUI
 /// display: the fixed duration options mirror upstream's `SleepTimerDialog`, and the countdown
 /// is derived from the expiry timestamp the server reports on every `player_updated`.
 ///
+/// From schema 105 the server can also stop at the end of the current item or chapter
+/// (upstream #1384). Those rows follow the durations, only while the server would accept them
+/// (`sleepTimerEndModes`), named after what plays: "End of track", "End of episode", ...
+/// Such a timer's expiry is the server's estimate, and it reports none while paused, so the
+/// active section names the end rather than relying on a countdown.
+///
 /// A sheet rather than a menu for the same reason as `PlayerPickerSheet`: real rows, a title,
 /// and room for the countdown/clear section to appear and disappear without the layout jumping.
 struct SleepTimerSheet: View {
@@ -25,13 +31,10 @@ struct SleepTimerSheet: View {
     var body: some View {
         NavigationStack {
             List {
-                // Gated on "still in the future" so an expired-but-not-yet-echoed timestamp
-                // reads as no timer. The server clears the field itself on expiry; until that
-                // `player_updated` lands this section just stays hidden rather than showing a
-                // frozen 0:00.
-                if let expiresAt = player.sleepTimerExpiresAt,
-                   expiresAt > Date.now.timeIntervalSince1970 {
-                    activeTimerSection(expiresAt: expiresAt)
+                // A countdown still in the future, or an end-of-content timer — which reports
+                // no expiry while paused but is still set.
+                if countdownExpiry != nil || player.sleepTimerEndMode != nil {
+                    activeTimerSection
                 }
                 Section {
                     ForEach(Self.options, id: \.self) { seconds in
@@ -40,6 +43,26 @@ struct SleepTimerSheet: View {
                             dismiss()
                         } label: {
                             Text(sleepTimerOptionLabel(seconds: seconds))
+                        }
+                    }
+                }
+                if !endModes.isEmpty {
+                    Section {
+                        ForEach(endModes, id: \.self) { mode in
+                            Button {
+                                store.setSleepTimer(id: player.id, mode: mode)
+                                dismiss()
+                            } label: {
+                                HStack {
+                                    Text(sleepTimerEndLabel(mode: mode, item: player.trackItem))
+                                    Spacer()
+                                    if mode == player.sleepTimerEndMode {
+                                        Image(systemName: "checkmark")
+                                            .foregroundStyle(.tint)
+                                    }
+                                }
+                            }
+                            .accessibilityAddTraits(mode == player.sleepTimerEndMode ? [.isSelected] : [])
                         }
                     }
                 }
@@ -55,19 +78,40 @@ struct SleepTimerSheet: View {
         .presentationDetents([.medium])
     }
 
-    private func activeTimerSection(expiresAt: Double) -> some View {
+    /// Gated on "still in the future" so an expired-but-not-yet-echoed timestamp reads as no
+    /// timer. The server clears the field itself on expiry; until that `player_updated` lands
+    /// the countdown just stays hidden rather than showing a frozen 0:00.
+    private var countdownExpiry: Double? {
+        guard let expiresAt = player.sleepTimerExpiresAt,
+              expiresAt > Date.now.timeIntervalSince1970 else { return nil }
+        return expiresAt
+    }
+
+    /// Older servers (schema < 105) reject the `mode` argument, so they get no end rows.
+    private var endModes: [SleepTimerMode] {
+        KmpHelper.shared.isSleepTimerModesSupported() ? player.sleepTimerEndModes : []
+    }
+
+    private var activeTimerSection: some View {
         Section {
             LabeledContent {
                 // Self-updating countdown — no timer loop of our own. Display only: the
                 // authoritative countdown is the server's, and a device clock that disagrees
                 // with the server's shows a skewed remaining time but stops at the right moment.
-                Text(
-                    timerInterval: Date.now...Date(timeIntervalSince1970: expiresAt),
-                    countsDown: true
-                )
-                .monospacedDigit()
+                // An end-of-content timer has none while paused; its label says when it stops.
+                if let expiresAt = countdownExpiry {
+                    Text(
+                        timerInterval: Date.now...Date(timeIntervalSince1970: expiresAt),
+                        countsDown: true
+                    )
+                    .monospacedDigit()
+                }
             } label: {
-                Text(String(localized: "sleep_timer_stops_in"))
+                if let endMode = player.sleepTimerEndMode {
+                    Text(sleepTimerEndLabel(mode: endMode, item: player.trackItem))
+                } else {
+                    Text(String(localized: "sleep_timer_stops_in"))
+                }
             }
 
             Button(role: .destructive) {
@@ -77,6 +121,18 @@ struct SleepTimerSheet: View {
                 Text(String(localized: "sleep_timer_clear"))
             }
         }
+    }
+}
+
+/// The name of an end-of-content timer, after the type of what plays, like the web frontend
+/// (upstream `sleepTimerEndLabel`).
+func sleepTimerEndLabel(mode: SleepTimerMode, item: AppMediaItem?) -> String {
+    if mode == SleepTimerMode.endOfChapter { return String(localized: "sleep_timer_end_of_chapter") }
+    switch item {
+    case is Track: return String(localized: "sleep_timer_end_of_track")
+    case is PodcastEpisode: return String(localized: "sleep_timer_end_of_episode")
+    case is Audiobook: return String(localized: "sleep_timer_end_of_audiobook")
+    default: return String(localized: "sleep_timer_end_of_item")
     }
 }
 

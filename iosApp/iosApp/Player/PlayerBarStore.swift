@@ -110,6 +110,10 @@ final class PlayerBarStore {
         KmpHelper.shared.setPlayerSleepTimer(playerId: id, seconds: Int32(seconds))
     }
 
+    func setSleepTimer(id: String, mode: SleepTimerMode) {
+        KmpHelper.shared.setPlayerSleepTimerMode(playerId: id, mode: mode)
+    }
+
     func clearSleepTimer(id: String) {
         KmpHelper.shared.clearPlayerSleepTimer(playerId: id)
     }
@@ -269,6 +273,11 @@ struct PlayerBarItemView: Identifiable {
     /// Unix (UTC) seconds at which the server's sleep timer stops playback, nil when no timer
     /// runs. A static expiry — the ticking countdown is derived at render time (`TimelineView`).
     let sleepTimerExpiresAt: Double?
+    /// The item or chapter end the timer waits for (schema 105); nil for a duration timer or
+    /// none. `sleepTimerExpiresAt` is then the server's estimate, and nil while paused.
+    let sleepTimerEndMode: SleepTimerMode?
+    /// The end-of-content timers the server accepts right now.
+    let sleepTimerEndModes: [SleepTimerMode]
     /// The current queue track — kept as the real Kotlin type (not flattened further) so
     /// `ExpandedPlayerView` can read `.favorite`/`.uri` directly and pass it whole to
     /// `KmpHelper.toggleFavoriteOptimistic` instead of adding favorite-specific fields here.
@@ -332,6 +341,8 @@ struct PlayerBarItemView: Identifiable {
         self.isMuted = item.isMuted
         self.canMute = item.canMute
         self.sleepTimerExpiresAt = item.sleepTimerExpiresAt?.doubleValue
+        self.sleepTimerEndMode = item.sleepTimerEndMode
+        self.sleepTimerEndModes = item.sleepTimerEndModes
         self.trackItem = item.trackItem
         self.queueId = item.queueId
         self.queueItems = queueItems
