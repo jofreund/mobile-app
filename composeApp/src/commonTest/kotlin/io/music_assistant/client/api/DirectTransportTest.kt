@@ -2,6 +2,7 @@ package io.music_assistant.client.api
 
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
@@ -10,6 +11,8 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 
+// runCurrent is experimental in kotlinx-coroutines-test.
+@OptIn(ExperimentalCoroutinesApi::class)
 class DirectTransportTest {
     // No WebSockets plugin, so every connect attempt fails at once.
     private val client = HttpClient(MockEngine { error("no request expected") })
