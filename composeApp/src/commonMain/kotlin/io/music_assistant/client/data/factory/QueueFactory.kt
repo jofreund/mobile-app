@@ -29,6 +29,7 @@ class QueueFactory(
             itemCount = items,
             ended = ended,
             shuffleEnabled = shuffleEnabled,
+            smartShuffleActive = smartShuffleActive,
             repeatMode = RepeatMode.fromServer(repeatMode) ?: RepeatMode.OFF,
             autoPlayEnabled = autoplayEnabled ?: dontStopTheMusicEnabled,
             supportsAutoplayCommand = autoplayEnabled != null,

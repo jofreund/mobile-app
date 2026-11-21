@@ -80,6 +80,15 @@ class ServerQueueSerializationTest {
     }
 
     @Test
+    fun readsSmartShuffleAndTreatsAnOlderServerAsOff() {
+        val json = """{"queue_id": "q1", "shuffle_enabled": true, "smart_shuffle_active": true}"""
+        assertEquals(true, queueFactory.create(myJson.decodeFromString<ServerQueue>(json)).smartShuffleActive)
+
+        val older = queueFactory.create(myJson.decodeFromString<ServerQueue>("""{"queue_id": "q1"}"""))
+        assertEquals(false, older.smartShuffleActive)
+    }
+
+    @Test
     fun aServerWithoutTheEndedFlagIsNotEnded() {
         val info = queueFactory.create(myJson.decodeFromString<ServerQueue>("""{"queue_id": "q1"}"""))
         assertEquals(false, info.ended)

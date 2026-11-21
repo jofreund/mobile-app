@@ -45,6 +45,8 @@ data class PlayerBarItem(
     /** Snapshot only — the expanded player's ticking position comes from `observePlayerBarPosition`. */
     val elapsedTime: Double?,
     val shuffleEnabled: Boolean,
+    /** The server orders the queue with smart shuffle (server 2.11); the shuffle button shows it. */
+    val smartShuffleActive: Boolean = false,
     val repeatMode: RepeatMode?,
     /** Disables shuffle/repeat in the expanded view, same as Compose. */
     val isDynamicPlaylist: Boolean,
@@ -54,6 +56,12 @@ data class PlayerBarItem(
      * toggle needs a definite position to draw.
      */
     val autoplayEnabled: Boolean,
+    /**
+     * Repeat ONE or ALL masks autoplay (server 2.11): the server reports it off and rejects
+     * turning it on, so the overflow menu shows it off and not tappable. Always false on an
+     * older server, which keeps the two independent.
+     */
+    val autoplayLockedByRepeat: Boolean = false,
     /** Meaningless unless [crossfadeSupported]; false there so Swift never draws a half-state. */
     val crossfadeEnabled: Boolean,
     /**
@@ -320,6 +328,8 @@ internal fun buildPlayerBarState(
     queueCache: QueueProjectionCache = QueueProjectionCache(),
     presentationChapter: ChapterBarItem? = null,
     nowEpochSec: Double = currentTimeMillis() / 1000.0,
+    /** [supportsAutoplayRepeatLock] for the connected server. */
+    repeatLocksAutoplay: Boolean = false,
 ): PlayerBarState {
     val players = (playersDataState as? DataState.Data)?.data ?: return PlayerBarState.Loading
     if (players.isEmpty()) return PlayerBarState.Empty
@@ -348,9 +358,12 @@ internal fun buildPlayerBarState(
                 // position is the snapshot (the ticking position comes from the tracker either way).
                 elapsedTime = queue?.elapsedTime ?: player.externalElapsedSec(nowEpochSec),
                 shuffleEnabled = queue?.shuffleEnabled ?: false,
+                smartShuffleActive = queue?.smartShuffleActive ?: false,
                 repeatMode = queue?.repeatMode,
                 isDynamicPlaylist = queue?.isDynamicPlaylist ?: false,
                 autoplayEnabled = queue?.autoPlayEnabled ?: false,
+                autoplayLockedByRepeat = repeatLocksAutoplay &&
+                    (queue?.repeatMode == RepeatMode.ONE || queue?.repeatMode == RepeatMode.ALL),
                 crossfadeEnabled = queue?.crossfadeEnabled ?: false,
                 crossfadeSupported = queue?.crossfadeEnabled != null,
                 playbackSpeed = queue?.playbackSpeed,

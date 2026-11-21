@@ -7814,6 +7814,29 @@
         }
       }
     },
+    "queue_autoplay_repeat_locked" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aus, solange Wiederholen an ist"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Off while repeat is on"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uit zolang herhalen aan staat"
+          }
+        }
+      }
+    },
     "queue_browse_library" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -10499,6 +10522,29 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "WebRTC maakt gebruik van cloudsignalering met end-to-end-encryptie. Werkt door de meeste firewalls en NAT's."
+          }
+        }
+      }
+    },
+    "shuffle_smart" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Smart Shuffle"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Smart shuffle"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Slim shuffelen"
           }
         }
       }

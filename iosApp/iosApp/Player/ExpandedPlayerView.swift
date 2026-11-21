@@ -229,9 +229,13 @@ private struct ExpandedPlayerRow: View {
         Menu {
             settingRow(
                 title: String(localized: "queue_autoplay"),
-                isOn: player.autoplayEnabled,
+                isOn: player.autoplayEnabled && !player.autoplayLockedByRepeat,
                 // The queue never runs dry — music keeps coming after the last item.
-                systemImage: "infinity"
+                systemImage: "infinity",
+                // Server 2.11 rejects autoplay while repeat is on (upstream #1337), so the row
+                // says why it is off instead of offering a flip the server would refuse.
+                lockedReason: player.autoplayLockedByRepeat
+                    ? String(localized: "queue_autoplay_repeat_locked") : nil
             ) {
                 store.toggleAutoplay(id: player.id, isEnabledNow: player.autoplayEnabled)
             }
@@ -292,16 +296,19 @@ private struct ExpandedPlayerRow: View {
         title: String,
         isOn: Bool,
         systemImage: String,
+        lockedReason: String? = nil,
         flip: @escaping () -> Void
     ) -> some View {
         // Title, subtitle, icon — as three siblings, not a `Label`: a menu reads a `Label`'s
         // title as one line and drops the second `Text` on the floor, so the state never showed.
-        Button(action: flip) {
+        let state = lockedReason ?? String(localized: isOn ? "common_on" : "common_off")
+        return Button(action: flip) {
             Text(title)
-            Text(String(localized: isOn ? "common_on" : "common_off"))
+            Text(state)
             Image(systemName: systemImage)
         }
-        .accessibilityValue(String(localized: isOn ? "common_on" : "common_off"))
+        .disabled(lockedReason != nil)
+        .accessibilityValue(state)
     }
 
     /// Same contract as the toggles, minus the flip: the picked value goes to Kotlin as chosen
@@ -964,6 +971,12 @@ private struct ExpandedPlayerRow: View {
     /// reach for — and five buttons is already the width this row can hold at the default text
     /// size. Play/pause and the track skips stay put across the swap, so the transport doesn't
     /// reshuffle itself under the user's thumb when a book follows an album in the queue.
+    /// VoiceOver's value for the shuffle button: the sparkle alone would not be read out.
+    private var shuffleStateText: String {
+        if player.smartShuffleActive { return String(localized: "shuffle_smart") }
+        return String(localized: player.shuffleEnabled ? "common_on" : "common_off")
+    }
+
     private var transportRow: some View {
         HStack(spacing: 28) {
             if player.isSpokenWord {
@@ -976,7 +989,18 @@ private struct ExpandedPlayerRow: View {
                     Image(systemName: "shuffle")
                         .font(.title3)
                         .foregroundStyle(player.shuffleEnabled ? .primary : .secondary)
+                        // Server 2.11 reports smart shuffle; a sparkle marks it, like the web
+                        // frontend (upstream #1337). An older server never sets it.
+                        .overlay(alignment: .topTrailing) {
+                            if player.smartShuffleActive {
+                                Image(systemName: "sparkle")
+                                    .font(.caption2.weight(.bold))
+                                    .foregroundStyle(.tint)
+                                    .offset(x: 7, y: -6)
+                            }
+                        }
                 }
+                .accessibilityValue(shuffleStateText)
                 .disabled(player.isDynamicPlaylist)
             }
 

@@ -247,11 +247,14 @@ struct PlayerBarItemView: Identifiable {
     let duration: Double?
     let elapsedTime: Double?
     let shuffleEnabled: Bool
+    let smartShuffleActive: Bool
     let repeatMode: RepeatMode?
     let isDynamicPlaylist: Bool
     /// "Autoplay" — what the server used to call "don't stop the music". Drives the overflow
     /// menu's first toggle.
     let autoplayEnabled: Bool
+    /// Repeat ONE or ALL masks autoplay on server 2.11: shown off and not tappable.
+    let autoplayLockedByRepeat: Bool
     /// Only meaningful while `crossfadeSupported`; false otherwise.
     let crossfadeEnabled: Bool
     /// The server reported `crossfade_enabled` for this queue. Older servers don't, and the
@@ -317,9 +320,11 @@ struct PlayerBarItemView: Identifiable {
         self.duration = item.duration?.doubleValue
         self.elapsedTime = item.elapsedTime?.doubleValue
         self.shuffleEnabled = item.shuffleEnabled
+        self.smartShuffleActive = item.smartShuffleActive
         self.repeatMode = item.repeatMode
         self.isDynamicPlaylist = item.isDynamicPlaylist
         self.autoplayEnabled = item.autoplayEnabled
+        self.autoplayLockedByRepeat = item.autoplayLockedByRepeat
         self.crossfadeEnabled = item.crossfadeEnabled
         self.crossfadeSupported = item.crossfadeSupported
         self.playbackSpeed = item.playbackSpeed?.doubleValue
