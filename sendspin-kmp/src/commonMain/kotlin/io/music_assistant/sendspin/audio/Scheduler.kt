@@ -11,6 +11,7 @@ import io.music_assistant.sendspin.api.SinkHandle
 import io.music_assistant.sendspin.api.SinkPosition
 import io.music_assistant.sendspin.clock.ClockSync
 import io.music_assistant.sendspin.wire.AudioChunk
+import io.music_assistant.sendspin.wire.StreamStartPlayer
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
@@ -37,6 +38,11 @@ import kotlin.math.abs
  * A pass-through decoder (`outputCodec != PCM`, the sink decodes) forces open
  * loop too: the bytes are opaque, so they cannot be trimmed, padded or resampled.
  *
+ * An in-place `stream/start` changes the format at a chunk boundary: the decoder
+ * switches at the first chunk tagged with the new format. A switch that keeps the
+ * sink format is gapless. Another sink format rebuilds the sink after the old audio
+ * was heard, so the gap is the sink build time.
+ *
  * Only this coroutine touches the sink handle and the decoder.
  */
 internal class Scheduler(
@@ -46,13 +52,22 @@ internal class Scheduler(
     private val clockSync: ClockSync,
     private val clock: MonotonicClock,
 ) {
-    private val logger = Logger.withTag("AudioScheduler")
+    private val logger = Logger.withTag("Sendspin.AudioScheduler")
+
+    /** The periodic drift summary only, so one tag filters a long session down to it. */
+    private val driftLogger = Logger.withTag("Sendspin.Drift")
     private val _status = MutableStateFlow(AudioStatus.IDLE)
     val status: StateFlow<AudioStatus> = _status
 
     private var handle: SinkHandle? = null
     private var handleEvents: Job? = null
     private var format: SinkFormat? = null
+
+    /** The stream format the open decoder decodes. */
+    private var decoderFormat: StreamStartPlayer? = null
+
+    /** The sink format to switch to once the open sink has played out. */
+    private var pendingSink: SinkFormat? = null
     private var corrector: DriftCorrector? = null
     private var openGeneration = -1
     private var seenFlush = 0
@@ -62,6 +77,14 @@ internal class Scheduler(
     private var lateMicros = 0L
     private var insertedSilenceMicros = 0L
     private var underruns = 0
+
+    /** Audio content cut by late drops and trims: each microsecond moves playback ahead of the server timeline. */
+    private var skippedMicros = 0L
+
+    /** Net content the corrector removed (negative: added); same direction as [skippedMicros]. */
+    private var resampledMicros = 0L
+    private var flushes = 0
+    private var driftReportAtMicros = 0L
 
     /** [JitterBuffer.evicted] when this stream's sink opened; the stats report the difference. */
     private var evictedAtOpen = 0L
@@ -104,6 +127,7 @@ internal class Scheduler(
             decoder.reset()
             framesWritten = 0
             played = false // the next write is a new start: the app must be told again
+            flushes++
             restartCorrection()
         }
         when {
@@ -118,53 +142,99 @@ internal class Scheduler(
                     pipeline.wakeups.receive()
                     return
                 }
-                val chunk = pipeline.buffer.peek()
+                val head = pipeline.buffer.peek()
                 val phase = if (played) AudioPhase.Playing else AudioPhase.Buffering
-                if (chunk == null) {
+                if (head == null) {
                     publish(phase, starved = played)
                     pipeline.wakeups.receive()
                     return
                 }
                 // Audio is queued (even if not due yet): a stale starved flag must not survive.
                 if (_status.value.starved) publish(phase, starved = false)
-                if (play(chunk)) pipeline.buffer.poll()
+                if (!switchFormat(head, scope)) return
+                if (play(head.chunk)) pipeline.buffer.pollIf(head)
             }
         }
     }
 
     private fun reopen(state: AudioPipeline.StreamState, scope: kotlinx.coroutines.CoroutineScope) {
         closeSink()
+        pendingSink = null
         val streamFormat = state.format ?: return
-        val pcmFormat = try {
-            decoder.open(streamFormat)
-        } catch (e: Exception) {
-            logger.e(e) { "Decoder open failed for ${streamFormat.codec}" }
-            pipeline.onSinkFailure(AudioEvent.DecoderFailed(streamFormat.codec))
-            return
-        }
-        val opened = try {
-            sink.open(pcmFormat)
-        } catch (e: Exception) {
-            logger.e(e) { "Sink open failed" }
-            decoder.close()
-            pipeline.onSinkFailure(AudioEvent.SinkDied)
-            return
-        }
-        handle = opened
-        format = pcmFormat
-        corrector = if (pcmFormat.isPcm) DriftCorrector(pcmFormat.channels, pcmFormat.bitDepth / BITS_PER_BYTE) else null
-        restartCorrection()
+        val pcmFormat = openDecoder(streamFormat) ?: return
+        if (!openSink(pcmFormat, state.generation, scope)) return
         openGeneration = state.generation
-        framesWritten = 0
         played = false
         lateDrops = 0
         lateMicros = 0
         insertedSilenceMicros = 0
         underruns = 0
+        skippedMicros = 0
+        resampledMicros = 0
+        flushes = 0
+        driftReportAtMicros = clock.nowMicros()
         evictedAtOpen = pipeline.buffer.evicted
         correctionLogs = 0
         lastWriteMicros = 0L
-        val generation = state.generation
+        publish(AudioPhase.Buffering, starved = false)
+    }
+
+    /**
+     * Prepares the decoder and the sink for [head]. Returns false while the open sink still
+     * plays the previous format: the chunk waits, undecoded. The switch keeps `played`, so
+     * the app sees no new start for a track change inside the stream.
+     */
+    private suspend fun switchFormat(head: QueuedChunk, scope: kotlinx.coroutines.CoroutineScope): Boolean {
+        if (head.format != decoderFormat) {
+            val current = format ?: return false
+            val next = openDecoder(head.format) ?: return false
+            pendingSink = next.takeUnless { it.feedsSameSinkAs(current) }
+            logger.i { "Format switch to ${head.format}: sinkRebuild=${pendingSink != null}" }
+        }
+        val pending = pendingSink ?: return true
+        // The chunks before [head] end where it starts: closing the sink earlier cuts them.
+        val untilHeard = clockSync.toLocalMicros(head.chunk.timestampMicros)
+            ?.plus(pipeline.userDelayMicros)
+            ?.minus(clock.nowMicros())
+            ?: 0L
+        if (played && untilHeard > 0) {
+            waitOrWake(untilHeard)
+            return false
+        }
+        val startedAt = clock.nowMicros()
+        closeSink()
+        pendingSink = null
+        if (!openSink(pending, openGeneration, scope)) return false
+        logger.i { "Format switch: sink rebuilt in ${(clock.nowMicros() - startedAt) / MICROS_PER_MILLI} ms" }
+        return true
+    }
+
+    /** Opens the decoder for [streamFormat] and returns the format it gives the sink; null ends the stream. */
+    private fun openDecoder(streamFormat: StreamStartPlayer): SinkFormat? = try {
+        decoder.open(streamFormat).also { decoderFormat = streamFormat }
+    } catch (e: Exception) {
+        logger.e(e) { "Decoder open failed for ${streamFormat.codec}" }
+        decoderFormat = null
+        pipeline.onSinkFailure(AudioEvent.DecoderFailed(streamFormat.codec))
+        null
+    }
+
+    /** Opens a sink for [pcmFormat]; false ends the stream. The sink's events belong to [generation]. */
+    private fun openSink(pcmFormat: SinkFormat, generation: Int, scope: kotlinx.coroutines.CoroutineScope): Boolean {
+        val opened = try {
+            sink.open(pcmFormat)
+        } catch (e: Exception) {
+            logger.e(e) { "Sink open failed" }
+            decoder.close()
+            decoderFormat = null
+            pipeline.onSinkFailure(AudioEvent.SinkDied)
+            return false
+        }
+        handle = opened
+        format = pcmFormat
+        corrector = if (pcmFormat.isPcm) DriftCorrector(pcmFormat.channels, pcmFormat.bitDepth / BITS_PER_BYTE) else null
+        restartCorrection()
+        framesWritten = 0
         // The collector lives with this handle, not with the scheduler, and an event that
         // belongs to this stream must never end a later one. A regain ends nothing: it passes,
         // because a stream/start while held moves the generation before this handle closes.
@@ -181,7 +251,14 @@ internal class Scheduler(
                 pipeline.wakeups.trySend(Unit)
             }
         }
-        publish(AudioPhase.Buffering, starved = false)
+        return true
+    }
+
+    /** A decoded PCM stream goes into the same sink whatever its codec header; opaque bytes need theirs. */
+    private fun SinkFormat.feedsSameSinkAs(other: SinkFormat): Boolean = if (isPcm && other.isPcm) {
+        copy(codecHeaderBase64 = null) == other.copy(codecHeaderBase64 = null)
+    } else {
+        this == other
     }
 
     /**
@@ -232,7 +309,11 @@ internal class Scheduler(
             logCorrection("late", lead, queuedMicros, position)
             val pcm = decode(chunk) ?: return true
             val blockMicros = framesToMicros((pcm.size / fmt.bytesPerFrame).toLong(), fmt)
-            if (late >= blockMicros) return true // whole chunk is in the past
+            if (late >= blockMicros) {
+                skippedMicros += blockMicros
+                return true // whole chunk is in the past
+            }
+            skippedMicros += late
             val skip = microsToBytes(late, fmt)
             restartCorrection() // the trim is a deliberate gap: no interpolation across it
             return write(out, pcm, skip, pcm.size - skip)
@@ -258,7 +339,9 @@ internal class Scheduler(
                 // block, so every block of a continuous run goes through it, even with nothing to correct.
                 val blockMicros = framesToMicros((pcm.size / fmt.bytesPerFrame).toLong(), fmt)
                 val drift = correctionMicros(lead, blockMicros)
-                write(out, corrector?.correct(pcm, driftMicros = drift, blockMicros = blockMicros) ?: pcm)
+                val corrected = corrector?.correct(pcm, driftMicros = drift, blockMicros = blockMicros) ?: pcm
+                resampledMicros += framesToMicros(((pcm.size - corrected.size) / fmt.bytesPerFrame).toLong(), fmt)
+                write(out, corrected)
             }
         }
     }
@@ -325,7 +408,31 @@ internal class Scheduler(
             pipeline.emit(AudioEvent.Started)
         }
         publish(AudioPhase.Playing, starved = false)
+        reportDrift()
         return true
+    }
+
+    /**
+     * Once a minute while audio flows: the totals since the sink opened that move playback against the
+     * server timeline. `aheadMs` is content cut minus silence added; a value that grows over a long
+     * session means the client skipped audio. A flat `aheadMs` with a moving `offsetUs` points at the clock.
+     */
+    private fun reportDrift() {
+        val now = clock.nowMicros()
+        if (now - driftReportAtMicros < DRIFT_REPORT_INTERVAL_MICROS) return
+        driftReportAtMicros = now
+        val estimate = clockSync.snapshot()
+        val aheadMicros = skippedMicros + resampledMicros - insertedSilenceMicros
+        driftLogger.i {
+            "gen=$openGeneration aheadMs=${aheadMicros / MICROS_PER_MILLI} " +
+                "skippedMs=${skippedMicros / MICROS_PER_MILLI} lateDrops=$lateDrops " +
+                "resampledMs=${resampledMicros / MICROS_PER_MILLI} " +
+                "silenceMs=${insertedSilenceMicros / MICROS_PER_MILLI} " +
+                "smoothedLeadMs=${smoothedLeadMicros?.let { (it / MICROS_PER_MILLI).toLong() }} " +
+                "flushes=$flushes underruns=$underruns evictions=${pipeline.buffer.evicted - evictedAtOpen} " +
+                "offsetUs=${estimate?.offsetMicros?.toLong()} " +
+                "driftPpm=${estimate?.driftPerMicro?.times(MICROS_PER_SECOND)} clock=${clockSync.quality()}"
+        }
     }
 
     /** One line per hard correction, capped per stream: every input of the lead it acted on. */
@@ -441,6 +548,9 @@ internal class Scheduler(
 
         /** Writes normally return a block (~100 ms) apart; well beyond that the feeder stalled. */
         const val LOOP_GAP_LOG_MILLIS = 150L
+
+        /** One drift summary a minute: a long session stays readable. */
+        const val DRIFT_REPORT_INTERVAL_MICROS = 60_000_000L
         const val BITS_PER_BYTE = 8
         const val MICROS_PER_SECOND = 1_000_000L
         const val MICROS_PER_MILLI = 1_000L

@@ -261,6 +261,8 @@ class LocalPlayerAdapterTest {
             this.held.value = held
         }
 
+        override fun checkConnection() = Unit
+
         /** Waits for [subscribers] collectors first: the flow has no replay. */
         suspend fun emit(event: PlayerEvent, subscribers: Int = 1) {
             withTimeoutOrNull(TIMEOUT_MS) { _events.subscriptionCount.first { it >= subscribers } }
