@@ -195,7 +195,9 @@ struct ArtistDetailsView: View {
 
     @MainActor
     private func loadLibraryAlbums(_ artist: Artist) async {
-        guard artist.isInLibrary else {
+        // A library id is what the library albums lookup needs, not library membership: the
+        // server keeps a library row for the artist of a library track as well.
+        guard artist.isLibraryItem else {
             libraryAlbums = .loaded([])
             return
         }
