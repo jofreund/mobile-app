@@ -29,6 +29,8 @@ class DirectTransport(
     private val connectionInfoProvider: () -> ConnectionInfo,
     parentScope: CoroutineScope,
     private val networkAvailable: StateFlow<Boolean>? = null,
+    /** A resumed session retries a failed first attempt, like a dropped connection. */
+    private val retryInitialFailure: Boolean = false,
 ) : Transport {
     private val logger = Logger.withTag("DirectTransport")
 
@@ -76,11 +78,12 @@ class DirectTransport(
                 if (wasConnected) startReconnection()
             } catch (e: Exception) {
                 if (e is kotlinx.coroutines.CancellationException) throw e
-                if (!wasConnected) {
+                if (wasConnected || retryInitialFailure) {
+                    if (!wasConnected) logger.w { "Initial connection failed, retrying: ${e.message}" }
+                    startReconnection()
+                } else {
                     logger.w { "Initial connection failed: ${e.message}" }
                     _state.value = TransportState.Failed(e)
-                } else {
-                    startReconnection()
                 }
             }
         }

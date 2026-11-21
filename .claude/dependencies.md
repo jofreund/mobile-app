@@ -18,7 +18,7 @@ Update this file when either changes.
 | cryptography-kotlin (core + CryptoKit provider) | Noise handshake, used inside `:sendspin-kmp` |
 
 Test: `kotlin-test`, `kotlinx-coroutines-test`, Turbine, `multiplatform-settings-test`,
-`ktor-client-mock` (`:sendspin-kmp`'s suite).
+`ktor-client-mock` (`:sendspin-kmp`'s suite, and `DirectTransportTest` in the app's).
 
 ### `:sendspin-kmp`
 
